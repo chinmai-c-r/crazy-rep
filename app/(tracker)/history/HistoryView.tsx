@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProfile, useSummary } from "@/lib/hooks";
@@ -12,6 +11,7 @@ import type { SummaryRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toLocalDate } from "../_components/LogSheets";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
+import { BarChartSkeleton, StatTileSkeleton, TableRowsSkeleton, WeightChartSkeleton } from "../_components/Skeletons";
 
 type Bucket = "day" | "week" | "month";
 const RANGES = {
@@ -45,7 +45,7 @@ const perDay = (r: SummaryRow, v: number, kind: Bucket) => (kind === "day" ? v :
 export default function HistoryView() {
   const [range, setRange] = useState<RangeKey>("30d");
   const { days, bucket } = RANGES[range];
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
   const goal = profile?.calorie_goal ?? 2000;
 
   const { start, end } = useMemo(() => {
@@ -69,6 +69,7 @@ export default function HistoryView() {
     };
   }, [rows]);
 
+  const pending = loading || profileLoading;
   const unit = bucket === "day" ? "" : " (avg per logged day)";
 
   return (
@@ -92,10 +93,11 @@ export default function HistoryView() {
       )}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Avg calories / day" value={fmt(stats.avgKcal)} unit="kcal" />
-        <Tile label="Avg protein / day" value={fmt(stats.avgProtein)} unit="g" />
-        <Tile label="Days logged" value={fmt(stats.logged)} unit={`/ ${days}`} />
+        <Tile loading={pending} label="Avg calories / day" value={fmt(stats.avgKcal)} unit="kcal" />
+        <Tile loading={pending} label="Avg protein / day" value={fmt(stats.avgProtein)} unit="g" />
+        <Tile loading={pending} label="Days logged" value={fmt(stats.logged)} unit={`/ ${days}`} />
         <Tile
+          loading={pending}
           label="Weight change"
           value={stats.weightChange === null ? "—" : `${stats.weightChange > 0 ? "+" : ""}${fmt(stats.weightChange, 1)}`}
           unit={stats.weightChange === null ? "" : "kg"}
@@ -105,8 +107,8 @@ export default function HistoryView() {
       <Card className="rounded-3xl">
         <CardContent className="grid gap-4">
           <SectionTitle>Calories vs goal{unit}</SectionTitle>
-          {loading ? (
-            <Skeleton className="h-64 rounded-2xl" />
+          {pending ? (
+            <BarChartSkeleton />
           ) : (
             <BarChart
               goal={goal}
@@ -124,7 +126,7 @@ export default function HistoryView() {
       <Card className="rounded-3xl">
         <CardContent className="grid gap-4">
           <SectionTitle>Weight trend</SectionTitle>
-          {loading ? <Skeleton className="h-48 rounded-2xl" /> : <WeightChart rows={rows} kind={bucket} />}
+          {pending ? <WeightChartSkeleton /> : <WeightChart rows={rows} kind={bucket} />}
         </CardContent>
       </Card>
 
@@ -142,7 +144,8 @@ export default function HistoryView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...rows].reverse().map((r) => {
+              {pending && <TableRowsSkeleton />}
+              {!pending && [...rows].reverse().map((r) => {
                 const empty = !r.days_logged && !r.burned_kcal && r.avg_weight_kg === null && !r.water_ml;
                 return (
                   <TableRow key={r.bucket} className={cn(empty && "text-muted-foreground/50")}>
@@ -167,7 +170,8 @@ export default function HistoryView() {
   );
 }
 
-function Tile({ label, value, unit }: { label: string; value: string; unit: string }) {
+function Tile({ label, value, unit, loading }: { label: string; value: string; unit: string; loading?: boolean }) {
+  if (loading) return <StatTileSkeleton label={label} />;
   return (
     <Card className="gap-1 rounded-2xl px-4 py-4">
       <span className="text-xs text-muted-foreground">{label}</span>

@@ -17,13 +17,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { chatRequestSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Page, PageHeader } from "../_components/Page";
+import { ChatBubblesSkeleton } from "../_components/Skeletons";
 
 const SUGGESTIONS = [
   "How did I do today?",
@@ -120,10 +120,7 @@ export default function CoachView() {
 
       <section className="grid content-start gap-4" aria-live="polite">
         {loading ? (
-          <>
-            <Skeleton className="h-16 w-2/3 rounded-2xl" />
-            <Skeleton className="ml-auto h-12 w-1/2 rounded-2xl" />
-          </>
+          <ChatBubblesSkeleton />
         ) : messages.length === 0 ? (
           <div className="grid justify-items-center gap-4 py-8 text-center">
             <div className="grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary">

@@ -32,7 +32,7 @@ import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
-import { PageSkeleton } from "../_components/ClientOnly";
+import { ProfileSkeleton } from "../_components/Skeletons";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import GoogleHealthCard from "./GoogleHealthCard";
 
@@ -41,7 +41,7 @@ const SEX_LABELS = { male: "Male", female: "Female" } as const;
 
 export default function ProfileView() {
   const { profile, loading } = useProfile();
-  if (loading) return <PageSkeleton />;
+  if (loading) return <ProfileSkeleton />;
   if (!profile)
     return (
       <Page>

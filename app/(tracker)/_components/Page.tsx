@@ -13,7 +13,7 @@ export function PageHeader({ eyebrow, title, children }: { eyebrow?: React.React
   return (
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        {eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
+        {eyebrow && <div className="text-sm text-muted-foreground">{eyebrow}</div>}
         <h1 className="font-heading text-4xl tracking-wide sm:text-5xl">{title}</h1>
       </div>
       {children}

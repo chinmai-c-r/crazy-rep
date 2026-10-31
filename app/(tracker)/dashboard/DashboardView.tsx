@@ -17,19 +17,22 @@ import MealSheet from "../_components/MealSheet";
 import NutrientGrid from "../_components/NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import Ring from "../_components/Ring";
+import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton } from "../_components/Skeletons";
 
 export default function DashboardView() {
   const [date, setDate] = useState(() => new Date());
   const { start, end } = useMemo(() => dayRange(date), [date]);
-  const { profile, reload: reloadProfile } = useProfile();
+  const { profile, loading: profileLoading, reload: reloadProfile } = useProfile();
   const { meals, loading, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
-  const { weights, reload: reloadWeights } = useWeights(2);
+  const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(2);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
   const urls = useSignedUrls(meals.map((m) => m.image_path));
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // Totals and goals need both the day's meals and the profile
+  const booting = loading || profileLoading;
   const totals = useMemo(() => sumNutrients(meals), [meals]);
   const burned = activities.rows.reduce((s, a) => s + Number(a.calories_burned), 0);
   const open = meals.find((m) => m.id === openId) ?? null;
@@ -48,7 +51,7 @@ export default function DashboardView() {
   return (
     <Page>
       <PageHeader
-        eyebrow={`${greeting}${profile?.display_name ? `, ${profile.display_name}` : ""}`}
+        eyebrow={profileLoading ? <GreetingSkeleton /> : `${greeting}${profile?.display_name ? `, ${profile.display_name}` : ""}`}
         title={isToday ? "Today" : date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
       >
         <div className="flex gap-1.5">
@@ -67,6 +70,9 @@ export default function DashboardView() {
       </PageHeader>
 
       <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        {booting ? (
+          <RingCardSkeleton />
+        ) : (
         <Card className="items-center justify-center gap-4 rounded-3xl py-8">
           <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} />
           <div className="flex gap-6 text-center text-sm">
@@ -80,6 +86,10 @@ export default function DashboardView() {
             </div>
           </div>
         </Card>
+        )}
+        {booting ? (
+          <MacrosCardSkeleton />
+        ) : (
         <Card className="rounded-3xl">
           <CardContent className="grid gap-4">
             <SectionTitle>Macros</SectionTitle>
@@ -91,6 +101,7 @@ export default function DashboardView() {
             <NutrientGrid totals={totals} />
           </CardContent>
         </Card>
+        )}
       </section>
 
       {error && (
@@ -109,10 +120,10 @@ export default function DashboardView() {
                 <h2 className="font-bold">
                   {t.icon} {t.label}
                 </h2>
-                <span className="text-sm text-muted-foreground">{fmt(kcal)} kcal</span>
+                {loading ? <Skeleton className="h-4 w-16 self-center rounded" /> : <span className="text-sm text-muted-foreground">{fmt(kcal)} kcal</span>}
               </div>
               {loading ? (
-                <Skeleton className="h-[78px] rounded-2xl" />
+                <MealRowSkeleton />
               ) : list.length ? (
                 <ul className="grid gap-2">
                   {list.map((m) => (
@@ -135,17 +146,19 @@ export default function DashboardView() {
       <section className="grid gap-4 lg:grid-cols-3">
         <ActivityCard
           activities={activities.rows}
+          loading={activities.loading}
           onAdd={() => setSheet("activity")}
           onDeleted={(id) => activities.setRows((rs) => rs.filter((r) => r.id !== id))}
         />
         <WaterCard
           logs={water.rows}
+          loading={water.loading || profileLoading}
           goal={profile?.water_goal_ml ?? 2500}
           day={date}
           onAdded={(row) => water.setRows((rs) => [row, ...rs])}
           onRemoved={(id) => water.setRows((rs) => rs.filter((r) => r.id !== id))}
         />
-        <WeightCard weights={weights} onAdd={() => setSheet("weight")} />
+        <WeightCard weights={weights} loading={weightsLoading} onAdd={() => setSheet("weight")} />
       </section>
 
       <ActivitySheet

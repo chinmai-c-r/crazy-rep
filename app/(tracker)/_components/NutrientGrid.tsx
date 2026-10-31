@@ -3,7 +3,7 @@ import type { Nutrients } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Daily reference values (FDA) for the secondary nutrients. */
-const ROWS: { key: keyof Nutrients; label: string; unit: string; daily: number; limit?: boolean }[] = [
+export const NUTRIENT_ROWS: { key: keyof Nutrients; label: string; unit: string; daily: number; limit?: boolean }[] = [
   { key: "fiber_g", label: "Fiber", unit: "g", daily: 28 },
   { key: "sugar_g", label: "Sugar", unit: "g", daily: 50, limit: true },
   { key: "saturated_fat_g", label: "Sat. fat", unit: "g", daily: 20, limit: true },
@@ -14,7 +14,7 @@ const ROWS: { key: keyof Nutrients; label: string; unit: string; daily: number; 
 export default function NutrientGrid({ totals }: { totals: Nutrients }) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-      {ROWS.map((r) => {
+      {NUTRIENT_ROWS.map((r) => {
         const v = Number(totals[r.key]) || 0;
         const pct = Math.round((v / r.daily) * 100);
         const warn = r.limit && pct > 100;

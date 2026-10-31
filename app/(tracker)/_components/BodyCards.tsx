@@ -6,18 +6,22 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { activityIcon, activityLabel } from "@/lib/activities";
 import { fmt } from "@/lib/nutrition";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import type { ActivityLog, WaterLog, WeightLog } from "@/lib/types";
 import { SectionTitle } from "./Page";
 
 export function ActivityCard({
   activities,
+  loading,
   onAdd,
   onDeleted,
 }: {
   activities: ActivityLog[];
+  loading?: boolean;
   onAdd: () => void;
   onDeleted: (id: string) => void;
 }) {
@@ -36,9 +40,13 @@ export function ActivityCard({
       <CardContent className="grid gap-3">
         <div className="flex items-center justify-between">
           <SectionTitle>Activity</SectionTitle>
-          <span className="text-sm text-muted-foreground">
-            {fmt(burned)} kcal · {minutes} min
-          </span>
+          {loading ? (
+            <Skeleton className="h-5 w-24 rounded" />
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {fmt(burned)} kcal · {minutes} min
+            </span>
+          )}
         </div>
         {activities.length > 0 && (
           <ul className="grid gap-2">
@@ -60,7 +68,7 @@ export function ActivityCard({
             ))}
           </ul>
         )}
-        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd}>
+        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading}>
           <Plus /> Log activity
         </Button>
       </CardContent>
@@ -70,12 +78,14 @@ export function ActivityCard({
 
 export function WaterCard({
   logs,
+  loading,
   goal,
   day,
   onAdded,
   onRemoved,
 }: {
   logs: WaterLog[];
+  loading?: boolean;
   goal: number;
   day: Date;
   onAdded: (row: WaterLog) => void;
@@ -105,19 +115,19 @@ export function WaterCard({
       <CardContent className="grid gap-3">
         <div className="flex items-center justify-between">
           <SectionTitle>Water</SectionTitle>
-          <span className="text-sm text-muted-foreground">goal {fmt(goal)} ml</span>
+          {loading ? <Skeleton className="h-5 w-24 rounded" /> : <span className="text-sm text-muted-foreground">goal {fmt(goal)} ml</span>}
         </div>
-        <p className="flex items-baseline gap-2">
+        <p className={cn("flex gap-2", loading ? "items-center" : "items-baseline")}>
           <Droplet className="size-5 self-center text-chart-4" />
-          <b className="font-heading text-4xl font-normal">{fmt(total)}</b>
+          {loading ? <Skeleton className="h-10 w-20 rounded" /> : <b className="font-heading text-4xl font-normal">{fmt(total)}</b>}
           <span className="text-sm text-muted-foreground">ml</span>
         </p>
         <Progress value={Math.min((total / goal) * 100, 100)} className="h-2.5 *:data-[slot=progress-indicator]:bg-chart-4" />
         <div className="flex gap-2">
-          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(250)}>
+          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(250)} disabled={loading}>
             +250 ml
           </Button>
-          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(500)}>
+          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(500)} disabled={loading}>
             +500 ml
           </Button>
           <Button variant="ghost" size="icon-lg" className="size-10 rounded-full" onClick={undo} disabled={!logs.length} aria-label="Undo last water entry">
@@ -129,7 +139,7 @@ export function WaterCard({
   );
 }
 
-export function WeightCard({ weights, onAdd }: { weights: WeightLog[]; onAdd: () => void }) {
+export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; loading?: boolean; onAdd: () => void }) {
   const [latest, previous] = weights;
   const delta = latest && previous ? Number(latest.weight_kg) - Number(previous.weight_kg) : null;
 
@@ -142,7 +152,12 @@ export function WeightCard({ weights, onAdd }: { weights: WeightLog[]; onAdd: ()
             Trend →
           </Link>
         </div>
-        {latest ? (
+        {loading ? (
+          <div className="grid h-14 content-between">
+            <Skeleton className="h-9 w-36 rounded" />
+            <Skeleton className="h-3 w-28 rounded" />
+          </div>
+        ) : latest ? (
           <div>
             <p className="flex items-baseline gap-2">
               <Scale className="size-5 self-center text-muted-foreground" />
@@ -163,7 +178,7 @@ export function WeightCard({ weights, onAdd }: { weights: WeightLog[]; onAdd: ()
         ) : (
           <p className="text-sm text-muted-foreground">No weigh-ins yet. Log one to see your trend.</p>
         )}
-        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd}>
+        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading}>
           <Plus /> Log weight
         </Button>
       </CardContent>

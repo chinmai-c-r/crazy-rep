@@ -1,13 +1,14 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CoachSkeleton, DashboardSkeleton, GenericSkeleton, HistorySkeleton, ProfileSkeleton, ScanSkeleton } from "./Skeletons";
 
 const subscribe = () => () => {};
 
 /**
  * Tracker pages depend on the user's timezone and session, so they render in the browser only.
- * The server ships a lightweight skeleton instead.
+ * The server ships a skeleton shaped like the current page instead.
  */
 export default function ClientOnly({ children }: { children: React.ReactNode }) {
   const mounted = useSyncExternalStore(subscribe, () => true, () => false);
@@ -15,10 +16,11 @@ export default function ClientOnly({ children }: { children: React.ReactNode }) 
 }
 
 export function PageSkeleton() {
-  return (
-    <div className="mx-auto grid max-w-5xl gap-4 p-4 sm:p-6 lg:p-10">
-      <Skeleton className="h-12 w-48" />
-      <Skeleton className="h-72 rounded-3xl" />
-    </div>
-  );
+  const pathname = usePathname();
+  if (pathname.startsWith("/dashboard")) return <DashboardSkeleton />;
+  if (pathname.startsWith("/history")) return <HistorySkeleton />;
+  if (pathname.startsWith("/coach")) return <CoachSkeleton />;
+  if (pathname.startsWith("/profile")) return <ProfileSkeleton />;
+  if (pathname.startsWith("/scan")) return <ScanSkeleton />;
+  return <GenericSkeleton />;
 }
