@@ -174,8 +174,8 @@ erDiagram
 | Secrets | Gemini, USDA and Supabase secret keys stay on the server |
 | Input | Zod on every form, API body and AI response |
 | AI quota | Model fallback, a daily chat limit and saved results |
-| Admin tools | The **API test** tab (`/api-test`) is visible only to admins (`admin-users` flag, or `NEXT_PUBLIC_ADMIN_EMAILS` without LaunchDarkly); its API returns 403 for everyone else |
-| Feature flags | LaunchDarkly `sign-in-users` (who can use the app, checked in `proxy.ts` on every request) and `admin-users` (who sees and can call admin tools). Users are sent as a `user` context with an `admin` attribute; email is private. |
+| Admin tools | The **API test** tab (`/api-test`) is visible only to admins (`admin-users` flag); its API returns 403 for everyone else |
+| Feature flags | LaunchDarkly `sign-in-users` (who can use the app, checked in `proxy.ts` on every request) and `admin-users` (who sees and can call admin tools). Users are sent as a `user` context keyed by user ID; email is private and used in targeting rules. |
 
 ## Where things live
 

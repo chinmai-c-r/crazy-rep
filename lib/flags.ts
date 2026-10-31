@@ -1,5 +1,3 @@
-import { isAdminEmail } from "./admin";
-
 /**
  * LaunchDarkly boolean flags. Create both in LaunchDarkly with these keys and tick
  * "SDKs using Client-side ID" so the browser can read them.
@@ -15,13 +13,13 @@ export const NO_ACCESS_MESSAGE = "Your account doesn't have access right now. Pl
 /** The landing page's request access section, with the email filled in. */
 export const requestAccessUrl = (email?: string | null) => `/${email ? `?email=${encodeURIComponent(email)}` : ""}#access`;
 
-/** Value used when LaunchDarkly isn't configured or can't be reached. */
-export function flagDefault(key: BoolFlag, user: FlagUser): boolean {
-  return key === "admin-users" ? isAdminEmail(user.email) : true;
+/** Value used when LaunchDarkly isn't configured or can't be reached: nobody is an admin. */
+export function flagDefault(key: BoolFlag): boolean {
+  return key !== "admin-users";
 }
 
 /**
- * The LaunchDarkly context for a signed-in user. Target admins with "admin is true" or by email.
+ * The LaunchDarkly context for a signed-in user. Target people by email.
  * Email is private: it can be used in targeting rules but isn't stored in LaunchDarkly.
  */
 export function flagContext(user: FlagUser) {
@@ -29,7 +27,6 @@ export function flagContext(user: FlagUser) {
     kind: "user" as const,
     key: user.id,
     email: user.email ?? undefined,
-    admin: isAdminEmail(user.email),
     _meta: { privateAttributes: ["email"] },
   };
 }

@@ -25,7 +25,7 @@ export function FlagsProvider({ children }: { children: React.ReactNode }) {
     const user = { id: userId, email };
     const client = createClient(CLIENT_ID, flagContext(user), { streaming: true });
     const update = () => {
-      if (!client.boolVariation("sign-in-users", flagDefault("sign-in-users", user))) {
+      if (!client.boolVariation("sign-in-users", flagDefault("sign-in-users"))) {
         void createSupabase()
           .auth.signOut()
           .then(() => window.location.replace(requestAccessUrl(email)));
@@ -47,6 +47,6 @@ export function FlagsProvider({ children }: { children: React.ReactNode }) {
 export function useFlag(key: BoolFlag): boolean {
   const { client, user } = useContext(FlagsContext);
   if (!user) return false; // not known yet
-  const fallback = flagDefault(key, user);
+  const fallback = flagDefault(key);
   return client ? client.boolVariation(key, fallback) : fallback;
 }

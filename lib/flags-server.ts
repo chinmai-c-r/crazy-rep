@@ -26,7 +26,7 @@ function getClient(): Promise<LDClient | null> {
 /** Boolean flag for a signed-in user. Works in proxy.ts and route handlers. */
 export async function boolFlag(key: BoolFlag, user: FlagUser): Promise<boolean> {
   const client = await getClient();
-  const fallback = flagDefault(key, user);
+  const fallback = flagDefault(key);
   if (!client) return fallback;
   const value = await client.boolVariation(key, flagContext(user), fallback);
   // Send evaluation events after the response, before a serverless function freezes

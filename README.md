@@ -136,7 +136,7 @@ Sign up, complete your profile, then go to **Scan** and upload a meal photo.
 2. At <https://vercel.com/new>, import the repo. The framework is detected as Next.js automatically.
 3. Under **Environment Variables**, add the same keys from `.env.local`:
    - Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GEMINI_API_KEY`, `USDA_API_KEY`
-   - Optional: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `EMBEDDING_MODEL`, `CHAT_DAILY_LIMIT`, `NEXT_PUBLIC_ADMIN_EMAILS`, `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH`
+   - Optional: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `EMBEDDING_MODEL`, `CHAT_DAILY_LIMIT`, `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH`
 4. Click **Deploy**.
 5. Back in Supabase, open **Authentication → URL Configuration**, set **Site URL** to `https://YOUR-APP.vercel.app` and add `https://YOUR-APP.vercel.app/**` to **Redirect URLs**.
 
@@ -151,7 +151,7 @@ The analysis route sets `maxDuration = 60`, which fits the Vercel Hobby plan. Ph
 
 ## 5b. Optional: LaunchDarkly feature flags
 
-Two flags control who can use the app and who is an admin, without a redeploy. Without LaunchDarkly keys, everyone can sign in and admins come from `NEXT_PUBLIC_ADMIN_EMAILS`.
+Two flags control who can use the app and who is an admin, without a redeploy. Without LaunchDarkly keys, everyone can sign in and nobody is an admin.
 
 1. Create a free account at <https://launchdarkly.com>. In **Project settings → Environments**, copy the **Client-side ID** and the **SDK key** for your environment.
 2. Add them to `.env.local` (and Vercel): `NEXT_PUBLIC_LAUNCHDARKLY_CLIENT_ID` and `LAUNCHDARKLY_SDK_KEY`. Restart `npm run dev`.
@@ -162,9 +162,9 @@ Two flags control who can use the app and who is an admin, without a redeploy. W
 | `sign-in-users` | Users allowed to sign up and use the app (master switch) | Sign-up is refused and the person is sent to **Request access** on the landing page with their email filled in. Someone already signed in is signed out and sent there too. |
 | `admin-users` | Admins | No **API test** tab in the sidebar; its page and API return "not allowed" |
 
-Every signed-in user is sent to LaunchDarkly as a `user` context: the key is their Supabase user ID, `email` is private (usable in rules, not stored) and `admin` is `true` for `NEXT_PUBLIC_ADMIN_EMAILS`. Examples:
+Every signed-in user is sent to LaunchDarkly as a `user` context: the key is their Supabase user ID, and `email` is private (usable in rules, not stored). Examples:
 - Allow only some people: set `sign-in-users` to serve `false` by default, with a rule "email is one of …" serving `true`.
-- Make admins: in `admin-users`, add a rule "admin is one of true" or "email is one of …" serving `true`.
+- Make admins: in `admin-users`, add a rule "email is one of …" serving `true`.
 
 Before creating an account, the sign-up form asks `/api/signup-check`. People without an account are evaluated with a hashed-email key, so **target them by email**, not by user key. After sign-in, the flag is checked on every page and API request (`proxy.ts`) and live in the browser, which also covers Google sign-in. Keep yourself in both flags' `true` rules so you can't lock yourself out.
 
@@ -217,7 +217,6 @@ To refresh the source data: `npm run data:build` (downloads INDB, IFCT 2017, the
 | `EMBEDDING_MODEL` | Optional, default `gemini-embedding-001` (768 dims; re-embed if you change it) | No |
 | `USDA_API_KEY` | <https://fdc.nal.usda.gov/api-key-signup> (free) | **No** |
 | `CHAT_DAILY_LIMIT` | Optional, default `30` coach messages per user per day | No |
-| `NEXT_PUBLIC_ADMIN_EMAILS` | Optional, comma-separated admin emails (default `chinmaicoder@gmail.com`); used when LaunchDarkly isn't set up, and as the `admin` attribute | Yes |
 | `NEXT_PUBLIC_LAUNCHDARKLY_CLIENT_ID` | Optional, LaunchDarkly → Project settings → Environments → Client-side ID | Yes (public by design) |
 | `LAUNCHDARKLY_SDK_KEY` | Optional, LaunchDarkly → Project settings → Environments → SDK key | **No** |
 
