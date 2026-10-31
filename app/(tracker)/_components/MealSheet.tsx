@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { syncMeal } from "@/lib/google-health-client";
 import { fmt, scaleNutrients } from "@/lib/nutrition";
 import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
@@ -59,8 +60,12 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
     setBusy(true);
     const { data, error } = await createClient().from("meals").update(parsed.data).eq("id", meal.id).select().single();
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+    await syncMeal(meal.id, "upsert");
     setBusy(false);
-    if (error) return toast.error(error.message);
     toast.success("Meal updated");
     onChange(data as Meal);
     onClose();
@@ -68,6 +73,8 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
 
   async function remove() {
     setBusy(true);
+    // Before the row goes: the Google Health entry id lives on it
+    await syncMeal(meal.id, "delete");
     const supabase = createClient();
     const { error } = await supabase.from("meals").delete().eq("id", meal.id);
     if (error) {

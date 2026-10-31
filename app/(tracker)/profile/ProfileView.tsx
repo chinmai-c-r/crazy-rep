@@ -33,6 +33,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
 import { PageSkeleton } from "../_components/ClientOnly";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
+import GoogleHealthCard from "./GoogleHealthCard";
 
 const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscle" } as const;
 const SEX_LABELS = { male: "Male", female: "Female" } as const;
@@ -245,6 +246,8 @@ function ProfileForm({ initial }: { initial: Profile }) {
           {welcome ? "Save and scan my first meal" : "Save changes"}
         </Button>
       </form>
+
+      <GoogleHealthCard />
 
       <Card className="rounded-3xl bg-transparent">
         <CardContent className="grid gap-4">

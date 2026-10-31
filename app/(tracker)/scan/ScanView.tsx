@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
+import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
 import { fmt, guessMealType, scaleNutrients, sumNutrients } from "@/lib/nutrition";
 import { analyzeResponseSchema, mealDetailsSchema, mealWriteSchema, type AnalysisSource } from "@/lib/schemas";
@@ -155,20 +156,25 @@ export default function ScanView() {
       if (!upload.error) path = candidate;
     }
 
-    const { error } = await supabase.from("meals").insert({
-      ...parsed.data,
-      image_path: path,
-      health_score: analysis.health_score,
-      confidence: analysis.confidence,
-      items,
-      notes: analysis.insights.join("\n") || null,
-    });
+    const { data: meal, error } = await supabase
+      .from("meals")
+      .insert({
+        ...parsed.data,
+        image_path: path,
+        health_score: analysis.health_score,
+        confidence: analysis.confidence,
+        items,
+        notes: analysis.insights.join("\n") || null,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       setSaving(false);
       if (path) await supabase.storage.from("meal-images").remove([path]);
       return toast.error(error.message);
     }
+    await syncMeal(meal.id, "upsert");
     toast.success("Meal logged");
     saved.current = true;
     router.push("/dashboard");
