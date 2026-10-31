@@ -1,36 +1,231 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Crazy Rep—AI calorie tracker
 
-## Getting Started
+Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, saturated fat, sodium and cholesterol in seconds. Built with Next.js 16, Tailwind CSS v4, shadcn/ui, Zod, Supabase (auth, Postgres and storage) and Google Gemini Flash. It runs on the web (Vercel) and installs from the browser as an app on Android and iPhone (PWA).
 
-First, run the development server:
+📐 **How it works:** see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the system, meal lookup, coach and data model.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- **AI meal logging** (`/scan`): only the meal name is required. Portion, notes and a photo are optional; a photo improves accuracy. You get per-item and total nutrition, a health score, a confidence score and tips, and can rename the meal, change servings, remove wrong items and choose the meal type before logging it.
+- **Meal lookup (no photo):** exact saved result → similar saved result (pgvector vector search plus word checks) → [USDA FoodData Central](https://fdc.nal.usda.gov) → Gemini. `analysis_cache` is the single source of truth, and every USDA and AI answer is saved back with an embedding. Photo analyses always use Gemini.
+- **Activity, weight and water:** log workouts (calories from 2024 Compendium MET values × your weight), daily weigh-ins (which keep your profile weight current) and water. The dashboard shows burned and net calories.
+- **Coach** (`/coach`): a chat assistant that answers questions about your own data using read-only tools (profile, summaries, meals, activities, weights) that run under your login, so row-level security applies. Limited to `CHAT_DAILY_LIMIT` messages per day.
+- **Today dashboard** (`/dashboard`): a calorie ring against your goal, macro progress bars, % daily value for the other nutrients, meals grouped by breakfast, lunch, dinner and snack, plus a day picker. Tap a meal to edit servings or meal type, or to delete it.
+- **History** (`/history`): 7d, 30d, 90d, 1y and 5y ranges, computed in the database by `history_summary()` (day, week or month buckets in your timezone): calories against your goal, weight trend, burned calories, water and a breakdown table.
+- **Profile and goals** (`/profile`): enter sex, age, height, weight, activity level and goal, then apply recommended calorie and macro targets (Mifflin–St Jeor). You can also sign out or permanently delete your account.
+- **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
+- **PWA**: installable from the browser on Android and iPhone, with an offline fallback page, app icons and a manifest.
+- **Landing page** (`/`): what the app does today, plus a **Request access** form. Requests are saved to `access_requests` (one per email, server-only); approve someone by adding their email to the `sign-in-users` flag.
+
+## Project layout
+
+```
+app/
+  page.tsx                 Marketing landing page
+  login/, reset-password/  Auth screens
+  (tracker)/               Signed-in app (dashboard, scan, history, profile)
+  api/analyze/route.ts     Verifies the session; photo → Gemini, name only → cache or Gemini
+  api/account/route.ts     Deletes the user, their photos and data
+  auth/confirm/route.ts    Email confirmation and password-reset landing
+  manifest.ts, icons/      PWA manifest and generated PNG icons
+components/
+  ui/                      shadcn/ui components (Tailwind)
+  form-fields.tsx          react-hook-form + zod fields built on shadcn Field
+lib/
+  schemas.ts               Zod schemas: forms, API input, AI output, database writes
+  gemini.ts                Photo and text prompts, model fallback chain, response validation
+  vector-lookup.ts         Hybrid pgvector + text search over analysis_cache
+  embeddings.ts            Gemini embeddings (768 dims)
+  usda.ts                  USDA FoodData Central lookup with strict matching and portion mapping
+  meal-lookup.ts           Exact → similar (vector) → USDA → AI pipeline for meals without a photo
+  coach.ts                 Coach tools, timezone handling and tool-calling loop
+  activities.ts            Activity types and MET values
+  analysis-cache.ts        Saved text-only results (server-only, uses the secret key)
+  nutrition.ts             Goal calculator and nutrient math
+  supabase/                Browser, server and proxy clients
+proxy.ts                   Refreshes the session and protects app routes
+supabase/migrations/        Versioned schema (tables, RLS, storage bucket, triggers)
+public/sw.js               Service worker (offline page only)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 1. Create your Supabase project and keys
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Go to <https://supabase.com>, sign in and click **New project**. Choose a name, a strong database password and the region closest to your users. Wait about 2 minutes for it to provision.
+2. **Create the tables with migrations:** see [Database migrations](#database-migrations) below. The first migration creates:
+   - `profiles`: one row per user, with goals and body metrics (created automatically on sign-up)
+   - `meals`: every logged meal with full nutrition and detected items
+   - `meal-images`: a private storage bucket, with one folder per user
+   - Row-level security policies, so each user can only read or write their own data
+3. **Get the API keys:** open **Project Settings → API Keys** (or click **Connect** at the top).
+   - Copy the **Project URL** into `NEXT_PUBLIC_SUPABASE_URL`.
+   - Copy the **Publishable key** (`sb_publishable_…`) into `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Older projects can use the legacy **anon** key.
+   - Copy the **Secret key** (`sb_secret_…`) into `SUPABASE_SECRET_KEY`. Older projects can use **service_role**. Keep it server-only; never prefix it with `NEXT_PUBLIC_`.
+4. **Configure auth URLs:** open **Authentication → URL Configuration**.
+   - **Site URL**: `http://localhost:3001` for now. Change it to your Vercel URL after deploying.
+   - **Redirect URLs**: add `http://localhost:3001/**` and later `https://YOUR-APP.vercel.app/**`.
+5. *(Optional)* To skip email confirmation while testing, turn off **Confirm email** under **Authentication → Sign In / Providers → Email**. Supabase's built-in email sender is rate-limited, so for production add custom SMTP (for example Resend) under **Authentication → Emails → SMTP Settings**.
 
-## Learn More
+### Database migrations
 
-To learn more about Next.js, take a look at the following resources:
+The schema is managed with the [Supabase CLI](https://supabase.com/docs/guides/deployment/database-migrations), which is installed as a dev dependency. Migrations live in `supabase/migrations/` and are applied straight to your hosted project. Docker isn't needed.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**One-time setup:**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run db:login   # opens the browser to authorize the CLI
+npm run db:link    # pick your project; enter the database password when asked
+```
 
-## Deploy on Vercel
+**Apply migrations:**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run db:status  # shows local vs remote migrations
+npm run db:push    # applies any migrations the remote database doesn't have yet
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Change the schema later:**
+
+```bash
+npm run db:new add_water_tracking   # creates supabase/migrations/<timestamp>_add_water_tracking.sql
+# write your SQL in that file, then:
+npm run db:push
+```
+
+Never edit a migration that has already been pushed; always add a new one.
+
+**Automatic deploys (GitHub Actions):** `.github/workflows/supabase-migrations.yml` runs `supabase db push` whenever a change under `supabase/migrations/` lands on `main`. Add these repository secrets under **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Where to get it |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | <https://supabase.com/dashboard/account/tokens> → **Generate new token** |
+| `SUPABASE_PROJECT_ID` | The project ref: the `abcd…` part of `https://abcd….supabase.co` |
+| `SUPABASE_DB_PASSWORD` | The database password you set when creating the project |
+
+## 2. Create your Gemini API key (free tier)
+
+1. Go to <https://aistudio.google.com/apikey> and sign in with a Google account.
+2. Click **Create API key**, then choose or create a Google Cloud project. No billing is needed for the free tier.
+3. Copy the key into `GEMINI_API_KEY`.
+
+> Free-tier limits are per project and change from time to time; check them at <https://ai.google.dev/gemini-api/docs/rate-limits>. When the limit is hit, the app shows "The AI is busy right now…". To use a different model later, set `GEMINI_MODEL` (default `gemini-3.5-flash`) and `GEMINI_FALLBACK_MODELS` (tried in order when the main model is busy or retired).
+>
+> On the free tier, Google may use prompts and images to improve its products. Mention this in your privacy policy, or enable billing (the paid tier) to opt out.
+
+## 2b. Create your USDA FoodData Central key (free)
+
+1. Go to <https://fdc.nal.usda.gov/api-key-signup>, enter your name and email, and submit.
+2. The key arrives by email. Copy it into `USDA_API_KEY`. The default limit is 1,000 requests per hour.
+
+Without a key, the app uses the shared `DEMO_KEY` (30 requests per hour) and falls back to Gemini when it runs out. USDA data is public domain (CC0); the app shows "Source: USDA FoodData Central" as USDA requests.
+
+## 3. Run locally
+
+```bash
+cp .env.example .env.local   # then fill in the 4 keys
+npm install
+npm run dev                  # http://localhost:3001
+```
+
+Sign up, complete your profile, then go to **Scan** and upload a meal photo.
+
+## 4. Deploy to Vercel
+
+1. Push this repo to GitHub.
+2. At <https://vercel.com/new>, import the repo. The framework is detected as Next.js automatically.
+3. Under **Environment Variables**, add the same keys from `.env.local`:
+   - Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GEMINI_API_KEY`, `USDA_API_KEY`
+   - Optional: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `EMBEDDING_MODEL`, `CHAT_DAILY_LIMIT`, `NEXT_PUBLIC_ADMIN_EMAILS`, `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH`
+4. Click **Deploy**.
+5. Back in Supabase, open **Authentication → URL Configuration**, set **Site URL** to `https://YOUR-APP.vercel.app` and add `https://YOUR-APP.vercel.app/**` to **Redirect URLs**.
+
+The analysis route sets `maxDuration = 60`, which fits the Vercel Hobby plan. Photos are resized in the browser to 1280 px JPEG before upload, so requests stay well under Vercel's 4.5 MB body limit.
+
+## 5. Optional: Google sign-in
+
+1. In the Google Cloud Console, go to **APIs & Services → Credentials → Create credentials → OAuth client ID**, application type **Web application**.
+   - **Authorized redirect URI**: `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback`
+2. In Supabase, open **Authentication → Sign In / Providers → Google**, enable it and paste the client ID and secret.
+3. Set `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=true` in Vercel and redeploy.
+
+## 5b. Optional: LaunchDarkly feature flags
+
+Two flags control who can use the app and who is an admin, without a redeploy. Without LaunchDarkly keys, everyone can sign in and admins come from `NEXT_PUBLIC_ADMIN_EMAILS`.
+
+1. Create a free account at <https://launchdarkly.com>. In **Project settings → Environments**, copy the **Client-side ID** and the **SDK key** for your environment.
+2. Add them to `.env.local` (and Vercel): `NEXT_PUBLIC_LAUNCHDARKLY_CLIENT_ID` and `LAUNCHDARKLY_SDK_KEY`. Restart `npm run dev`.
+3. Create these boolean flags with the exact keys, and tick **SDKs using Client-side ID** on both.
+
+| Flag key | Serve `true` to | When `false` |
+| --- | --- | --- |
+| `sign-in-users` | Users allowed to sign up and use the app (master switch) | Sign-up is refused and the person is sent to **Request access** on the landing page with their email filled in. Someone already signed in is signed out and sent there too. |
+| `admin-users` | Admins | No **API test** tab in the sidebar; its page and API return "not allowed" |
+
+Every signed-in user is sent to LaunchDarkly as a `user` context: the key is their Supabase user ID, `email` is private (usable in rules, not stored) and `admin` is `true` for `NEXT_PUBLIC_ADMIN_EMAILS`. Examples:
+- Allow only some people: set `sign-in-users` to serve `false` by default, with a rule "email is one of …" serving `true`.
+- Make admins: in `admin-users`, add a rule "admin is one of true" or "email is one of …" serving `true`.
+
+Before creating an account, the sign-up form asks `/api/signup-check`. People without an account are evaluated with a hashed-email key, so **target them by email**, not by user key. After sign-in, the flag is checked on every page and API request (`proxy.ts`) and live in the browser, which also covers Google sign-in. Keep yourself in both flags' `true` rules so you can't lock yourself out.
+
+## 6. Install as an app
+
+The web app is a PWA, so people can install it from the browser and it opens full-screen like a normal app:
+- **Android (Chrome):** open your Vercel URL, then **⋮ → Install app** (or **Add to Home screen**).
+- **iPhone (Safari):** open your Vercel URL, then **Share → Add to Home Screen**.
+
+Updates ship automatically with each Vercel deploy.
+
+## Filling the food cache (10,000+ dishes)
+
+The repo ships dish data in `data/`. One script loads it into `analysis_cache` with embeddings, so most meals never need an AI call.
+
+```bash
+npm run db:push                                        # applies the vector-search migration (pgvector)
+npm run cache:enrich -- --dry-run                      # shows what would be added
+npm run cache:enrich                                   # seed real data, AI nutrition for the catalogue, embed all rows
+npm run cache:enrich -- --steps generate --target 10000   # add AI-generated regional dish names
+npm run cache:enrich -- --steps nutrition,embed        # then estimate and embed them
+```
+
+| Step | What it does | AI cost |
+| --- | --- | --- |
+| `seed` | 1,014 INDB dishes and IFCT 2017 foods (fruit, dairy, oils, nuts, sugar) | None |
+| `generate` | Asks Gemini for regional dish names (about 47 cuisines × 8 courses) until the catalogue reaches `--target` | ~1 call per cuisine and course |
+| `nutrition` | Gemini estimates one typical serving for each uncached dish, 40 per call | ~1 call per 40 dishes |
+| `embed` | Embeds every row without an embedding, 50 per call | Free tier allows ~1,000 rows a day |
+
+Options: `--limit N` (dishes per run), `--batch 40`, `--rpm 10` (AI calls per minute), `--force` (overwrite), `--dry-run`.
+
+The script is safe to stop and re-run; finished rows are skipped. If the daily Gemini quota runs out it stops cleanly, so run it again after the quota resets (midnight Pacific time).
+
+To refresh the source data: `npm run data:build` (downloads INDB, IFCT 2017, the Archana's Kitchen dataset and Wikipedia's list of Indian dishes, then rewrites `data/*.json`).
+
+**Data sources:** [Indian Nutrient Databank (INDB)](https://github.com/lindsayjaacks/Indian-Nutrient-Databank-INDB-), Vijayakumar et al., *Curr Dev Nutr* 2024 · [IFCT 2017](https://github.com/ifct2017/compositions), ICMR-NIN · [6000+ Indian Food Recipes Dataset](https://github.com/kanishk307/IndianFoodDatasetGeneration), Archana's Kitchen (names only) · [Wikipedia, List of Indian dishes](https://en.wikipedia.org/wiki/List_of_Indian_dishes) (CC BY-SA 4.0). Check each source's terms before commercial use.
+
+## Environment variables
+
+| Variable | Where to get it | Exposed to browser |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API Keys | Yes |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Publishable (or anon) key | Yes |
+| `SUPABASE_SECRET_KEY` | Supabase → Secret (or service_role) key | **No** |
+| `GEMINI_API_KEY` | Google AI Studio | **No** |
+| `GEMINI_MODEL` | Optional, default `gemini-3.5-flash` | No |
+| `GEMINI_FALLBACK_MODELS` | Optional, comma-separated, default `gemini-3.8-flash,gemini-3.1-flash-lite` | No |
+| `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH` | `true` once Google is configured | Yes |
+| `EMBEDDING_MODEL` | Optional, default `gemini-embedding-001` (768 dims; re-embed if you change it) | No |
+| `USDA_API_KEY` | <https://fdc.nal.usda.gov/api-key-signup> (free) | **No** |
+| `CHAT_DAILY_LIMIT` | Optional, default `30` coach messages per user per day | No |
+| `NEXT_PUBLIC_ADMIN_EMAILS` | Optional, comma-separated admin emails (default `chinmaicoder@gmail.com`); used when LaunchDarkly isn't set up, and as the `admin` attribute | Yes |
+| `NEXT_PUBLIC_LAUNCHDARKLY_CLIENT_ID` | Optional, LaunchDarkly → Project settings → Environments → Client-side ID | Yes (public by design) |
+| `LAUNCHDARKLY_SDK_KEY` | Optional, LaunchDarkly → Project settings → Environments → SDK key | **No** |
+
+## Scripts
+
+```bash
+npm run dev     # local dev server
+npm run build   # production build
+npm run start   # serve the production build
+npm run lint    # ESLint
+```

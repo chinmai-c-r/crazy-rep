@@ -4,10 +4,10 @@ import { motion } from "framer-motion";
 import Reveal from "./Reveal";
 
 const steps = [
-  { n: "01", icon: "📷", title: "Snap or upload", text: "Take a photo of your meal or post your own recipe to the community." },
-  { n: "02", icon: "🧠", title: "AI does the math", text: "Calories, protein, carbs and fats are calculated instantly and logged for you." },
-  { n: "03", icon: "🏋️", title: "Get your workout", text: "We suggest a session that balances today's intake with your goal." },
-  { n: "04", icon: "🔥", title: "Rep together", text: "Share wins, join challenges and keep your streak alive with your crew." },
+  { n: "01", icon: "✍️", title: "Type or snap", text: "Enter the meal name and portion. A photo is optional, but it improves accuracy." },
+  { n: "02", icon: "🧠", title: "We do the math", text: "Calories and macros come from our food database, or from AI when it's something new." },
+  { n: "03", icon: "🏃", title: "Track the rest", text: "Add activity, weight and water so your daily budget stays accurate." },
+  { n: "04", icon: "🤖", title: "Ask your coach", text: "See your trends and ask the AI coach what to change." },
 ];
 
 export default function HowItWorks() {
@@ -16,7 +16,7 @@ export default function HowItWorks() {
       <Reveal className="section__head">
         <span className="eyebrow">How it works</span>
         <h2>
-          FROM PLATE TO <span className="accent">PERSONAL BEST</span>
+          FROM PLATE TO <span className="accent">PROGRESS</span>
         </h2>
       </Reveal>
 

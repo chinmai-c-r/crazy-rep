@@ -1,14 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const links = [
   ["Features", "#features"],
   ["How it works", "#how"],
-  ["AI Scanner", "#scanner"],
-  ["Workouts", "#workouts"],
-  ["Community", "#community"],
-  ["Pricing", "#pricing"],
+  ["AI scanner", "#scanner"],
+  ["Request access", "#access"],
 ];
 
 export default function Nav() {
@@ -34,9 +33,9 @@ export default function Nav() {
           </a>
         ))}
       </nav>
-      <a href="#cta" className="btn btn--small">
-        Get the app
-      </a>
+      <Link href="/login" className="btn btn--small">
+        Sign in
+      </Link>
     </header>
   );
 }

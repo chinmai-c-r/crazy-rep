@@ -1,12 +1,12 @@
 const items = [
-  "🏋️ STRENGTH",
-  "🏃 CARDIO",
-  "🥗 NUTRITION",
-  "🧘 MOBILITY",
-  "🔥 HIIT",
-  "🚴 ENDURANCE",
-  "🥩 HIGH PROTEIN",
-  "🤸 CALISTHENICS",
+  "📸 PHOTO OR NAME",
+  "🍛 INDIAN DISHES",
+  "🥩 MACROS",
+  "🏃 ACTIVITY",
+  "⚖️ WEIGHT",
+  "💧 WATER",
+  "🤖 AI COACH",
+  "📈 5-YEAR HISTORY",
 ];
 
 export default function Marquee() {

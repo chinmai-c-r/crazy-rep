@@ -6,27 +6,23 @@ export default function Footer() {
           <span className="logo__mark">⚡</span>
           CRAZY<span>REP</span>
         </a>
-        <p>Eat smart. Train hard. Rep together.</p>
+        <p>Snap it. Log it. Know it.</p>
       </div>
       <div className="footer__cols">
         <div>
           <h4>Product</h4>
           <a href="#features">Features</a>
-          <a href="#scanner">AI Scanner</a>
-          <a href="#workouts">Workouts</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#how">How it works</a>
+          <a href="#scanner">AI scanner</a>
         </div>
         <div>
-          <h4>Community</h4>
-          <a href="#community">Recipes</a>
-          <a href="#community">Challenges</a>
-          <a href="#community">Crews</a>
+          <h4>Get started</h4>
+          <a href="#access">Request access</a>
+          <a href="/login">Sign in</a>
         </div>
         <div>
-          <h4>Company</h4>
-          <a href="#top">About</a>
-          <a href="#top">Privacy</a>
-          <a href="#top">Terms</a>
+          <h4>Legal</h4>
+          <a href="/privacy">Privacy</a>
         </div>
       </div>
       <p className="footer__copy">© 2026 Crazy Rep. All rights reserved.</p>

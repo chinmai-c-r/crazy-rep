@@ -2,7 +2,7 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
-const words = ["EAT", "SMART.", "TRAIN", "HARD.", "REP", "TOGETHER."];
+const words = ["SNAP", "IT.", "LOG", "IT.", "KNOW", "IT."];
 
 export default function Hero() {
   const mx = useMotionValue(0);
@@ -37,10 +37,10 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <i className="pulse-dot" /> The fitness community powered by AI
+          <i className="pulse-dot" /> AI calorie tracker · free in early access
         </motion.span>
 
-        <h1 className="hero__title" aria-label="Eat smart. Train hard. Rep together.">
+        <h1 className="hero__title" aria-label="Snap it. Log it. Know it.">
           {words.map((w, i) => (
             <span className="hero__wordwrap" key={i} aria-hidden>
               <motion.span
@@ -61,8 +61,8 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1 }}
         >
-          Share your favourite recipes, snap a photo for instant AI calorie counts, and get
-          workouts built around your goals — all inside a community that keeps you showing up.
+          Type a meal name or snap a photo for instant calories and macros. Track activity, weight
+          and water, and ask the AI coach how you&apos;re doing.
         </motion.p>
 
         <motion.div
@@ -71,8 +71,8 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.15 }}
         >
-          <a href="#cta" className="btn">
-            Start for free
+          <a href="#access" className="btn">
+            Request access
           </a>
           <a href="#scanner" className="btn btn--ghost">
             ▶ See the AI in action
@@ -86,12 +86,12 @@ export default function Hero() {
           transition={{ delay: 1.4 }}
         >
           <div className="avatars">
-            {["🏋️", "🏃", "🧘", "🚴", "🤸"].map((a) => (
+            {["🍛", "🥗", "🍳", "🥤", "🍎"].map((a) => (
               <span key={a}>{a}</span>
             ))}
           </div>
           <p>
-            <strong>250,000+</strong> members repping daily
+            <strong>7,500+</strong> Indian and global dishes ready to log
           </p>
         </motion.div>
       </div>
@@ -106,35 +106,35 @@ export default function Hero() {
         <div className="phone">
           <div className="phone__notch" />
           <div className="phone__screen">
-            <div className="ring">
+            <div className="hero-ring">
               <svg viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="52" className="ring__bg" />
+                <circle cx="60" cy="60" r="52" className="hero-ring__bg" />
                 <motion.circle
                   cx="60"
                   cy="60"
                   r="52"
-                  className="ring__fg"
+                  className="hero-ring__fg"
                   initial={{ pathLength: 0 }}
                   animate={{ pathLength: 0.78 }}
                   transition={{ delay: 1.2, duration: 2, ease: "easeOut" }}
                 />
               </svg>
-              <div className="ring__label">
+              <div className="hero-ring__label">
                 <b>1,560</b>
                 <small>kcal today</small>
               </div>
             </div>
             <div className="phone__row">
-              <span>🥗 Power Bowl</span>
+              <span>🍛 Chicken biryani</span>
               <b>520</b>
             </div>
             <div className="phone__row">
-              <span>🍳 Protein Omelette</span>
+              <span>🍳 Masala omelette</span>
               <b>340</b>
             </div>
             <div className="phone__row phone__row--hot">
-              <span>🔥 HIIT Burn — 32 min</span>
-              <b>−410</b>
+              <span>🏃 Brisk walk · 30 min</span>
+              <b>−150</b>
             </div>
           </div>
         </div>
@@ -147,17 +147,17 @@ export default function Hero() {
           </div>
         </motion.div>
         <motion.div className="float float--b" style={{ x: floatXInv, y: floatYInv }}>
-          <span>🔥</span>
+          <span>🎯</span>
           <div>
-            <b>12-day streak</b>
-            <small>keep it going!</small>
+            <b>Under budget</b>
+            <small>440 kcal left today</small>
           </div>
         </motion.div>
         <motion.div className="float float--c" style={{ x: floatX }}>
-          <span>❤️</span>
+          <span>💧</span>
           <div>
-            <b>2.4k likes</b>
-            <small>on your recipe</small>
+            <b>2.1 L water</b>
+            <small>goal 2.5 L</small>
           </div>
         </motion.div>
       </motion.div>

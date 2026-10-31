@@ -1,23 +1,24 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
 import { useState } from "react";
 import CountUp from "./CountUp";
 import Reveal from "./Reveal";
 
 const meals = [
   {
-    key: "bowl",
-    emoji: "🥗",
-    name: "Chicken Power Bowl",
-    kcal: 520,
-    items: ["Grilled chicken · 150g", "Quinoa · 120g", "Avocado · ½", "Mixed greens"],
-    macros: { Protein: 42, Carbs: 48, Fat: 18 },
+    key: "thali",
+    emoji: "🍛",
+    name: "Paneer butter masala",
+    kcal: 640,
+    items: ["Paneer butter masala · 1 bowl", "Butter roti · 2", "Onion salad"],
+    macros: { Protein: 24, Carbs: 58, Fat: 34 },
   },
   {
     key: "oats",
     emoji: "🥣",
-    name: "Berry Protein Oats",
+    name: "Berry protein oats",
     kcal: 380,
     items: ["Rolled oats · 60g", "Whey · 1 scoop", "Blueberries · 80g", "Almond butter"],
     macros: { Protein: 30, Carbs: 52, Fat: 9 },
@@ -25,7 +26,7 @@ const meals = [
   {
     key: "salmon",
     emoji: "🍣",
-    name: "Salmon & Sweet Potato",
+    name: "Salmon and sweet potato",
     kcal: 610,
     items: ["Salmon fillet · 180g", "Sweet potato · 200g", "Broccoli · 100g", "Olive oil"],
     macros: { Protein: 46, Carbs: 44, Fat: 24 },
@@ -49,7 +50,10 @@ export default function Scanner() {
         <h2>
           POINT. SHOOT. <span className="accent">KNOW.</span>
         </h2>
-        <p>Try the scanner — pick a meal and watch the AI break it down.</p>
+        <p>Pick a meal to see how it breaks down. In the app, type the name or add a photo of your plate.</p>
+        <Link href="/scan" className="btn" style={{ marginTop: 24 }}>
+          📸 Log your own meal
+        </Link>
       </Reveal>
 
       <Reveal>
@@ -93,7 +97,7 @@ export default function Scanner() {
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.35 }}
               >
-                <span className="tag">✓ Identified by AI · 96% confidence</span>
+                <span className="tag">✓ Sample result</span>
                 <h3>{meal.name}</h3>
                 <div className="scanner__kcal">
                   <CountUp key={meal.key} to={meal.kcal} duration={1.2} />

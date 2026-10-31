@@ -6,33 +6,33 @@ import Reveal from "./Reveal";
 const features = [
   {
     icon: "📸",
-    title: "AI Calorie Scanner",
-    text: "Snap a photo of any meal. Our vision AI identifies ingredients, portions and macros in seconds.",
+    title: "AI meal logging",
+    text: "Type a meal name, or add a photo for better accuracy. Get calories, protein, carbs, fat, fiber, sugar and sodium in seconds.",
   },
   {
-    icon: "🍲",
-    title: "Recipe Sharing",
-    text: "Upload your recipes with photos, steps and auto-calculated nutrition. Remix and save the community's best.",
+    icon: "🍛",
+    title: "Built for Indian food",
+    text: "7,500+ dishes from Indian nutrition databases and recipes, plus the USDA database for everything else. Typos are fine.",
   },
   {
-    icon: "💪",
-    title: "Smart Workouts",
-    text: "Plans that adapt to your goals, equipment, schedule and what you ate today.",
+    icon: "🏃",
+    title: "Activity tracking",
+    text: "Log walks, runs, gym sessions, yoga and more. Calories burned are worked out from your weight and the intensity.",
   },
   {
-    icon: "🏆",
-    title: "Challenges & Streaks",
-    text: "Join weekly challenges, climb leaderboards and earn badges that make consistency addictive.",
+    icon: "⚖️",
+    title: "Weight and water",
+    text: "Log your weight and body fat, tap to add water, and see how you're moving towards your goal.",
   },
   {
-    icon: "👥",
-    title: "Crews",
-    text: "Build or join a crew. Cheer each other on, share progress and hold each other accountable.",
+    icon: "🤖",
+    title: "AI coach",
+    text: "Ask about your meals, activity and weight in plain language. The coach answers from your own data.",
   },
   {
     icon: "📈",
-    title: "Progress Insights",
-    text: "Track weight, macros, volume and PRs with clean charts that show what is actually working.",
+    title: "Up to 5 years of history",
+    text: "Daily, weekly and monthly charts for calories, macros, activity and weight, so you can see what's actually working.",
   },
 ];
 
@@ -42,11 +42,10 @@ export default function Features() {
       <Reveal className="section__head">
         <span className="eyebrow">Everything you need</span>
         <h2>
-          ONE APP. <span className="accent">ZERO EXCUSES.</span>
+          ONE APP. <span className="accent">EVERY MEAL.</span>
         </h2>
         <p>
-          Nutrition, training and community in one place — so staying consistent finally feels
-          effortless.
+          Meals, activity, weight and water in one place, with an AI coach that knows your numbers.
         </p>
       </Reveal>
 
