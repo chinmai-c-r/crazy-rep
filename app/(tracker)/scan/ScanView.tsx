@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { Camera, Check, Database, ImageUp, Loader2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
@@ -63,8 +63,26 @@ export default function ScanView() {
     return MEAL_TYPES.some((m) => m.value === t) ? (t as MealType) : guessMealType();
   });
   const [saving, setSaving] = useState(false);
+  const saved = useRef(false);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
+
+  // Next keeps this page alive (hidden) after navigating away, so state survives visits.
+  // On each visit, follow ?type= from links like "Add breakfast"; after a meal is saved, start fresh next time.
+  useLayoutEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("type");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the URL on every visit
+    if (MEAL_TYPES.some((m) => m.value === t)) setMealType(t as MealType);
+    return () => {
+      if (!saved.current) return;
+      saved.current = false;
+      reset();
+      setServings(1);
+      setSaving(false);
+      setMealType(guessMealType());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per visit, not per render
+  }, []);
 
   const totals = useMemo(() => scaleNutrients(sumNutrients(items), servings), [items, servings]);
 
@@ -152,6 +170,7 @@ export default function ScanView() {
       return toast.error(error.message);
     }
     toast.success("Meal logged");
+    saved.current = true;
     router.push("/dashboard");
   }
 

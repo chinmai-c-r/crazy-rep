@@ -35,6 +35,7 @@ import { PageSkeleton } from "../_components/ClientOnly";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 
 const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscle" } as const;
+const SEX_LABELS = { male: "Male", female: "Female" } as const;
 
 export default function ProfileView() {
   const { profile, loading } = useProfile();
@@ -149,8 +150,8 @@ function ProfileForm({ initial }: { initial: Profile }) {
                       </SelectTrigger>
                       <SelectContent>
                         {sexSchema.options.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
+                          <SelectItem key={s} value={s}>
+                            {SEX_LABELS[s]}
                           </SelectItem>
                         ))}
                       </SelectContent>
