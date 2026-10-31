@@ -1,13 +1,15 @@
 "use client";
 
-import { Bot, Camera, Flame, FlaskConical, LineChart, UserRound } from "lucide-react";
+import { Bot, Camera, Flame, FlaskConical, LineChart, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import { useFlag } from "./Flags";
 
-const tabs = [
+type Tab = { href: string; label: string; icon: LucideIcon; primary?: boolean; desktopOnly?: boolean };
+
+const tabs: Tab[] = [
   { href: "/dashboard", label: "Today", icon: Flame },
   { href: "/history", label: "History", icon: LineChart },
   { href: "/scan", label: "Log meal", icon: Camera, primary: true },
@@ -15,8 +17,8 @@ const tabs = [
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
 
-/** Only shown to admins (admin-users flag); the page and its API also check on the server. */
-const adminTab = { href: "/api-test", label: "API test", icon: FlaskConical, primary: false };
+/** Only shown to admins (admin-users flag), and only in the desktop sidebar; the page and its API also check on the server. */
+const adminTab: Tab = { href: "/api-test", label: "API test", icon: FlaskConical, primary: false, desktopOnly: true };
 
 export default function TrackerNav() {
   const pathname = usePathname();
@@ -28,11 +30,11 @@ export default function TrackerNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/90 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-lg lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-8 lg:border-t-0 lg:border-r lg:bg-sidebar lg:px-4 lg:py-7"
     >
       <Logo href="/dashboard" className="hidden px-3 lg:inline-flex" />
-      <ul className={cn("mx-auto grid max-w-lg", items.length > 5 ? "grid-cols-6" : "grid-cols-5", "gap-1 lg:m-0 lg:max-w-none lg:grid-cols-1 lg:gap-1.5")}>
-        {items.map(({ href, label, icon: Icon, primary }) => {
+      <ul className="mx-auto grid max-w-lg grid-cols-5 gap-1 lg:m-0 lg:max-w-none lg:grid-cols-1 lg:gap-1.5">
+        {items.map(({ href, label, icon: Icon, primary, desktopOnly }) => {
           const on = pathname.startsWith(href);
           return (
-            <li key={href}>
+            <li key={href} className={cn(desktopOnly && "hidden lg:block")}>
               <Link
                 href={href}
                 aria-current={on ? "page" : undefined}
