@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,15 @@ const RESULTS: Record<string, [kind: "success" | "error", message: string]> = {
 type Status = { configured: boolean; connected: boolean };
 
 export default function GoogleHealthCard() {
-  const [status, setStatus] = useState<Status | null>(null);
+  const queryClient = useQueryClient();
+  const { data: status = null } = useQuery({
+    queryKey: ["google-health-status"],
+    queryFn: async (): Promise<Status | null> => {
+      const r = await fetch("/api/google-health");
+      return r.ok ? r.json() : null;
+    },
+  });
+  const setStatus = (s: Status) => queryClient.setQueryData(["google-health-status"], s);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -27,10 +36,6 @@ export default function GoogleHealthCard() {
       toast[result[0]](result[1]);
       window.history.replaceState(null, "", window.location.pathname);
     }
-    fetch("/api/google-health")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setStatus)
-      .catch(() => setStatus(null));
   }, []);
 
   async function disconnect() {

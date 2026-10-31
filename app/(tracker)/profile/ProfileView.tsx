@@ -26,7 +26,8 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useProfile, useUser } from "@/lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { keys, useProfile, useUser } from "@/lib/hooks";
 import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +55,7 @@ export default function ProfileView() {
 
 function ProfileForm({ initial }: { initial: Profile }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { email } = useUser();
   const [welcome] = useState(() => new URLSearchParams(window.location.search).has("welcome"));
 
@@ -95,6 +97,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
       .update({ ...values, display_name: values.display_name || null })
       .eq("id", id);
     if (error) return toast.error(error.message);
+    void queryClient.invalidateQueries({ queryKey: keys.profile });
     toast.success("Profile saved");
     form.reset(values);
     if (welcome) router.push("/scan");
@@ -102,6 +105,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
   async function signOut() {
     await createClient().auth.signOut();
+    queryClient.clear();
     router.replace("/login");
     router.refresh();
   }
@@ -306,6 +310,7 @@ function NumberField({
 
 function DeleteAccount() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -318,6 +323,7 @@ function DeleteAccount() {
       return toast.error((await res.json()).error ?? "Could not delete account.");
     }
     await createClient().auth.signOut();
+    queryClient.clear();
     toast.success("Your account has been deleted");
     router.replace("/");
   }

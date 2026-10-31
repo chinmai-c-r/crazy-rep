@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Camera, Check, Database, ImageUp, Loader2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,7 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
   indb: { badge: "Indian food data", credit: "Indian Nutrient Databank (INDB)" },
   ifct: { badge: "Indian food data", credit: "Indian Food Composition Tables 2017 (ICMR-NIN)" },
 };
+import { invalidateSummary } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { MEAL_TYPES, type Analysis, type FoodItem, type MealType } from "@/lib/types";
 import { MealTypePicker, Stepper } from "../_components/Controls";
@@ -40,6 +42,7 @@ const EMPTY: Details = { name: "", portion: "", notes: "" };
 
 export default function ScanView() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -177,6 +180,8 @@ export default function ScanView() {
     await syncMeal(meal.id, "upsert");
     toast.success("Meal logged");
     saved.current = true;
+    void queryClient.invalidateQueries({ queryKey: ["meals"] });
+    void invalidateSummary(queryClient);
     router.push("/dashboard");
   }
 

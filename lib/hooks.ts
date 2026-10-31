@@ -1,178 +1,163 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { createClient } from "./supabase/client";
 import type { Meal, Profile, SummaryRow, WeightLog } from "./types";
 
+type Updater<T> = (rows: T[]) => T[];
+
+/** Query keys, grouped so a prefix invalidates every range/limit of the same data. */
+export const keys = {
+  user: ["user"] as const,
+  profile: ["profile"] as const,
+  meals: (start: string, end: string) => ["meals", start, end] as const,
+  log: (table: string, start: string, end: string) => ["log", table, start, end] as const,
+  weights: (limit: number) => ["weights", limit] as const,
+  summary: (start: string, end: string, bucket: string) => ["summary", start, end, bucket] as const,
+};
+
+/** Call after any change to meals, activity or weight so history totals refetch. */
+export const invalidateSummary = (qc: QueryClient) => qc.invalidateQueries({ queryKey: ["summary"] });
+
 export function useUser() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null);
-      setEmail(data.user?.email ?? null);
-    });
-  }, []);
-  return { userId, email };
+  const { data } = useQuery({
+    queryKey: keys.user,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await createClient().auth.getUser();
+      return { userId: data.user?.id ?? null, email: data.user?.email ?? null };
+    },
+  });
+  return { userId: data?.userId ?? null, email: data?.email ?? null };
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const reload = useCallback(async () => {
-    const supabase = createClient();
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return setLoading(false);
-    const { data } = await supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
-    if (data) {
-      setProfile(data as Profile);
-    } else {
+  const qc = useQueryClient();
+  const { data, isPending, refetch } = useQuery({
+    queryKey: keys.profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data } = await supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+      if (data) return data as Profile;
       // Fallback if the signup trigger was added after this user registered.
       const { data: created } = await supabase
         .from("profiles")
         .insert({ id: auth.user.id, display_name: auth.user.email?.split("@")[0] })
         .select()
         .single();
-      setProfile(created as Profile);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching on mount
-    reload();
-  }, [reload]);
-
-  return { profile, loading, reload, setProfile };
+      return (created as Profile) ?? null;
+    },
+  });
+  const reload = useCallback(async () => void (await refetch()), [refetch]);
+  const setProfile = useCallback((p: Profile | null) => qc.setQueryData(keys.profile, p), [qc]);
+  return { profile: data ?? null, loading: isPending, reload, setProfile };
 }
 
 /** Meals between two ISO timestamps, newest first. */
 export function useMeals(start: string, end: string) {
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await createClient()
-      .from("meals")
-      .select("*")
-      .gte("eaten_at", start)
-      .lt("eaten_at", end)
-      .order("eaten_at", { ascending: false });
-    setError(error?.message ?? null);
-    setMeals((data as Meal[]) ?? []);
-    setLoading(false);
-  }, [start, end]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching on range change
-    reload();
-  }, [reload]);
-
-  return { meals, loading, error, reload, setMeals };
+  const qc = useQueryClient();
+  const key = keys.meals(start, end);
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: key,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from("meals")
+        .select("*")
+        .gte("eaten_at", start)
+        .lt("eaten_at", end)
+        .order("eaten_at", { ascending: false });
+      if (error) throw error;
+      return data as Meal[];
+    },
+  });
+  const reload = useCallback(async () => void (await refetch()), [refetch]);
+  const setMeals = useCallback(
+    (fn: Updater<Meal>) => {
+      qc.setQueryData<Meal[]>(key, (old) => fn(old ?? []));
+      void invalidateSummary(qc);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is derived from start/end
+    [qc, start, end],
+  );
+  return { meals: data ?? [], loading: isPending, error: error?.message ?? null, reload, setMeals };
 }
 
-/** Signed URLs for private meal photos, keyed by storage path. */
+/** Signed URLs for private meal photos, keyed by storage path. Cached per path set for the URL lifetime. */
 export function useSignedUrls(paths: (string | null)[]) {
-  const [urls, setUrls] = useState<Record<string, string>>({});
   const key = paths.filter(Boolean).sort().join("|");
-
-  useEffect(() => {
-    const list = key ? key.split("|") : [];
-    if (!list.length) return;
-    let cancelled = false;
-    createClient()
-      .storage.from("meal-images")
-      .createSignedUrls(list, 60 * 60)
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        const map: Record<string, string> = {};
-        for (const d of data) if (d.path && d.signedUrl) map[d.path] = d.signedUrl;
-        setUrls(map);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [key]);
-
-  return urls;
+  const { data } = useQuery({
+    queryKey: ["signed-urls", key],
+    enabled: key !== "",
+    staleTime: 30 * 60_000, // URLs are valid for 60 minutes
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await createClient().storage.from("meal-images").createSignedUrls(key.split("|"), 60 * 60);
+      const map: Record<string, string> = {};
+      for (const d of data ?? []) if (d.path && d.signedUrl) map[d.path] = d.signedUrl;
+      return map;
+    },
+  });
+  return data ?? {};
 }
 
 /** Rows of a log table whose timestamp column falls in [start, end), newest first. */
 export function useLogRange<T>(table: "activity_logs" | "water_logs", column: string, start: string, end: string) {
-  const [rows, setRows] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const reload = useCallback(async () => {
-    const { data } = await createClient()
-      .from(table)
-      .select("*")
-      .gte(column, start)
-      .lt(column, end)
-      .order(column, { ascending: false });
-    setRows((data as T[]) ?? []);
-    setLoading(false);
-  }, [table, column, start, end]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching on range change
-    reload();
-  }, [reload]);
-
-  return { rows, loading, reload, setRows };
+  const qc = useQueryClient();
+  const queryKey = keys.log(table, start, end);
+  const { data, isPending, refetch } = useQuery({
+    queryKey,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await createClient().from(table).select("*").gte(column, start).lt(column, end).order(column, { ascending: false });
+      return (data as T[]) ?? [];
+    },
+  });
+  const reload = useCallback(async () => void (await refetch()), [refetch]);
+  const setRows = useCallback(
+    (fn: Updater<T>) => {
+      qc.setQueryData<T[]>(queryKey, (old) => fn(old ?? []));
+      void invalidateSummary(qc);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is derived from table/start/end
+    [qc, table, start, end],
+  );
+  return { rows: data ?? [], loading: isPending, reload, setRows };
 }
 
 /** Most recent weight entries (newest first). */
 export function useWeights(limit = 30) {
-  const [weights, setWeights] = useState<WeightLog[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const reload = useCallback(async () => {
-    const { data } = await createClient().from("weight_logs").select("*").order("logged_on", { ascending: false }).limit(limit);
-    setWeights((data as WeightLog[]) ?? []);
-    setLoading(false);
-  }, [limit]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching on mount
-    reload();
-  }, [reload]);
-
-  return { weights, loading, reload };
+  const { data, isPending, refetch } = useQuery({
+    queryKey: keys.weights(limit),
+    queryFn: async () => {
+      const { data } = await createClient().from("weight_logs").select("*").order("logged_on", { ascending: false }).limit(limit);
+      return (data as WeightLog[]) ?? [];
+    },
+  });
+  const reload = useCallback(async () => void (await refetch()), [refetch]);
+  return { weights: data ?? [], loading: isPending, reload };
 }
 
 /** Server-side totals per day/week/month in the user's timezone (handles multi-year ranges). */
 export function useSummary(start: string, end: string, bucket: "day" | "week" | "month") {
-  const [rows, setRows] = useState<SummaryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching on range change
-    setLoading(true);
-    createClient()
-      .rpc("history_summary", {
+  const { data, isPending, error } = useQuery({
+    queryKey: keys.summary(start, end, bucket),
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("history_summary", {
         p_start: start,
         p_end: end,
         p_bucket: bucket,
         p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setError(error?.message ?? null);
-        setRows(((data as SummaryRow[]) ?? []).map((r) => ({ ...r, ...numeric(r) })));
-        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [start, end, bucket]);
-
-  return { rows, loading, error };
+      if (error) throw error;
+      return ((data as SummaryRow[]) ?? []).map((r) => ({ ...r, ...numeric(r) }));
+    },
+  });
+  return { rows: data ?? [], loading: isPending, error: error?.message ?? null };
 }
 
 /** Postgres numerics arrive as strings; convert the summary columns to numbers. */

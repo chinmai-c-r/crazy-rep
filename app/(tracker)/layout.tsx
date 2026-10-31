@@ -1,9 +1,11 @@
 import ClientOnly from "./_components/ClientOnly";
 import { FlagsProvider } from "./_components/Flags";
+import Providers from "./_components/Providers";
 import TrackerNav from "./_components/TrackerNav";
 
 export default function TrackerLayout({ children }: { children: React.ReactNode }) {
   return (
+    <Providers>
     <FlagsProvider>
       <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
         <TrackerNav />
@@ -12,5 +14,6 @@ export default function TrackerLayout({ children }: { children: React.ReactNode 
         </main>
       </div>
     </FlagsProvider>
+    </Providers>
   );
 }
