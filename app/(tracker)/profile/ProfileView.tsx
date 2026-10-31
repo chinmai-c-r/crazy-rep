@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, LogOut, Trash2 } from "lucide-react";
+import { Loader2, LogOut, Mail, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -106,7 +106,22 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
   return (
     <Page narrow>
-      <PageHeader eyebrow={email} title="Profile and goals" />
+      <PageHeader title="Profile and goals" />
+
+      <Card className="rounded-3xl">
+        <CardContent className="flex items-center gap-4">
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary font-heading text-2xl text-primary-foreground uppercase" aria-hidden>
+            {(initial.display_name || email || "?").charAt(0)}
+          </span>
+          <div className="min-w-0">
+            {initial.display_name && <p className="truncate text-lg font-semibold">{initial.display_name}</p>}
+            <p className="flex items-center gap-2 text-base break-all text-muted-foreground sm:text-lg">
+              <Mail className="size-4 shrink-0" aria-hidden />
+              {email ?? "…"}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {welcome && (
         <Alert className="border-primary/30">
