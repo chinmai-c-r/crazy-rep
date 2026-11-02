@@ -8,6 +8,7 @@ import type { z } from "zod";
 import { TextField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks";
+import { foodEmoji } from "@/lib/food-emoji";
 import { fmt } from "@/lib/nutrition";
 import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
 import type { Analysis, FoodItem, MealType, Nutrients } from "@/lib/types";
@@ -27,29 +28,6 @@ const buzz = () => {
     navigator.vibrate?.(8);
   } catch {}
 };
-
-/** A fitting emoji for a detected food, by keyword. */
-const EMOJIS: [RegExp, string][] = [
-  [/dosa|idli|uttapam|pancake|crepe/i, "🥞"],
-  [/biryani|rice|pulao|khichdi|risotto/i, "🍚"],
-  [/chicken|tandoori|wing/i, "🍗"],
-  [/egg|omelette/i, "🍳"],
-  [/salad|cucumber|lettuce/i, "🥗"],
-  [/chutney|sambar|soup|rasam/i, "🥣"],
-  [/paneer|dal|curry|subji|sabzi|masala|aloo|gravy|stew/i, "🍛"],
-  [/roti|chapati|naan|paratha|bread|toast|bun/i, "🫓"],
-  [/yogurt|curd|raita|milk|lassi|cheese/i, "🥛"],
-  [/fish|prawn|shrimp|salmon|tuna/i, "🐟"],
-  [/banana|apple|mango|fruit|berry|orange|papaya/i, "🍌"],
-  [/coffee|tea|chai/i, "☕"],
-  [/pizza/i, "🍕"],
-  [/burger|sandwich/i, "🍔"],
-  [/noodle|pasta|maggi|ramen/i, "🍜"],
-  [/cake|sweet|gulab|jalebi|dessert|ice cream|chocolate/i, "🍰"],
-  [/avocado/i, "🥑"],
-  [/oats|cereal|granola/i, "🥣"],
-];
-const emojiFor = (name: string) => EMOJIS.find(([re]) => re.test(name))?.[1] ?? "🍽️";
 
 /* ─────────────────────────────── Celebration ─────────────────────────────── */
 
@@ -194,7 +172,7 @@ function ItemCard({ item, share, index, onRemove, last }: { item: FoodItem; shar
     >
       <div className="flex items-center gap-3">
         <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-card text-2xl shadow-inner" aria-hidden>
-          {emojiFor(item.name)}
+          {foodEmoji(item.name)}
         </span>
         <div className="grid min-w-0 flex-1">
           <b className="truncate">{item.name}</b>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,8 +11,8 @@ import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { ActivityCard, WaterCard, WeightCard } from "../_components/BodyCards";
 import { ActivitySheet, WeightSheet } from "../_components/LogSheets";
-import MacroBar from "../_components/MacroBar";
-import { MealRow, MealSectionHeader } from "../_components/MealParts";
+import MacroRings from "../_components/MacroRings";
+import { EmptyMeal, MealRow, MealSectionHeader } from "../_components/MealParts";
 import MealSheet from "../_components/MealSheet";
 import NutrientGrid from "../_components/NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
@@ -88,11 +88,7 @@ export default function DashboardView() {
         <Card className={`rounded-3xl ${ENTER}`} style={{ animationDelay: "80ms" }}>
           <CardContent className="grid gap-4">
             <SectionTitle>Macros</SectionTitle>
-            <div className="grid gap-3">
-              <MacroBar label="Protein" value={totals.protein_g} goal={profile?.protein_goal_g} macro="protein" />
-              <MacroBar label="Carbs" value={totals.carbs_g} goal={profile?.carbs_goal_g} macro="carbs" />
-              <MacroBar label="Fat" value={totals.fat_g} goal={profile?.fat_goal_g} macro="fat" />
-            </div>
+            <MacroRings totals={totals} goals={{ protein: profile?.protein_goal_g, carbs: profile?.carbs_goal_g, fat: profile?.fat_goal_g }} />
             <NutrientGrid totals={totals} />
           </CardContent>
         </Card>
@@ -116,17 +112,12 @@ export default function DashboardView() {
                 <MealRowSkeleton />
               ) : list.length ? (
                 <ul className="grid gap-2">
-                  {list.map((m) => (
-                    <MealRow key={m.id} meal={m} url={m.image_path ? urls[m.image_path] : undefined} onOpen={() => setOpenId(m.id)} />
+                  {list.map((m, i) => (
+                    <MealRow key={m.id} meal={m} index={i} url={m.image_path ? urls[m.image_path] : undefined} onOpen={() => setOpenId(m.id)} />
                   ))}
                 </ul>
               ) : (
-                <Link
-                  href={`/scan?type=${t.value}`}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                >
-                  <Plus className="size-4" /> Add {t.label.toLowerCase()}
-                </Link>
+                <EmptyMeal href={`/scan?type=${t.value}`} icon={t.icon} label={t.label} />
               )}
             </div>
           );

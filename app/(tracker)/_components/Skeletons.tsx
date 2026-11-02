@@ -51,17 +51,21 @@ export function MacrosCardSkeleton() {
     <Card className="rounded-3xl">
       <CardContent className="grid gap-4">
         <SectionTitle>Macros</SectionTitle>
-        <div className="grid gap-3">
+        <div className="grid grid-cols-3 gap-3" aria-hidden>
           {MACROS.map((m) => (
-            <div key={m.label} className="grid gap-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-2">
-                  <i className={cn("size-2.5 rounded-full", m.dot)} />
+            <div key={m.label} className="grid justify-items-center gap-2">
+              <div className="relative size-20">
+                <Skeleton className="size-full rounded-full" />
+                {/* The ring's stroke is 8/80 of its width */}
+                <div className="absolute inset-[10%] rounded-full bg-card" />
+              </div>
+              <div className="grid justify-items-center">
+                <span className="flex items-center gap-1.5 text-sm">
+                  <i className={cn("size-2 rounded-full", m.dot)} />
                   {m.label}
                 </span>
-                <Line className="h-5 w-20" />
+                <Line className="h-4 w-16" />
               </div>
-              <Skeleton className="h-2.5 rounded-full" />
             </div>
           ))}
         </div>
