@@ -96,7 +96,8 @@ async function nearest(name: string, count = 8): Promise<Row[]> {
   const db = createAdmin();
   const phrase = name.normalize("NFKD").replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ").trim();
   const [[vector], text] = await Promise.all([
-    embedTexts([name], "RETRIEVAL_QUERY"),
+    // A user is waiting and lookupVector has fallbacks (USDA, AI): fail fast instead of retrying with backoff
+    embedTexts([name], "RETRIEVAL_QUERY", { retries: 1, timeoutMs: 6_000 }),
     phrase.length >= 3
       ? db
           .from("analysis_cache")

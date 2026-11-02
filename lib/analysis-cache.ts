@@ -19,7 +19,15 @@ export async function getCachedAnalysis(
     if (!data) return null;
     const parsed = analysisSchema.safeParse(data.analysis);
     if (!parsed.success) return null;
-    if (touch) await admin.rpc("touch_analysis_cache", { p_key: key });
+    if (touch) {
+      // Usage bookkeeping: not worth delaying the answer
+      const bump = async () => void (await admin.rpc("touch_analysis_cache", { p_key: key }));
+      try {
+        after(() => bump().catch(() => {}));
+      } catch {
+        await bump(); // outside a request (scripts, tests)
+      }
+    }
     return { analysis: parsed.data, model: data.model, source: (data.source as CacheSource) ?? null };
   } catch (err) {
     console.warn("analysis cache read failed", err);

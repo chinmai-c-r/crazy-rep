@@ -26,9 +26,9 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
   indb: { badge: "Indian food data", credit: "Indian Nutrient Databank (INDB)" },
   ifct: { badge: "Indian food data", credit: "Indian Food Composition Tables 2017 (ICMR-NIN)" },
 };
-import { invalidateSummary } from "@/lib/hooks";
+import { invalidateSummary, useUser } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
-import { MEAL_TYPES, type Analysis, type FoodItem, type MealType } from "@/lib/types";
+import { MEAL_TYPES, type Analysis, type FoodItem, type Meal, type MealType } from "@/lib/types";
 import { MealTypePicker, Stepper } from "../_components/Controls";
 import { FoodItemList, Insights } from "../_components/FoodItems";
 import MacroBar from "../_components/MacroBar";
@@ -43,6 +43,7 @@ const EMPTY: Details = { name: "", portion: "", notes: "" };
 export default function ScanView() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { userId } = useUser();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -149,12 +150,13 @@ export default function ScanView() {
 
     setSaving(true);
     const supabase = createClient();
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return router.replace("/login?next=/scan");
+    // The session user is already cached; only hit the auth server if it somehow isn't
+    const uid = userId ?? (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) return router.replace("/login?next=/scan");
 
     let path: string | null = null;
     if (blob) {
-      const candidate = `${auth.user.id}/${crypto.randomUUID()}.jpg`;
+      const candidate = `${uid}/${crypto.randomUUID()}.jpg`;
       const upload = await supabase.storage.from("meal-images").upload(candidate, blob, { contentType: "image/jpeg" });
       if (!upload.error) path = candidate;
     }
@@ -169,7 +171,7 @@ export default function ScanView() {
         items,
         notes: analysis.insights.join("\n") || null,
       })
-      .select("id")
+      .select()
       .single();
 
     if (error) {
@@ -177,11 +179,19 @@ export default function ScanView() {
       if (path) await supabase.storage.from("meal-images").remove([path]);
       return toast.error(error.message);
     }
-    await syncMeal(meal.id, "upsert");
+    // Google Health mirroring is best effort and slow (token refresh + Google call): don't make the user wait for it
+    void syncMeal(meal.id, "upsert");
+    // Put the saved row straight into any cached day it belongs to, so the dashboard shows it without a refetch
+    const eaten = new Date(meal.eaten_at).getTime();
+    for (const [key, rows] of queryClient.getQueriesData<Meal[]>({ queryKey: ["meals"] })) {
+      const [, start, end] = key as [string, string, string];
+      if (rows && eaten >= new Date(start).getTime() && eaten < new Date(end).getTime()) {
+        queryClient.setQueryData<Meal[]>(key, [meal as Meal, ...rows]);
+      }
+    }
+    void invalidateSummary(queryClient);
     toast.success("Meal logged");
     saved.current = true;
-    void queryClient.invalidateQueries({ queryKey: ["meals"] });
-    void invalidateSummary(queryClient);
     router.push("/dashboard");
   }
 

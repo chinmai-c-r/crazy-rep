@@ -15,7 +15,7 @@ const normalise = (v: number[]) => {
 };
 
 /** Embeds texts in batches with retries. Documents and queries use different task types for better recall. */
-export async function embedTexts(texts: string[], task: Task, { retries = 4 } = {}): Promise<number[][]> {
+export async function embedTexts(texts: string[], task: Task, { retries = 4, timeoutMs = 30_000 } = {}): Promise<number[][]> {
   const out: number[][] = [];
   for (let i = 0; i < texts.length; i += BATCH) {
     const chunk = texts.slice(i, i + BATCH);
@@ -24,7 +24,7 @@ export async function embedTexts(texts: string[], task: Task, { retries = 4 } = 
         const res = await getAI().models.embedContent({
           model: EMBEDDING_MODEL,
           contents: chunk,
-          config: { outputDimensionality: EMBEDDING_DIMS, taskType: task, abortSignal: AbortSignal.timeout(30_000) },
+          config: { outputDimensionality: EMBEDDING_DIMS, taskType: task, abortSignal: AbortSignal.timeout(timeoutMs) },
         });
         const vectors = res.embeddings?.map((e) => normalise(e.values ?? []));
         if (!vectors || vectors.length !== chunk.length) throw Object.assign(new Error("Embedding count mismatch"), { status: 502 });
