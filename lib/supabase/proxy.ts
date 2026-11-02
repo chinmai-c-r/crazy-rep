@@ -21,13 +21,21 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const t0 = Date.now();
   const { data } = await supabase.auth.getClaims();
+  const authMs = Date.now() - t0;
   const claims = data?.claims;
   const signedIn = Boolean(claims);
   const { pathname } = request.nextUrl;
 
   // Signed in but not allowed by LaunchDarkly: end the session and send them to request access
-  if (claims && !(await boolFlag("sign-in-users", { id: claims.sub, email: claims.email }))) {
+  const t1 = Date.now();
+  const allowed = claims ? await boolFlag("sign-in-users", { id: claims.sub, email: claims.email }) : true;
+  const flagMs = Date.now() - t1;
+  // Where a slow navigation went (visible in the server logs); quiet when everything is fast
+  if (authMs + flagMs > 800) console.warn(`proxy slow ${pathname}: auth ${authMs}ms, flag ${flagMs}ms`);
+
+  if (claims && !allowed) {
     await supabase.auth.signOut({ scope: "local" });
     if (pathname.startsWith("/api/")) return withCookies(NextResponse.json({ error: NO_ACCESS_MESSAGE }, { status: 403 }), response);
     return withCookies(NextResponse.redirect(new URL(requestAccessUrl(claims.email), request.url)), response);
