@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils";
 const ROW = "-my-1 flex gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Chips for the dishes logged most recently; tap one to fill the meal name. */
-export default function RecentDishes({ value, onPick }: { value: string; onPick: (name: string) => void }) {
-  const { dishes, loading } = useRecentDishes();
+export default function RecentDishes({ value, onPick, fallback = [] }: { value: string; onPick: (name: string) => void; fallback?: string[] }) {
+  const { dishes: recent, loading } = useRecentDishes();
+  // Someone who hasn't logged anything yet gets ideas instead of an empty row
+  const dishes = recent.length ? recent : fallback;
 
   if (loading) {
     return (
@@ -24,7 +26,7 @@ export default function RecentDishes({ value, onPick }: { value: string; onPick:
 
   const typed = value.trim().toLowerCase();
   return (
-    <div className={ROW} role="group" aria-label="Recently logged dishes">
+    <div className={ROW} role="group" aria-label={recent.length ? "Recently logged dishes" : "Meal ideas"}>
       {dishes.map((name) => (
         <button
           key={name}

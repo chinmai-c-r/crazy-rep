@@ -7,7 +7,45 @@
 @theme {
     --animate-scan-beam: scan-beam 2.4s ease-in-out infinite alternate;
     --animate-bob: bob 3s ease-in-out infinite;
+    --animate-laser: laser 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    --animate-sonar: sonar 2.8s ease-out infinite;
+    --animate-orbit: orbit 14s linear infinite;
+    --animate-orbit-rev: orbit-rev 14s linear infinite;
+    --animate-drift: drift 12s ease-in-out infinite alternate;
+    --animate-twinkle: twinkle 3s ease-in-out infinite;
+    --animate-shimmer: shimmer 2.8s ease-in-out infinite;
+    --animate-float: float 7s ease-in-out infinite;
 
+    /* Transform/opacity only, so these stay on the GPU and run smoothly on phones */
+    @keyframes laser {
+        from { transform: translateY(-110%); }
+        to { transform: translateY(290%); }
+    }
+    @keyframes sonar {
+        0% { transform: scale(0.55); opacity: 0.55; }
+        100% { transform: scale(1.35); opacity: 0; }
+    }
+    @keyframes orbit {
+        to { transform: rotate(360deg); }
+    }
+    @keyframes orbit-rev {
+        to { transform: rotate(-360deg); }
+    }
+    @keyframes drift {
+        to { transform: translate3d(10%, -8%, 0) scale(1.18); }
+    }
+    @keyframes shimmer {
+        0% { transform: translateX(-140%) skewX(-18deg); }
+        55%, 100% { transform: translateX(520%) skewX(-18deg); }
+    }
+    @keyframes float {
+        0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--tilt, 0deg)); }
+        50% { transform: translate3d(0, -16px, 0) rotate(calc(var(--tilt, 0deg) + 6deg)); }
+    }
+    @keyframes twinkle {
+        0%, 100% { opacity: 0.12; transform: scale(0.7); }
+        50% { opacity: 1; transform: scale(1.25); }
+    }
     @keyframes scan-beam {
         from { top: 12%; }
         to { top: 88%; }

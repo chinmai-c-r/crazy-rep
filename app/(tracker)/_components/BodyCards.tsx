@@ -5,13 +5,13 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { activityIcon, activityLabel } from "@/lib/activities";
 import { fmt } from "@/lib/nutrition";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { ActivityLog, WaterLog, WeightLog } from "@/lib/types";
+import { Sparkline } from "./charts";
 import { SectionTitle } from "./Page";
 
 export function ActivityCard({
@@ -122,7 +122,16 @@ export function WaterCard({
           {loading ? <Skeleton className="h-10 w-20 rounded" /> : <b className="font-heading text-4xl font-normal">{fmt(total)}</b>}
           <span className="text-sm text-muted-foreground">ml</span>
         </p>
-        <Progress value={Math.min((total / goal) * 100, 100)} className="h-2.5 *:data-[slot=progress-indicator]:bg-chart-4" />
+        <div className="flex h-2.5 gap-1" role="progressbar" aria-label="Water goal" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(Math.round((total / goal) * 100), 100)}>
+          {Array.from({ length: 10 }, (_, i) => {
+            const fill = Math.min(Math.max((total / goal) * 10 - i, 0), 1);
+            return (
+              <span key={i} className="relative flex-1 overflow-hidden rounded-full bg-muted">
+                <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-chart-4/60 to-chart-4 transition-[width] duration-700" style={{ width: `${fill * 100}%` }} />
+              </span>
+            );
+          })}
+        </div>
         <div className="flex gap-2">
           <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(250)} disabled={loading}>
             +250 ml
@@ -142,6 +151,7 @@ export function WaterCard({
 export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; loading?: boolean; onAdd: () => void }) {
   const [latest, previous] = weights;
   const delta = latest && previous ? Number(latest.weight_kg) - Number(previous.weight_kg) : null;
+  const trend = [...weights].reverse().map((w) => Number(w.weight_kg));
 
   return (
     <Card className="rounded-3xl">
@@ -153,17 +163,21 @@ export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; 
           </Link>
         </div>
         {loading ? (
-          <div className="grid h-14 content-between">
-            <Skeleton className="h-9 w-36 rounded" />
-            <Skeleton className="h-3 w-28 rounded" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="grid h-14 content-between">
+              <Skeleton className="h-9 w-36 rounded" />
+              <Skeleton className="h-3 w-28 rounded" />
+            </div>
+            <Skeleton className="h-10 w-24 shrink-0 rounded-md" />
           </div>
         ) : latest ? (
-          <div>
+          <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="flex items-baseline gap-2">
               <Scale className="size-5 self-center text-muted-foreground" />
               <b className="font-heading text-4xl font-normal">{fmt(latest.weight_kg, 1)}</b>
               <span className="text-sm text-muted-foreground">kg</span>
-              {delta !== null && delta !== 0 && (
+              {delta !== null && Math.abs(delta) >= 0.05 && (
                 <span className={delta < 0 ? "text-sm font-semibold text-primary" : "text-sm font-semibold text-carbs"}>
                   {delta > 0 ? "+" : ""}
                   {fmt(delta, 1)} kg
@@ -174,6 +188,8 @@ export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; 
               {new Date(`${latest.logged_on}T00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
               {previous ? ` · vs ${new Date(`${previous.logged_on}T00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
             </p>
+          </div>
+          {trend.length >= 3 && <Sparkline values={trend} className="h-10 w-24 shrink-0" />}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No weigh-ins yet. Log one to see your trend.</p>

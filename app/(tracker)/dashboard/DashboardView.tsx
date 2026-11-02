@@ -1,23 +1,26 @@
 "use client";
 
-import { Camera, ChevronLeft, ChevronRight, Plus, UtensilsCrossed } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLogRange, useMeals, useProfile, useSignedUrls, useWeights } from "@/lib/hooks";
-import { dayRange, fmt, sumNutrients } from "@/lib/nutrition";
-import { MEAL_TYPES, type ActivityLog, type Meal, type WaterLog } from "@/lib/types";
+import { dayRange, sumNutrients } from "@/lib/nutrition";
+import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { ActivityCard, WaterCard, WeightCard } from "../_components/BodyCards";
 import { ActivitySheet, WeightSheet } from "../_components/LogSheets";
 import MacroBar from "../_components/MacroBar";
+import { MealRow, MealSectionHeader } from "../_components/MealParts";
 import MealSheet from "../_components/MealSheet";
 import NutrientGrid from "../_components/NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
-import Ring from "../_components/Ring";
+import Ring, { RingStats } from "../_components/Ring";
 import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton } from "../_components/Skeletons";
+
+/** Cards fade up as they appear, so the swap from skeleton to data feels deliberate. */
+const ENTER = "animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500";
 
 export default function DashboardView() {
   const [date, setDate] = useState(() => new Date());
@@ -26,7 +29,7 @@ export default function DashboardView() {
   const { meals, loading, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
-  const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(2);
+  const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
   const urls = useSignedUrls(meals.map((m) => m.image_path));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -73,24 +76,16 @@ export default function DashboardView() {
         {booting ? (
           <RingCardSkeleton />
         ) : (
-        <Card className="items-center justify-center gap-4 rounded-3xl py-8">
+        <Card className={`relative items-center justify-center gap-4 rounded-3xl py-8 ${ENTER}`}>
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-20 h-64 bg-[radial-gradient(closest-side,rgb(198_255_0/0.09),transparent)]" />
           <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} />
-          <div className="flex gap-6 text-center text-sm">
-            <div>
-              <b className="block font-heading text-2xl font-normal text-chart-4">{fmt(burned)}</b>
-              <span className="text-muted-foreground">burned</span>
-            </div>
-            <div>
-              <b className="block font-heading text-2xl font-normal">{fmt(totals.calories - burned)}</b>
-              <span className="text-muted-foreground">net kcal</span>
-            </div>
-          </div>
+          <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} />
         </Card>
         )}
         {booting ? (
           <MacrosCardSkeleton />
         ) : (
-        <Card className="rounded-3xl">
+        <Card className={`rounded-3xl ${ENTER}`} style={{ animationDelay: "80ms" }}>
           <CardContent className="grid gap-4">
             <SectionTitle>Macros</SectionTitle>
             <div className="grid gap-3">
@@ -115,13 +110,8 @@ export default function DashboardView() {
           const list = meals.filter((m) => m.meal_type === t.value);
           const kcal = list.reduce((s, m) => s + Number(m.calories), 0);
           return (
-            <div key={t.value} className="grid content-start gap-2">
-              <div className="flex items-baseline justify-between px-1">
-                <h2 className="font-bold">
-                  {t.icon} {t.label}
-                </h2>
-                {loading ? <Skeleton className="h-4 w-16 self-center rounded" /> : <span className="text-sm text-muted-foreground">{fmt(kcal)} kcal</span>}
-              </div>
+            <div key={t.value} className={`grid content-start gap-2 ${ENTER}`} style={{ animationDelay: `${160 + MEAL_TYPES.indexOf(t) * 60}ms` }}>
+              <MealSectionHeader icon={t.icon} label={t.label} kcal={kcal} loading={loading} />
               {loading ? (
                 <MealRowSkeleton />
               ) : list.length ? (
@@ -193,31 +183,5 @@ export default function DashboardView() {
         onDelete={(id) => setMeals((ms) => ms.filter((m) => m.id !== id))}
       />
     </Page>
-  );
-}
-
-function MealRow({ meal, url, onOpen }: { meal: Meal; url?: string; onOpen: () => void }) {
-  return (
-    <li>
-      <button
-        onClick={onOpen}
-        className="flex w-full items-center gap-3.5 rounded-2xl border bg-card p-2.5 text-left transition-colors hover:border-primary/40"
-      >
-        <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
-          {url ? <img src={url} alt="" className="size-full object-cover" /> : <UtensilsCrossed className="size-5 text-muted-foreground" />}
-        </span>
-        <span className="grid min-w-0 flex-1">
-          <b className="truncate">{meal.name}</b>
-          <small className="text-xs text-muted-foreground">
-            P {fmt(meal.protein_g)}g · C {fmt(meal.carbs_g)}g · F {fmt(meal.fat_g)}g
-          </small>
-        </span>
-        <span className="text-right font-heading text-2xl leading-none">
-          {fmt(meal.calories)}
-          <small className="block font-sans text-[0.7rem] text-muted-foreground">kcal</small>
-        </span>
-      </button>
-    </li>
   );
 }

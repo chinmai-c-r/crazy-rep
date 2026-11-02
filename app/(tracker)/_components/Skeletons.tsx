@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+import { CalendarCheck, Dumbbell, Flame, Scale, Target, Trophy, UtensilsCrossed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -5,6 +7,9 @@ import { MEAL_TYPES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { NUTRIENT_ROWS } from "./NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "./Page";
+import { MealSectionHeader } from "./MealParts";
+import { RingStats } from "./Ring";
+import { Highlight, StatTile, type Accent } from "./StatTile";
 
 /*
  * Every block below mirrors the box model of the real component it stands in for
@@ -19,7 +24,7 @@ const Line = ({ className }: { className?: string }) => <Skeleton className={cn(
 
 export function RingCardSkeleton() {
   return (
-    <Card className="items-center justify-center gap-4 rounded-3xl py-8">
+    <Card className="relative items-center justify-center gap-4 rounded-3xl py-8">
       <div className="relative size-48 sm:size-52" aria-hidden>
         <Skeleton className="size-full rounded-full" />
         {/* The ring's stroke is 10/120 of its width */}
@@ -30,14 +35,7 @@ export function RingCardSkeleton() {
           <Line className="mt-1 h-5 w-16" />
         </div>
       </div>
-      <div className="flex gap-6 text-center text-sm">
-        {["burned", "net kcal"].map((label) => (
-          <div key={label} className="grid justify-items-center">
-            <Line className="h-8 w-12" />
-            <span className="text-muted-foreground">{label}</span>
-          </div>
-        ))}
-      </div>
+      <RingStats loading />
     </Card>
   );
 }
@@ -73,6 +71,7 @@ export function MacrosCardSkeleton() {
               <span className="text-xs text-muted-foreground">{r.label}</span>
               <Line className="h-[22.5px] w-14 bg-foreground/10" />
               <Line className="h-4 w-10 bg-foreground/10" />
+              <Line className="mt-1 h-1 w-full rounded-full bg-foreground/10" />
             </div>
           ))}
         </div>
@@ -103,12 +102,7 @@ export function MealSectionsSkeleton() {
     <section className="grid gap-4 lg:grid-cols-2 lg:gap-5">
       {MEAL_TYPES.map((t) => (
         <div key={t.value} className="grid content-start gap-2">
-          <div className="flex items-baseline justify-between px-1">
-            <h2 className="font-bold">
-              {t.icon} {t.label}
-            </h2>
-            <Line className="h-4 w-16 self-center" />
-          </div>
+          <MealSectionHeader icon={t.icon} label={t.label} loading />
           <MealRowSkeleton />
         </div>
       ))}
@@ -149,9 +143,12 @@ export function DashboardSkeleton() {
           </div>
         </TrackerCardSkeleton>
         <TrackerCardSkeleton title="Weight" right={<span className="text-sm text-muted-foreground">Trend →</span>}>
-          <div className="grid h-14 content-between">
-            <Line className="h-9 w-36" />
-            <Line className="h-3 w-28" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="grid h-14 content-between">
+              <Line className="h-9 w-36" />
+              <Line className="h-3 w-28" />
+            </div>
+            <Skeleton className="h-10 w-24 shrink-0 rounded-md" />
           </div>
           <Skeleton className="h-11 rounded-full" />
         </TrackerCardSkeleton>
@@ -176,41 +173,114 @@ function TrackerCardSkeleton({ title, right, children }: { title: string; right:
 
 /* ---------- History ---------- */
 
-export function StatTileSkeleton({ label }: { label: string }) {
-  return (
-    <Card className="gap-1 rounded-2xl px-4 py-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Line className="h-9 w-20" />
-    </Card>
-  );
-}
+/** Keeps the period column in view while the table scrolls sideways on a phone. */
+export const STICKY = "sticky left-0 z-10 bg-card shadow-[8px_0_8px_-8px_rgb(0_0_0/0.6)]";
 
 const BAR_HEIGHTS = [38, 62, 48, 80, 55, 70, 42, 66, 52, 76, 45, 60];
 
-/** Same stack as BarChart: plot (h-56, lg:h-72) with a bottom border, axis row, hint row. */
+const TILES: { label: string; icon: LucideIcon; accent: Accent }[] = [
+  { label: "Avg calories / day", icon: Flame, accent: "lime" },
+  { label: "Avg protein / day", icon: Dumbbell, accent: "cyan" },
+  { label: "Days logged", icon: CalendarCheck, accent: "orange" },
+  { label: "Weight change", icon: Scale, accent: "pink" },
+];
+
+export function TileRowSkeleton() {
+  return (
+    <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {TILES.map((t) => (
+        <StatTile key={t.label} {...t} loading />
+      ))}
+    </section>
+  );
+}
+
+const HIGHLIGHTS: { label: string; icon: LucideIcon; accent: Accent }[] = [
+  { label: "On target", icon: Target, accent: "lime" },
+  { label: "Peak intake", icon: Trophy, accent: "orange" },
+  { label: "Meals", icon: UtensilsCrossed, accent: "pink" },
+];
+
+export function HighlightsSkeleton() {
+  return (
+    <section className="grid grid-cols-3 gap-3">
+      {HIGHLIGHTS.map((h) => (
+        <Highlight key={h.label} {...h} loading />
+      ))}
+    </section>
+  );
+}
+
+/** Same stack as CaloriesChart: plot (h-56, lg:h-72) with a bottom border, axis row, then the 5.5rem detail panel. */
 export function BarChartSkeleton() {
   return (
     <div aria-hidden>
       <div className="flex h-56 items-end gap-0.5 border-b lg:h-72">
         {BAR_HEIGHTS.map((h, i) => (
           <div key={i} className="flex h-full min-w-0 flex-1 items-end justify-center">
-            <Skeleton className="w-full max-w-7 rounded-t rounded-b-none" style={{ height: `${h}%` }} />
+            <Skeleton className="w-full max-w-7 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
           </div>
         ))}
       </div>
       <div className="mt-1.5 h-[15.6px]" />
-      <div className="mt-3 min-h-6" />
+      <div className="mt-3 grid h-[5.5rem] content-between">
+        <div className="flex items-baseline justify-between">
+          <Line className="h-5 w-28" />
+          <Line className="h-5 w-32" />
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[2.9rem] rounded-xl" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-/** Same stack as WeightChart: h-48 plot, then the hint row. */
+/** Same stack as WeightLine: h-48 plot, then the one-line readout. */
 export function WeightChartSkeleton() {
   return (
     <div aria-hidden>
       <Skeleton className="h-48 rounded-2xl" />
       <div className="mt-3 min-h-6" />
     </div>
+  );
+}
+
+/** Donut (size-36) beside three legend rows. */
+export function DonutSkeleton() {
+  return (
+    <div className="flex items-center gap-5" aria-hidden>
+      <div className="relative size-36 shrink-0">
+        <Skeleton className="size-full rounded-full" />
+        {/* The donut's stroke is 14/120 of its width */}
+        <div className="absolute inset-[11.667%] rounded-full bg-card" />
+      </div>
+      <ul className="grid min-w-0 flex-1 gap-3">
+        {MACROS.map((m) => (
+          <li key={m.label} className="flex items-center gap-2.5 text-sm">
+            <i className={cn("size-2.5 shrink-0 rounded-full", m.dot)} />
+            <span className="flex-1">{m.label}</span>
+            <span className="grid justify-items-end gap-0.5">
+              <Line className="h-4 w-8" />
+              <Line className="h-4 w-16" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Value (36px), caption (16px) and a 56px strip of bars, with the card's 12px gaps. */
+export function MiniCardSkeleton() {
+  return (
+    <>
+      <Line className="h-9 w-24" />
+      <Line className="h-4 w-28" />
+      <Skeleton className="h-14 rounded-md" />
+    </>
   );
 }
 
@@ -221,7 +291,7 @@ export function TableRowsSkeleton({ rows = 8 }: { rows?: number }) {
   return Array.from({ length: rows }, (_, r) => (
     <tr key={r} className="border-b last:border-0" aria-hidden>
       {TABLE_WIDTHS.map((w, c) => (
-        <td key={c} className="p-2 align-middle">
+        <td key={c} className={cn("p-2 align-middle", c === 0 && STICKY)}>
           <Line className={cn("h-5", w)} />
         </td>
       ))}
@@ -229,7 +299,6 @@ export function TableRowsSkeleton({ rows = 8 }: { rows?: number }) {
   ));
 }
 
-const HISTORY_TILES = ["Avg calories / day", "Avg protein / day", "Days logged", "Weight change"];
 const TABLE_HEADS = ["Period", "Days", "kcal", "Protein", "Carbs", "Fat", "Burned", "Active", "Water", "Weight"];
 
 export function HistorySkeleton() {
@@ -238,23 +307,40 @@ export function HistorySkeleton() {
       <PageHeader eyebrow="Your trends" title="History">
         <Skeleton className="h-11 w-[14.5rem] rounded-full" aria-hidden />
       </PageHeader>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {HISTORY_TILES.map((l) => (
-          <StatTileSkeleton key={l} label={l} />
-        ))}
-      </section>
+      <TileRowSkeleton />
       <Card className="rounded-3xl">
         <CardContent className="grid gap-4">
           <SectionTitle>Calories vs goal</SectionTitle>
           <BarChartSkeleton />
         </CardContent>
       </Card>
-      <Card className="rounded-3xl">
-        <CardContent className="grid gap-4">
-          <SectionTitle>Weight trend</SectionTitle>
-          <WeightChartSkeleton />
-        </CardContent>
-      </Card>
+      <HighlightsSkeleton />
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-3xl">
+          <CardContent className="grid content-start gap-4">
+            <SectionTitle>Macro balance</SectionTitle>
+            <DonutSkeleton />
+          </CardContent>
+        </Card>
+        <Card className="rounded-3xl">
+          <CardContent className="grid content-start gap-4">
+            <div className="flex min-h-6 items-center justify-between">
+              <SectionTitle>Weight trend</SectionTitle>
+            </div>
+            <WeightChartSkeleton />
+          </CardContent>
+        </Card>
+      </section>
+      <section className="grid grid-cols-2 gap-3 lg:gap-4">
+        {["Burned", "Water"].map((t) => (
+          <Card key={t} className="rounded-3xl">
+            <CardContent className="grid content-start gap-3">
+              <SectionTitle>{t}</SectionTitle>
+              <MiniCardSkeleton />
+            </CardContent>
+          </Card>
+        ))}
+      </section>
       <Card className="rounded-3xl">
         <CardContent className="grid gap-4">
           <SectionTitle>Breakdown</SectionTitle>
@@ -262,8 +348,8 @@ export function HistorySkeleton() {
             <table className="w-full caption-bottom text-sm">
               <thead className="[&_tr]:border-b">
                 <tr className="border-b">
-                  {TABLE_HEADS.map((h) => (
-                    <th key={h} className="h-10 px-2 text-left align-middle text-xs font-medium tracking-wider whitespace-nowrap text-muted-foreground uppercase">
+                  {TABLE_HEADS.map((h, i) => (
+                    <th key={h} className={cn("h-10 px-2 text-left align-middle text-xs font-medium tracking-wider whitespace-nowrap text-muted-foreground uppercase", i === 0 && STICKY)}>
                       {h}
                     </th>
                   ))}
@@ -408,20 +494,27 @@ export function ProfileSkeleton() {
 
 /* ---------- Scan / generic ---------- */
 
+/** Mirrors DetailsStage: meal type row (42px), name card (176px), details toggle (48px), photo tiles (112px), submit button (56px). */
 export function ScanSkeleton() {
   return (
     <Page narrow>
-      <PageHeader eyebrow="AI calorie estimator" title="Log a meal" />
-      <div className="grid gap-5 sm:grid-cols-[1.1fr_1fr]" aria-hidden>
-        <Skeleton className="min-h-64 rounded-3xl" />
-        <div className="grid content-start gap-4">
-          <FieldSkeleton label="Meal name *" />
-          <FieldSkeleton label="Portion or quantity" />
-          <div className="flex w-full flex-col gap-2">
-            <FieldLabel>Notes</FieldLabel>
-            <Skeleton className="h-20 rounded-xl" />
+      <PageHeader title="Log a meal" />
+      <div className="grid gap-5" aria-hidden>
+        <Skeleton className="h-[42px] rounded-full" />
+        <Skeleton className="h-[176px] rounded-[1.75rem]" />
+        <Skeleton className="h-12 rounded-2xl" />
+        <section className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <SectionTitle>Add a photo</SectionTitle>
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">Optional</span>
           </div>
-          <Skeleton className="h-12 w-full rounded-full" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-28 rounded-3xl" />
+            <Skeleton className="h-28 rounded-3xl" />
+          </div>
+        </section>
+        <div className="pt-6 pb-1">
+          <Skeleton className="h-14 rounded-full" />
         </div>
       </div>
     </Page>

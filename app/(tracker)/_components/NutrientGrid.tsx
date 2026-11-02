@@ -11,9 +11,9 @@ export const NUTRIENT_ROWS: { key: keyof Nutrients; label: string; unit: string;
   { key: "cholesterol_mg", label: "Cholesterol", unit: "mg", daily: 300, limit: true },
 ];
 
-export default function NutrientGrid({ totals }: { totals: Nutrients }) {
+export default function NutrientGrid({ totals, className }: { totals: Nutrients; className?: string }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+    <div className={cn("grid grid-cols-3 gap-2 sm:grid-cols-5", className)}>
       {NUTRIENT_ROWS.map((r) => {
         const v = Number(totals[r.key]) || 0;
         const pct = Math.round((v / r.daily) * 100);
@@ -26,6 +26,9 @@ export default function NutrientGrid({ totals }: { totals: Nutrients }) {
               <small className="ml-0.5 text-xs font-normal text-muted-foreground">{r.unit}</small>
             </b>
             <span className={cn("text-xs text-muted-foreground", warn && "font-semibold text-carbs")}>{pct}% DV</span>
+            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-foreground/10">
+              <span className={cn("block h-full rounded-full", warn ? "bg-carbs" : "bg-primary/70")} style={{ width: `${Math.min(pct, 100)}%` }} />
+            </span>
           </div>
         );
       })}
