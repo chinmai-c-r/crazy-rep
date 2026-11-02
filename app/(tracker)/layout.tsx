@@ -1,6 +1,7 @@
 import ClientOnly from "./_components/ClientOnly";
 import { FlagsProvider } from "./_components/Flags";
 import OfflineBanner from "./_components/OfflineBanner";
+import ProfileGate from "./_components/ProfileGate";
 import Providers from "./_components/Providers";
 import ResumeWarmup from "./_components/ResumeWarmup";
 import TrackerNav from "./_components/TrackerNav";
@@ -14,7 +15,9 @@ export default function TrackerLayout({ children }: { children: React.ReactNode 
         <TrackerNav />
         <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
           <OfflineBanner />
-          <ClientOnly>{children}</ClientOnly>
+          <ClientOnly>
+            <ProfileGate>{children}</ProfileGate>
+          </ClientOnly>
         </main>
       </div>
     </FlagsProvider>

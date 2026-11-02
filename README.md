@@ -15,6 +15,7 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **Profile and goals** (`/profile`): enter sex, age, height, weight, activity level and goal, then apply recommended calorie and macro targets (Mifflin–St Jeor). You can also sign out or permanently delete your account.
 - **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
 - **PWA**: installable from the browser on Android and iPhone, with app icons and a manifest.
+- **Onboarding**: new users answer five quick questions (goal, sex, body numbers, activity, diet) and get a daily plan to confirm. Most steps are one tap and the body numbers start from typical values. Nobody can use the app until it's done (`ProfileGate`).
 - **Offline reading**: the app opens without a connection and shows the last data it fetched (today, the last 7 days of history, saved coach chats, the profile). Logging, editing and the coach are paused until the connection returns. Themes still work offline.
 - **Landing page** (`/`): what the app does today, plus a **Request access** form. Requests are saved to `access_requests` (one per email, server-only); approve someone by adding their email to the `sign-in-users` flag.
 

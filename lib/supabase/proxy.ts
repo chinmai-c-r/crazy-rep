@@ -4,7 +4,7 @@ import { NO_ACCESS_MESSAGE, requestAccessUrl } from "../flags";
 import { boolFlag } from "../flags-server";
 import { SUPABASE_KEY, SUPABASE_URL } from "./env";
 
-const PROTECTED = ["/dashboard", "/scan", "/history", "/profile", "/coach", "/api-test"];
+const PROTECTED = ["/dashboard", "/scan", "/history", "/profile", "/coach", "/api-test", "/onboarding"];
 
 /** Refreshes the auth cookie on every request, gates the tracker routes and applies the sign-in-users flag. */
 export async function updateSession(request: NextRequest) {

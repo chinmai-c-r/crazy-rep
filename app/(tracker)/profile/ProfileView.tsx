@@ -66,7 +66,6 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const queryClient = useQueryClient();
   const { email } = useUser();
   const online = useOnline();
-  const [welcome] = useState(() => new URLSearchParams(window.location.search).has("welcome"));
 
   const { id, ...fields } = initial;
   const form = useForm<ProfileInput, unknown, ProfileValues>({
@@ -111,7 +110,6 @@ function ProfileForm({ initial }: { initial: Profile }) {
     void queryClient.invalidateQueries({ queryKey: keys.profile });
     toast.success("Profile saved");
     form.reset(values);
-    if (welcome) router.push("/scan");
   });
 
   async function signOut() {
@@ -139,14 +137,6 @@ function ProfileForm({ initial }: { initial: Profile }) {
           </div>
         </CardContent>
       </Card>
-
-      {welcome && (
-        <Alert className="border-primary/30">
-          <AlertDescription className="text-primary">
-            👋 Welcome to Crazy Rep! Add your details so we can set your daily calorie and macro targets.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {!online && <OfflineNote>You&apos;re offline, so your profile is read-only. Reconnect to change it. You can still pick a theme.</OfflineNote>}
 
@@ -288,9 +278,9 @@ function ProfileForm({ initial }: { initial: Profile }) {
           </CardContent>
         </Card>
 
-        <Button type="submit" size="xl" className="w-full" disabled={formState.isSubmitting || (!formState.isDirty && !welcome)}>
+        <Button type="submit" size="xl" className="w-full" disabled={formState.isSubmitting || !formState.isDirty}>
           {formState.isSubmitting && <Loader2 className="animate-spin" />}
-          {welcome ? "Save and scan my first meal" : "Save changes"}
+          Save changes
         </Button>
         </fieldset>
       </form>

@@ -160,12 +160,12 @@ function SignUpForm({ onNotice }: { onNotice: (n: Notice) => void }) {
     const { data, error } = await createClient().auth.signUp({
       email,
       password,
-      options: { data: { display_name: name || undefined }, emailRedirectTo: callback("/profile?welcome=1") },
+      options: { data: { display_name: name || undefined }, emailRedirectTo: callback("/onboarding") },
     });
     if (error) return onNotice({ ok: false, text: error.message });
     if (data.session) {
       clearOfflineData();
-      router.replace("/profile?welcome=1");
+      router.replace("/onboarding");
       router.refresh();
       return;
     }
