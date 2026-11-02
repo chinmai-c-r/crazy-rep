@@ -1,4 +1,5 @@
 import { Lightbulb, X } from "lucide-react";
+import ItemStepper from "./ItemStepper";
 import { Button } from "@/components/ui/button";
 import { fmt } from "@/lib/nutrition";
 import type { FoodItem } from "@/lib/types";
@@ -27,6 +28,31 @@ export function FoodItemList({ items, onRemove }: { items: FoodItem[]; onRemove?
               <X />
             </Button>
           )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Detected items of a logged meal, each with a quantity stepper. `meta[i]` is the quantity shown and whether it can go lower. */
+export function EditableItemList({ items, meta, onStep }: { items: FoodItem[]; meta: { label: string; canDown: boolean }[]; onStep: (index: number, dir: 1 | -1) => void }) {
+  return (
+    <ul className="grid gap-2">
+      {items.map((it, i) => (
+        <li key={i} className="grid gap-2.5 rounded-xl bg-muted/60 px-3.5 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid min-w-0 flex-1">
+              <b className="truncate">{it.name}</b>
+              <small className="text-xs text-muted-foreground">
+                {it.portion} · {fmt(it.grams)}g · P {fmt(it.protein_g)} C {fmt(it.carbs_g)} F {fmt(it.fat_g)}
+              </small>
+            </div>
+            <span className="font-bold whitespace-nowrap">{fmt(it.calories)} kcal</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">Quantity</span>
+            <ItemStepper name={it.name} label={meta[i]?.label ?? "1"} canDown={meta[i]?.canDown ?? false} onStep={(dir) => onStep(i, dir)} />
+          </div>
         </li>
       ))}
     </ul>

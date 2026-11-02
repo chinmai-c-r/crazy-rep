@@ -79,6 +79,9 @@ export function itemOf(e: ItemEntry): FoodItem {
   return { ...e.base, ...scaleNutrients(e.base, factor), grams: Math.round(e.base.grams * factor), portion };
 }
 
+/** True once the quantity has been changed from what was reported. */
+export const isEdited = (e: ItemEntry) => itemOf(e) !== e.base;
+
 /** What the stepper shows for an entry, and whether it can go lower. */
 export function quantityOf(e: ItemEntry) {
   const q = parseQuantity(e.base.portion);

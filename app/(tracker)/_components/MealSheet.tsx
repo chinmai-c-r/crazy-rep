@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -18,12 +18,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { syncMeal } from "@/lib/google-health-client";
-import { fmt, scaleNutrients } from "@/lib/nutrition";
+import { isEdited, itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
+import { fmt, sumNutrients } from "@/lib/nutrition";
 import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
-import type { Meal, MealType } from "@/lib/types";
+import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
 import { MealTypePicker, Stepper } from "./Controls";
-import { FoodItemList, Insights } from "./FoodItems";
+import { EditableItemList, Insights } from "./FoodItems";
 import MacroBar from "./MacroBar";
 import NutrientGrid from "./NutrientGrid";
 import { SectionTitle } from "./Page";
@@ -51,15 +52,33 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
   const [busy, setBusy] = useState(false);
 
-  // Stored nutrients already include the saved servings; rescale relative to that.
-  const shown = scaleNutrients(meal, servings / Number(meal.servings));
-  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type;
+  // Each detected item can be raised or lowered. Items are per serving; the saved nutrients include the saved servings.
+  const [entries, setEntries] = useState<ItemEntry[]>(() => toEntries(meal.items ?? [], () => crypto.randomUUID()));
+  const items = useMemo(() => entries.map(itemOf), [entries]);
+  const itemMeta = useMemo(() => entries.map(quantityOf), [entries]);
+  const itemsEdited = entries.some(isEdited);
+
+  // Per serving as saved, plus whatever the item changes added or took away (so anything that wasn't an item is kept),
+  // then times the servings now chosen. With no item changes this is the saved nutrients scaled by servings.
+  const shown = useMemo(() => {
+    const was = sumNutrients(meal.items ?? []);
+    const now = sumNutrients(items);
+    const out = {} as Nutrients;
+    for (const k of NUTRIENT_KEYS) out[k] = Math.round(((Number(meal[k]) || 0) / Number(meal.servings) + (now[k] - was[k])) * servings * 10) / 10;
+    return out;
+  }, [meal, items, servings]);
+  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited;
 
   async function save() {
     const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
     setBusy(true);
-    const { data, error } = await createClient().from("meals").update(parsed.data).eq("id", meal.id).select().single();
+    const { data, error } = await createClient()
+      .from("meals")
+      .update({ ...parsed.data, ...(itemsEdited ? { items } : {}) })
+      .eq("id", meal.id)
+      .select()
+      .single();
     if (error) {
       setBusy(false);
       return toast.error(error.message);
@@ -121,12 +140,12 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
         </div>
         <NutrientGrid totals={shown} />
 
-        {meal.items?.length > 0 && (
+        {items.length > 0 && (
           <section className="grid gap-3">
             <SectionTitle>
               Detected items <span className="font-normal tracking-normal normal-case">(per serving)</span>
             </SectionTitle>
-            <FoodItemList items={meal.items} />
+            <EditableItemList items={items} meta={itemMeta} onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))} />
           </section>
         )}
 
