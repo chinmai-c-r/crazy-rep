@@ -106,6 +106,13 @@ The profile's `diet` (vegetarian by default, or eggetarian, non-vegetarian or ve
 
 Each user can keep several conversations (`chat_threads`). The coach only sees the messages of the open conversation, the daily message limit counts across all of them, and deleting a conversation deletes its messages.
 
+## Meal reminders
+
+- `reminder_settings` (one row per user: on/off, timezone, a time per meal, `last_sent`) and `push_subscriptions` (one row per device) hold the data. Users can read and change their own settings; subscriptions are written by the server (`/api/push/subscribe`), which only accepts addresses of real push services.
+- A `pg_cron` job (`meal-reminders`, every 15 minutes) runs `ping_meal_reminders()`, which uses `pg_net` to POST to `/api/reminders/send` with a shared secret. The app's URL and the secret are stored in Supabase Vault, not in the repo.
+- The endpoint checks the secret, then `lib/reminders-run.ts` picks the users who are due in their own timezone (`lib/reminders.ts`), skips meals already logged, sends the push with `web-push`, and removes devices the push service says are gone.
+- `public/sw.js` shows the notification and opens `/scan?type=…` when it's tapped.
+
 ## Working offline
 
 The installed app can be opened and read without a connection.

@@ -16,6 +16,7 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
 - **PWA**: installable from the browser on Android and iPhone, with app icons and a manifest.
 - **Onboarding**: new users answer five quick questions (goal, sex, body numbers, activity, diet) and get a daily plan to confirm. Most steps are one tap and the body numbers start from typical values. Nobody can use the app until it's done (`ProfileGate`).
+- **Meal reminders**: push notifications at breakfast, lunch and dinner (times are set per user in Profile, in their own timezone). Skipped when that meal is already logged. Sent by `pg_cron` calling the app every 15 minutes. Needs one-time setup, see below.
 - **Offline reading**: the app opens without a connection and shows the last data it fetched (today, the last 7 days of history, saved coach chats, the profile). Logging, editing and the coach are paused until the connection returns. Themes still work offline.
 - **Landing page** (`/`): what the app does today, plus a **Request access** form. Requests are saved to `access_requests` (one per email, server-only); approve someone by adding their email to the `sign-in-users` flag.
 
@@ -146,6 +147,29 @@ Sign up, complete your profile, then go to **Scan** and upload a meal photo.
 5. Back in Supabase, open **Authentication → URL Configuration**, set **Site URL** to `https://YOUR-APP.vercel.app` and add `https://YOUR-APP.vercel.app/**` to **Redirect URLs**.
 
 The analysis route sets `maxDuration = 60`, which fits the Vercel Hobby plan. Photos are resized in the browser to 1280 px JPEG before upload, so requests stay well under Vercel's 4.5 MB body limit.
+
+## Meal reminders
+
+Reminders are Web Push notifications. They work in the installed app on Android, and on iPhone (iOS 16.4 or later) once the app is added to the Home Screen.
+
+One-time setup:
+
+1. Generate the push keys: `npx web-push generate-vapid-keys`.
+2. Add these in Vercel (and `.env.local` to try it locally), then redeploy:
+   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a `mailto:` address) and `REMINDERS_SECRET` (any long random string, for example `openssl rand -hex 32`).
+3. Push the migration (the GitHub Action does this on merge). It creates the tables, turns on `pg_cron` and `pg_net`, and schedules a job named `meal-reminders` that runs every 15 minutes.
+4. Tell the database where the app is. Run this once in the Supabase SQL editor (the secret must match `REMINDERS_SECRET`; both values live in Vault, never in the repo):
+
+   ```sql
+   select vault.create_secret('https://YOUR-DOMAIN/api/reminders/send', 'reminders_url');
+   select vault.create_secret('THE-SAME-VALUE-AS-REMINDERS_SECRET', 'reminders_secret');
+   ```
+
+   Until both exist the job quietly does nothing. To change one later, update it in Dashboard → Vault.
+
+Check it: in the app, open Profile → Meal reminders, switch it on and tap **Send a test**. To see the scheduler working, look at `select * from cron.job_run_details order by start_time desc limit 5;` and `select * from net._http_response order by created desc limit 5;`.
+
+How it works: every 15 minutes `pg_cron` calls `/api/reminders/send` with the secret. The app (`lib/reminders-run.ts`) finds users whose reminder time has arrived in their own timezone, skips meals they've already logged today, and sends the push. A reminder is still sent for up to 90 minutes after its time, so one missed run doesn't lose it, and `last_sent` stops it going out twice in a day.
 
 ## 5. Optional: Google sign-in
 

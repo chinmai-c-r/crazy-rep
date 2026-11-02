@@ -74,3 +74,41 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(asset(request));
   }
 });
+
+// ── Meal reminders (Web Push) ────────────────────────────────
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  // Every push must show something (browsers can revoke permission otherwise)
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Crazy Rep", {
+      body: data.body || "Time to log a meal.",
+      icon: "/icons/icon-192.png",
+      tag: data.tag, // a newer reminder of the same meal replaces the old one
+      data: { url: data.url || "/dashboard" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/dashboard", self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      // Reuse the open app if there is one, and send it to the right place
+      for (const w of windows) {
+        if (new URL(w.url).origin === self.location.origin && "focus" in w) {
+          await w.focus();
+          if ("navigate" in w) return w.navigate(target).catch(() => clients.openWindow(target));
+          return;
+        }
+      }
+      return clients.openWindow(target);
+    })(),
+  );
+});

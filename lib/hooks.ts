@@ -25,6 +25,7 @@ export const keys = {
   recentDishes: ["recent-dishes"] as const,
   chatThreads: ["chat-threads"] as const,
   chat: (threadId: string) => ["chat", threadId] as const,
+  reminders: ["reminders"] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
