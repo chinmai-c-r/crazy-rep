@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, LogOut, Mail, Trash2 } from "lucide-react";
+import { Check, CloudOff, Loader2, LogOut, Mail, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -28,8 +28,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_DIET, DIET_OPTIONS } from "@/lib/diet";
-import { keys, useProfile, useUser } from "@/lib/hooks";
+import { useProfile, useUser } from "@/lib/hooks";
 import { clearOfflineData, useOnline } from "@/lib/offline";
+import { disablePush } from "@/lib/push";
 import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
@@ -37,7 +38,9 @@ import type { Profile } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
 import { ProfileSkeleton } from "../_components/Skeletons";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
+import { useAutosaveProfile, type SaveStatus } from "./useAutosaveProfile";
 import GoogleHealthCard from "./GoogleHealthCard";
+import RemindersCard from "./RemindersCard";
 import ThemePicker from "./ThemePicker";
 
 const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscle" } as const;
@@ -67,12 +70,15 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const { email } = useUser();
   const online = useOnline();
 
-  const { id, ...fields } = initial;
+  const fields: Partial<Profile> = { ...initial };
+  delete fields.id; // not an editable field
   const form = useForm<ProfileInput, unknown, ProfileValues>({
     resolver: zodResolver(profileSchema),
+    mode: "onChange",
     defaultValues: { ...fields, display_name: fields.display_name ?? "", water_goal_ml: fields.water_goal_ml ?? 2500, diet: fields.diet ?? DEFAULT_DIET },
   });
-  const { control, setValue, formState } = form;
+  const { control, setValue } = form;
+  const autosave = useAutosaveProfile(form, initial);
 
   const [sex, age, height, weight, activity, goal] = useWatch({
     control,
@@ -96,23 +102,11 @@ function ProfileForm({ initial }: { initial: Profile }) {
     for (const k of ["calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g"] as const) {
       setValue(k, calc[k], { shouldDirty: true, shouldValidate: true });
     }
-    toast.success("Recommended targets applied. Save to keep them.");
+    toast.success("Recommended targets applied");
   }
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    // A profile read before the diet migration ran has no diet column yet; leave it out so saving still works
-    const { diet, ...rest } = values;
-    const { error } = await createClient()
-      .from("profiles")
-      .update({ ...rest, ...("diet" in initial ? { diet } : {}), display_name: values.display_name || null })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    void queryClient.invalidateQueries({ queryKey: keys.profile });
-    toast.success("Profile saved");
-    form.reset(values);
-  });
-
   async function signOut() {
+    await disablePush(); // this phone stops getting this account's reminders
     await createClient().auth.signOut();
     clearOfflineData(queryClient);
     router.replace("/login");
@@ -121,7 +115,9 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
   return (
     <Page narrow>
-      <PageHeader title="Profile and goals" />
+      <PageHeader title="Profile and goals">
+        <SaveIndicator status={autosave.status} onRetry={autosave.retry} />
+      </PageHeader>
 
       <Card className="rounded-3xl">
         <CardContent className="flex items-center gap-4">
@@ -140,7 +136,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
       {!online && <OfflineNote>You&apos;re offline, so your profile is read-only. Reconnect to change it. You can still pick a theme.</OfflineNote>}
 
-      <form onSubmit={onSubmit} noValidate className="grid gap-5">
+      <form onSubmit={(e) => e.preventDefault()} noValidate className="grid gap-5">
         {/* A disabled fieldset turns off every field and button inside it */}
         <fieldset disabled={!online} className="grid min-w-0 gap-5 disabled:opacity-70">
         <Card className="rounded-3xl">
@@ -278,14 +274,12 @@ function ProfileForm({ initial }: { initial: Profile }) {
           </CardContent>
         </Card>
 
-        <Button type="submit" size="xl" className="w-full" disabled={formState.isSubmitting || !formState.isDirty}>
-          {formState.isSubmitting && <Loader2 className="animate-spin" />}
-          Save changes
-        </Button>
         </fieldset>
       </form>
 
       <GoogleHealthCard />
+
+      <RemindersCard />
 
       <ThemePicker />
 
@@ -304,6 +298,30 @@ function ProfileForm({ initial }: { initial: Profile }) {
         </CardContent>
       </Card>
     </Page>
+  );
+}
+
+/** Where the automatic save is at, in a small pill beside the title. */
+function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+  return (
+    <div aria-live="polite" className="h-8 text-sm">
+      {status === "saving" && (
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden /> Saving…
+        </span>
+      )}
+      {status === "saved" && (
+        <span className="inline-flex items-center gap-1.5 text-primary animate-in fade-in">
+          <Check className="size-3.5" aria-hidden /> Saved
+        </span>
+      )}
+      {status === "invalid" && <span className="text-warn">Fix the highlighted fields to save</span>}
+      {status === "error" && (
+        <button type="button" onClick={onRetry} className="inline-flex items-center gap-1.5 text-destructive underline-offset-2 hover:underline">
+          <CloudOff className="size-3.5" aria-hidden /> Not saved. Tap to retry
+        </button>
+      )}
+    </div>
   );
 }
 
