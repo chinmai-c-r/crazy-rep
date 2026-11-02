@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { useId } from "react";
 import { CalendarCheck, Dumbbell, Flame, Scale, Target, Trophy, UtensilsCrossed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
@@ -9,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { NUTRIENT_ROWS } from "./NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "./Page";
 import { MealSectionHeader } from "./MealParts";
+import ScrambleText from "./ScrambleText";
+import ShimmerText from "./ShimmerText";
 import { RingStats } from "./Ring";
 import { Highlight, StatTile, type Accent } from "./StatTile";
 
@@ -23,17 +26,51 @@ const Line = ({ className }: { className?: string }) => <Skeleton className={cn(
 
 /* ---------- Dashboard ---------- */
 
+/** A bright arc that circles a track, like the real ring waiting for its number. `size` is the viewBox side, `stroke` its stroke width. */
+function CometRing({ size, stroke, seconds = 2.4, delay = 0 }: { size: number; stroke: number; seconds?: number; delay?: number }) {
+  const id = useId();
+  const c = size / 2;
+  const r = c - stroke / 2;
+  const arc = { cx: c, cy: c, r, fill: "none", strokeLinecap: "round" as const, strokeDasharray: `${r * 1.5} ${r * 8}` };
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} className="relative size-full overflow-visible" aria-hidden>
+      <defs>
+        <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="var(--primary)" stopOpacity="0" />
+          <stop offset="0.55" stopColor="var(--mid)" />
+          <stop offset="1" stopColor="var(--chart-4)" />
+        </linearGradient>
+        <filter id={`${id}-b`} filterUnits="userSpaceOnUse" x={-size / 3} y={-size / 3} width={size * 1.66} height={size * 1.66}>
+          <feGaussianBlur stdDeviation={stroke * 0.5} />
+        </filter>
+      </defs>
+      <circle cx={c} cy={c} r={r} fill="none" strokeWidth={stroke} className="stroke-muted" />
+      <g className="origin-center animate-spin motion-reduce:animate-none" style={{ animationDuration: `${seconds}s`, animationDelay: `${delay}s` }}>
+        <circle {...arc} strokeWidth={stroke * 1.35} stroke={`url(#${id}-g)`} filter={`url(#${id}-b)`} opacity="0.7" />
+        <circle {...arc} strokeWidth={stroke} stroke={`url(#${id}-g)`} />
+      </g>
+    </svg>
+  );
+}
+
 export function RingCardSkeleton() {
   return (
     <Card className="relative items-center justify-center gap-4 rounded-3xl py-8">
       <div className="relative size-48 sm:size-52" aria-hidden>
-        <Skeleton className="size-full rounded-full" />
-        {/* The ring's stroke is 10/120 of its width */}
-        <div className="absolute inset-[8.333%] rounded-full bg-card" />
-        <div className="absolute inset-0 grid place-content-center justify-items-center">
-          <Line className="h-12 w-24" />
-          <Line className="mt-1 h-4 w-20" />
-          <Line className="mt-1 h-5 w-16" />
+        {/* A halo that breathes behind the ring, like the static one on the real card */}
+        <div className="absolute inset-4 animate-pulse rounded-full bg-primary/15 blur-2xl motion-reduce:animate-none" />
+        <CometRing size={120} stroke={10} />
+        {/* The same three lines as the real ring (48px, 16px, 20px), as scrambling text */}
+        <div className="absolute inset-0 grid place-content-center text-center">
+          <b className="font-heading text-5xl font-normal">
+            <ScrambleText pattern="888" seed={1} />
+          </b>
+          <small className="text-xs">
+            <ScrambleText pattern="of 8,888 kcal" seed={2} />
+          </small>
+          <span className="mt-1 text-sm font-semibold">
+            <ScrambleText pattern="8,888 left" seed={3} />
+          </span>
         </div>
       </div>
       <RingStats loading />
@@ -53,30 +90,52 @@ export function MacrosCardSkeleton() {
       <CardContent className="grid gap-4">
         <SectionTitle>Macros</SectionTitle>
         <div className="grid grid-cols-3 gap-3" aria-hidden>
-          {MACROS.map((m) => (
+          {MACROS.map((m, i) => (
             <div key={m.label} className="grid justify-items-center gap-2">
               <div className="relative size-20">
-                <Skeleton className="size-full rounded-full" />
-                {/* The ring's stroke is 8/80 of its width */}
-                <div className="absolute inset-[10%] rounded-full bg-card" />
+                <CometRing size={80} stroke={8} seconds={2.2} delay={-i * 0.55} />
+                <div className="absolute inset-0 grid place-content-center text-center">
+                  <b className="font-heading text-xl leading-none font-normal">
+                    <ScrambleText pattern="88" seed={10 + i} />
+                    <small className="ml-px font-sans text-[0.6rem]">%</small>
+                  </b>
+                </div>
               </div>
               <div className="grid justify-items-center">
                 <span className="flex items-center gap-1.5 text-sm">
                   <i className={cn("size-2 rounded-full", m.dot)} />
                   {m.label}
                 </span>
-                <Line className="h-4 w-16" />
+                <span className="text-xs">
+                  <b className="font-semibold">
+                    <ScrambleText pattern="88g" seed={30 + i} />
+                  </b>{" "}
+                  / <ScrambleText pattern="888g" seed={40 + i} />
+                </span>
               </div>
             </div>
           ))}
         </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {NUTRIENT_ROWS.map((r) => (
-            <div key={r.key} className="grid gap-0.5 rounded-xl bg-muted/60 p-3">
-              <span className="text-xs text-muted-foreground">{r.label}</span>
-              <Line className="h-[22.5px] w-14 bg-foreground/10" />
-              <Line className="h-4 w-10 bg-foreground/10" />
-              <Line className="mt-1 h-1 w-full rounded-full bg-foreground/10" />
+          {NUTRIENT_ROWS.map((r, i) => (
+            <div key={r.key} className="relative grid gap-0.5 overflow-hidden rounded-xl bg-muted/60 p-3">
+              {/* Same pieces as a loaded cell, all moving: the emoji floats, the label shimmers, and the bar has a light running along it */}
+              <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 animate-float text-3xl opacity-[0.18] motion-reduce:animate-none" style={{ ["--tilt" as string]: "12deg", animationDelay: `${i * 0.5}s` }}>
+                {r.emoji}
+              </span>
+              <span className="relative text-xs font-semibold">
+                <ShimmerText delay={i * 0.2}>{r.label}</ShimmerText>
+              </span>
+              <b className="relative text-lg leading-tight">
+                <ScrambleText pattern={r.unit === "g" ? "8.8" : "888"} seed={50 + i} />
+                <small className="ml-0.5 text-xs font-semibold text-foreground/65">{r.unit}</small>
+              </b>
+              <span className="relative text-xs font-semibold text-foreground/75">
+                <ScrambleText pattern="88%" seed={60 + i} /> DV
+              </span>
+              <span className="relative mt-1 block h-1 overflow-hidden rounded-full bg-foreground/10">
+                <span className="absolute inset-y-0 left-0 w-2/5 animate-bar-slide rounded-full bg-gradient-to-r from-primary/10 via-primary to-primary/10 motion-reduce:animate-none" style={{ animationDelay: `${i * 0.18}s` }} />
+              </span>
             </div>
           ))}
         </div>
@@ -86,10 +145,17 @@ export function MacrosCardSkeleton() {
 }
 
 /** Same box as a MealRow: 10px padding around a 56px thumbnail, plus the 1px border. */
-export function MealRowSkeleton() {
+export function MealRowSkeleton({ icon }: { icon?: string }) {
   return (
     <div className="flex w-full items-center gap-3.5 rounded-2xl border bg-card p-2.5">
-      <Skeleton className="size-14 shrink-0 rounded-xl" />
+      <span className="relative size-14 shrink-0">
+        <Skeleton className="size-full rounded-xl" />
+        {icon && (
+          <span aria-hidden className="absolute inset-0 grid animate-bob place-items-center text-2xl opacity-45 motion-reduce:animate-none">
+            {icon}
+          </span>
+        )}
+      </span>
       <div className="grid min-w-0 flex-1 gap-2">
         <Line className="h-4 w-3/5 max-w-40" />
         <Line className="h-3 w-4/5 max-w-52" />
@@ -108,7 +174,7 @@ export function MealSectionsSkeleton() {
       {MEAL_TYPES.map((t) => (
         <div key={t.value} className="grid content-start gap-2">
           <MealSectionHeader icon={t.icon} label={t.label} loading />
-          <MealRowSkeleton />
+          <MealRowSkeleton icon={t.icon} />
         </div>
       ))}
     </section>
@@ -297,7 +363,7 @@ export function TableRowsSkeleton({ rows = 8 }: { rows?: number }) {
     <tr key={r} className="border-b last:border-0" aria-hidden>
       {TABLE_WIDTHS.map((w, c) => (
         <td key={c} className={cn("p-2 align-middle", c === 0 && STICKY)}>
-          <Line className={cn("h-5", w)} />
+          <Line className={cn("h-5 before:hidden animate-pulse", w)} />
         </td>
       ))}
     </tr>

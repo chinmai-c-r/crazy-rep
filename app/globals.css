@@ -14,6 +14,12 @@
     --animate-drift: drift 12s ease-in-out infinite alternate;
     --animate-twinkle: twinkle 3s ease-in-out infinite;
     --animate-shimmer: shimmer 2.8s ease-in-out infinite;
+    --animate-skeleton: skeleton-sweep 1.9s ease-in-out infinite;
+    --animate-flicker: flicker 1.1s ease-in-out infinite;
+    --animate-swing: swing 1.6s ease-in-out infinite;
+    --animate-wiggle: wiggle 1.2s ease-in-out infinite;
+    --animate-text-shimmer: text-shimmer 1.9s linear infinite;
+    --animate-bar-slide: bar-slide 1.5s ease-in-out infinite;
     --animate-float: float 7s ease-in-out infinite;
 
     /* Transform/opacity only, so these stay on the GPU and run smoothly on phones */
@@ -33,6 +39,30 @@
     }
     @keyframes drift {
         to { transform: translate3d(10%, -8%, 0) scale(1.18); }
+    }
+    @keyframes flicker {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        30% { transform: scale(1.14, 0.9); opacity: 0.8; }
+        62% { transform: scale(0.92, 1.16) translateY(-1px); opacity: 1; }
+    }
+    @keyframes swing {
+        0%, 100% { transform: rotate(-30deg); }
+        50% { transform: rotate(30deg); }
+    }
+    @keyframes wiggle {
+        0%, 100% { transform: rotate(-16deg); }
+        50% { transform: rotate(16deg) scale(1.12); }
+    }
+    @keyframes text-shimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+    }
+    @keyframes bar-slide {
+        0% { transform: translateX(-110%); }
+        100% { transform: translateX(270%); }
+    }
+    @keyframes skeleton-sweep {
+        to { transform: translateX(100%); }
     }
     @keyframes shimmer {
         0% { transform: translateX(-140%) skewX(-18deg); }

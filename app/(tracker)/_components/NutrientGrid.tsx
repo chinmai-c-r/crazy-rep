@@ -34,12 +34,12 @@ export default function NutrientGrid({ totals, className }: { totals: Nutrients;
             <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 rotate-12 text-3xl opacity-[0.12]">
               {r.emoji}
             </span>
-            <span className="relative text-xs text-muted-foreground">{r.label}</span>
+            <span className="relative text-xs font-semibold text-foreground/75">{r.label}</span>
             <b className="relative text-lg leading-tight">
               {fmt(v, r.unit === "g" ? 1 : 0)}
-              <small className="ml-0.5 text-xs font-normal text-muted-foreground">{r.unit}</small>
+              <small className="ml-0.5 text-xs font-semibold text-foreground/65">{r.unit}</small>
             </b>
-            <span className={cn("relative text-xs text-muted-foreground", warn && "font-semibold text-carbs")}>{pct}% DV</span>
+            <span className={cn("relative text-xs font-semibold text-foreground/75", warn && "text-carbs")}>{pct}% DV</span>
             <span className="relative mt-1 block h-1 overflow-hidden rounded-full bg-foreground/10">
               <motion.span
                 className={cn("block h-full origin-left rounded-full", warn ? "bg-gradient-to-r from-carbs to-chart-3" : "bg-gradient-to-r from-primary/60 to-primary")}

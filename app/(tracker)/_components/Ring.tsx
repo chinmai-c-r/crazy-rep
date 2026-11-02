@@ -3,7 +3,8 @@
 import { animate, motion, useReducedMotion } from "framer-motion";
 import { Flame, Gauge, UtensilsCrossed } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import ScrambleText from "./ScrambleText";
+import ShimmerText from "./ShimmerText";
 import { fmt } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -115,9 +116,9 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
 }
 
 const STATS = [
-  { key: "burned", label: "burned", icon: Flame, color: "text-chart-4" },
-  { key: "net", label: "net kcal", icon: Gauge, color: "text-foreground" },
-  { key: "meals", label: "meals", icon: UtensilsCrossed, color: "text-primary" },
+  { key: "burned", label: "burned", icon: Flame, color: "text-chart-4", anim: "origin-bottom animate-flicker" },
+  { key: "net", label: "net kcal", icon: Gauge, color: "text-foreground", anim: "animate-swing" },
+  { key: "meals", label: "meals", icon: UtensilsCrossed, color: "text-primary", anim: "animate-wiggle" },
 ] as const;
 
 /** Burned, net and meal count under the ring. The loading state shares this markup so both are the same size. */
@@ -125,13 +126,13 @@ export function RingStats({ burned = 0, net = 0, meals = 0, loading }: { burned?
   const values = { burned, net, meals };
   return (
     <div className="grid w-full grid-cols-3 px-4 text-center text-sm [&>*+*]:border-l">
-      {STATS.map(({ key, label, icon: Icon, color }) => (
+      {STATS.map(({ key, label, icon: Icon, color, anim }, i) => (
         <div key={key} className="grid justify-items-center">
           <b className={cn("flex items-center gap-1.5 font-heading text-2xl font-normal", color)}>
-            <Icon className="size-4" aria-hidden />
-            {loading ? <Skeleton className="h-8 w-9 rounded" /> : fmt(values[key])}
+            <Icon className={cn("size-4", loading && `${anim} motion-reduce:animate-none`)} style={loading ? { animationDelay: `${i * 0.2}s` } : undefined} aria-hidden />
+            {loading ? <ScrambleText pattern="888" seed={20 + i} /> : fmt(values[key])}
           </b>
-          <span className="text-muted-foreground">{label}</span>
+          <span className="font-semibold text-foreground/70">{loading ? <ShimmerText delay={i * 0.25}>{label}</ShimmerText> : label}</span>
         </div>
       ))}
     </div>

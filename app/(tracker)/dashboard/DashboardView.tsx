@@ -19,8 +19,8 @@ import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import Ring, { RingStats } from "../_components/Ring";
 import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton } from "../_components/Skeletons";
 
-/** Cards fade up as they appear, so the swap from skeleton to data feels deliberate. */
-const ENTER = "animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500";
+/** Cards rise a little as they replace their skeleton. No fade: fading from transparent would flash blank. */
+const ENTER = "animate-in slide-in-from-bottom-2 fill-mode-both duration-500";
 
 export default function DashboardView() {
   const [date, setDate] = useState(() => new Date());
@@ -109,7 +109,7 @@ export default function DashboardView() {
             <div key={t.value} className={`grid content-start gap-2 ${ENTER}`} style={{ animationDelay: `${160 + MEAL_TYPES.indexOf(t) * 60}ms` }}>
               <MealSectionHeader icon={t.icon} label={t.label} kcal={kcal} loading={loading} />
               {loading ? (
-                <MealRowSkeleton />
+                <MealRowSkeleton icon={t.icon} />
               ) : list.length ? (
                 <ul className="grid gap-2">
                   {list.map((m, i) => (
