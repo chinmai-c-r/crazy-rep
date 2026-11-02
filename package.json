@@ -46,7 +46,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.2",
-    "eslint": "^9",
+    "eslint": "^10.14.0",
     "eslint-config-next": "^16.4.3",
     "shadcn": "^4.23.0",
     "supabase": "^2.122.0",
@@ -54,5 +54,20 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "node-domexception": "npm:@nolyfill/domexception@^1.0.28",
+    "eslint-plugin-react": {
+      "eslint": "$eslint"
+    },
+    "eslint-plugin-import": {
+      "eslint": "$eslint"
+    },
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
   }
 }
