@@ -96,21 +96,28 @@ export function WaterCard({
   const online = useOnline();
   const total = logs.reduce((s, l) => s + l.ml, 0);
 
+  // Both actions update the screen first and the server after, rolling back with a message if it fails
   async function add(ml: number) {
     const now = new Date();
     const at = new Date(day);
     at.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
-    const { data, error } = await createClient().from("water_logs").insert({ ml, logged_at: at.toISOString() }).select().single();
+    const temp: WaterLog = { id: `pending-${crypto.randomUUID()}`, logged_at: at.toISOString(), ml };
+    onAdded(temp);
+    const { data, error } = await createClient().from("water_logs").insert({ ml, logged_at: temp.logged_at }).select().single();
+    onRemoved(temp.id);
     if (error) return toast.error(error.message);
     onAdded(data as WaterLog);
   }
 
   async function undo() {
     const last = logs[0];
-    if (!last) return;
-    const { error } = await createClient().from("water_logs").delete().eq("id", last.id);
-    if (error) return toast.error(error.message);
+    if (!last || last.id.startsWith("pending-")) return; // still saving: nothing on the server to remove yet
     onRemoved(last.id);
+    const { error } = await createClient().from("water_logs").delete().eq("id", last.id);
+    if (error) {
+      onAdded(last);
+      toast.error(error.message);
+    }
   }
 
   return (
@@ -142,7 +149,7 @@ export function WaterCard({
           <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(500)} disabled={loading || !online}>
             +500 ml
           </Button>
-          <Button variant="ghost" size="icon-lg" className="size-10 rounded-full" onClick={undo} disabled={!logs.length || !online} aria-label="Undo last water entry">
+          <Button variant="ghost" size="icon-lg" className="size-10 rounded-full" onClick={undo} disabled={!logs.length || !online || logs[0].id.startsWith("pending-")} aria-label="Undo last water entry">
             <Undo2 />
           </Button>
         </div>

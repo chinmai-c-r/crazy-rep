@@ -39,6 +39,7 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
   const id = useId();
   const pct = goal > 0 ? value / goal : 0;
   const over = pct > 1;
+  const hasValue = value > 0;
   const fill = Math.min(pct, 1);
   const rolling = useRolling(value, reduce);
   const [c0, c1, c2] = over ? GRADIENTS.over : GRADIENTS.ok;
@@ -50,8 +51,7 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
     r: 52,
     fill: "none",
     strokeLinecap: "round" as const,
-    initial: { pathLength: 0 },
-    animate: { pathLength: fill },
+    initial: { pathLength: 0, opacity: 0 },
     transition: { duration: reduce ? 0 : DURATION, ease: [0.16, 1, 0.3, 1] as const },
   };
 
@@ -81,22 +81,32 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
             <circle cx="60" cy="60" r="41" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.1 3.35" className="text-foreground/20" />
           </g>
 
+          {/* Opacity goes through animate (not style): framer ignores later changes to a plain style value */}
           <motion.circle
             {...arc}
             strokeWidth="14"
             stroke={`url(#${id}-grad)`}
             filter={`url(#${id}-glow)`}
-            style={{ opacity: value > 0 ? 0.6 : 0 }}
-            {...(over && !reduce ? { animate: { pathLength: fill, opacity: [0.4, 0.8, 0.4] }, transition: { pathLength: arc.transition, opacity: { duration: 2.4, repeat: Infinity } } } : {})}
+            animate={{ pathLength: fill, opacity: !hasValue ? 0 : over && !reduce ? [0.4, 0.8, 0.4] : 0.6 }}
+            transition={{
+              pathLength: arc.transition,
+              opacity: over && !reduce && hasValue ? { duration: 2.4, repeat: Infinity } : { duration: reduce ? 0 : 0.4 },
+            }}
           />
-          <motion.circle {...arc} strokeWidth="10" stroke={`url(#${id}-grad)`} style={{ opacity: value > 0 ? 1 : 0 }} />
+          <motion.circle
+            {...arc}
+            strokeWidth="10"
+            stroke={`url(#${id}-grad)`}
+            animate={{ pathLength: fill, opacity: hasValue ? 1 : 0 }}
+            transition={{ pathLength: arc.transition, opacity: { duration: reduce ? 0 : 0.3 } }}
+          />
 
           {/* Bright head at the end of the arc */}
           <motion.g
-            style={{ transformOrigin: "60px 60px", opacity: value > 0 ? 1 : 0 }}
-            initial={{ rotate: 0 }}
-            animate={{ rotate: fill * 360 }}
-            transition={arc.transition}
+            style={{ transformOrigin: "60px 60px" }}
+            initial={{ rotate: 0, opacity: 0 }}
+            animate={{ rotate: fill * 360, opacity: hasValue ? 1 : 0 }}
+            transition={{ rotate: arc.transition, opacity: { duration: reduce ? 0 : 0.3 } }}
           >
             <circle cx="112" cy="60" r="5.5" fill="var(--foreground)" opacity="0.28" />
             <circle cx="112" cy="60" r="2.4" fill="var(--foreground)" />
