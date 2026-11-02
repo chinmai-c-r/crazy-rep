@@ -162,7 +162,37 @@ function MacroRow({ label, grams, share, dot, bar }: { label: string; grams: num
   );
 }
 
-function ItemCard({ item, share, index, onRemove, last, flag }: { item: FoodItem; share: number; index: number; onRemove: () => void; last: boolean; flag?: string }) {
+/** A quantity pill for one item: whole numbers for things you count (dosas), halves for measures (a cup). */
+function ItemStepper({ name, label, canDown, onStep }: { name: string; label: string; canDown: boolean; onStep: (dir: 1 | -1) => void }) {
+  return (
+    <div className="inline-flex items-center rounded-full border bg-background/40 p-0.5" role="group" aria-label={`${name} quantity`}>
+      <Button type="button" variant="secondary" size="icon-sm" className="size-7 rounded-full active:scale-90" onClick={() => { buzz(); onStep(-1); }} disabled={!canDown} aria-label={`Fewer ${name}`}>
+        <Minus className="size-3.5" />
+      </Button>
+      <span className="grid min-w-11 place-items-center overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.b
+            key={label}
+            className="font-heading text-lg leading-none font-normal"
+            initial={{ y: 10, opacity: 0, scale: 0.7 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -10, opacity: 0, scale: 0.7 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          >
+            {label}
+          </motion.b>
+        </AnimatePresence>
+      </span>
+      <Button type="button" size="icon-sm" className="size-7 rounded-full shadow-[0_4px_12px_-3px_rgb(var(--primary-rgb)/0.6)] active:scale-90" onClick={() => { buzz(); onStep(1); }} aria-label={`More ${name}`}>
+        <Plus className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function ItemCard({ item, share, index, onRemove, last, flag, qty, onStep }: { item: FoodItem; share: number; index: number; onRemove: () => void; last: boolean; flag?: string; qty: { label: string; canDown: boolean }; onStep: (dir: 1 | -1) => void }) {
+  const reduce = useReducedMotion() ?? false;
+  const kcal = useRolling(item.calories, reduce, 0.6); // rolls to the new number when the quantity changes
   return (
     <motion.li
       layout
@@ -191,7 +221,7 @@ function ItemCard({ item, share, index, onRemove, last, flag }: { item: FoodItem
           </small>
         </div>
         <span className="text-right font-heading text-xl leading-none whitespace-nowrap">
-          {fmt(item.calories)}
+          {fmt(Math.round(kcal))}
           <small className="block font-sans text-[0.65rem] text-muted-foreground">kcal</small>
         </span>
         <Button
@@ -208,6 +238,10 @@ function ItemCard({ item, share, index, onRemove, last, flag }: { item: FoodItem
         >
           <X />
         </Button>
+      </div>
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground">Quantity</span>
+        <ItemStepper name={item.name} label={qty.label} canDown={qty.canDown} onStep={onStep} />
       </div>
       {/* This item's share of the meal */}
       <span className="mt-3 block h-1 overflow-hidden rounded-full bg-foreground/5">
@@ -228,6 +262,9 @@ export type ResultProps = {
   preview: string | null;
   totals: Nutrients;
   items: FoodItem[];
+  /** One per item: a stable id (so cards keep their identity as quantities change), the quantity shown, and whether it can go lower. */
+  itemMeta: { id: string; label: string; canDown: boolean }[];
+  onStepItem: (index: number, dir: 1 | -1) => void;
   onRemoveItem: (index: number) => void;
   servings: number;
   onServings: (v: number) => void;
@@ -370,7 +407,7 @@ export default function ResultStage(p: ResultProps) {
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               <AnimatePresence mode="popLayout" initial>
                 {p.items.map((it, i) => (
-                  <ItemCard key={`${it.name}-${it.portion}-${i}`} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} flag={dietConflict(diet, it.name) ? (diet === "vegan" ? "Not vegan" : "Not veg") : undefined} onRemove={() => p.onRemoveItem(i)} />
+                  <ItemCard key={p.itemMeta[i]?.id ?? `${it.name}-${i}`} qty={p.itemMeta[i] ?? { label: "1", canDown: false }} onStep={(dir) => p.onStepItem(i, dir)} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} flag={dietConflict(diet, it.name) ? (diet === "vegan" ? "Not vegan" : "Not veg") : undefined} onRemove={() => p.onRemoveItem(i)} />
                 ))}
               </AnimatePresence>
             </ul>

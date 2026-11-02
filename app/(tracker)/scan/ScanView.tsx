@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
+import { itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
 import { guessMealType, scaleNutrients, sumNutrients } from "@/lib/nutrition";
 import { analyzeResponseSchema, mealDetailsSchema, mealWriteSchema, type AnalysisSource } from "@/lib/schemas";
 
@@ -24,7 +25,7 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
 };
 import { invalidateRecentDishes, invalidateSummary, useUser } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
-import { MEAL_TYPES, type Analysis, type FoodItem, type Meal, type MealType } from "@/lib/types";
+import { MEAL_TYPES, type Analysis, type Meal, type MealType } from "@/lib/types";
 import { Page, PageHeader } from "../_components/Page";
 import AnalyzingScreen from "./AnalyzingScreen";
 import DetailsStage from "./DetailsStage";
@@ -57,7 +58,10 @@ export default function ScanView() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [source, setSource] = useState<AnalysisSource>("photo");
   const [provider, setProvider] = useState<Provider>("ai");
-  const [items, setItems] = useState<FoodItem[]>([]);
+  // Each detected item keeps its original values and the quantity now chosen; the items used below are scaled from those
+  const [entries, setEntries] = useState<ItemEntry[]>([]);
+  const items = useMemo(() => entries.map(itemOf), [entries]);
+  const itemMeta = useMemo(() => entries.map((e) => ({ id: e.id, ...quantityOf(e) })), [entries]);
   const [servings, setServings] = useState(1);
   const [mealType, setMealType] = useState<MealType>(() => {
     const t = new URLSearchParams(window.location.search).get("type");
@@ -130,7 +134,7 @@ export default function ScanView() {
       setAnalysis(a);
       setSource(src);
       setProvider(prov);
-      setItems(a.items);
+      setEntries(toEntries(a.items, () => crypto.randomUUID()));
       setServings(1);
       setStage("result");
     } catch (e) {
@@ -199,7 +203,7 @@ export default function ScanView() {
     setStage("details");
     removePhoto();
     setAnalysis(null);
-    setItems([]);
+    setEntries([]);
     setError(null);
     form.reset(EMPTY);
   }
@@ -252,7 +256,9 @@ export default function ScanView() {
           preview={preview}
           totals={totals}
           items={items}
-          onRemoveItem={(i) => setItems((xs) => xs.filter((_, j) => j !== i))}
+          itemMeta={itemMeta}
+          onStepItem={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))}
+          onRemoveItem={(i) => setEntries((xs) => xs.filter((_, j) => j !== i))}
           servings={servings}
           onServings={setServings}
           mealType={mealType}
