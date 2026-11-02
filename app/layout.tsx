@@ -3,7 +3,9 @@ import { Anton, Inter } from "next/font/google";
 import "./globals.css";
 import "./landing.css";
 import RegisterSW from "./components/RegisterSW";
+import ThemeSync from "./components/ThemeSync";
 import { Toaster } from "@/components/ui/sonner";
+import { themeInitScript } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const display = Anton({
@@ -32,11 +34,16 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={cn(display.variable, body.variable, "dark")}>
+    // suppressHydrationWarning: the theme script edits data-theme and the dark class before React loads
+    <html lang="en" className={cn(display.variable, body.variable, "dark")} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript() }} />
+      </head>
       <body>
         {children}
         <Toaster position="top-center" richColors />
         <RegisterSW />
+        <ThemeSync />
       </body>
     </html>
   );

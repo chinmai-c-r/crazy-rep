@@ -86,7 +86,7 @@ export default function AnalyzingScreen({ preview, name, onCancel }: { preview: 
 
           <div className="flex w-48 gap-1.5" aria-hidden>
             {steps.map((_, i) => (
-              <span key={i} className="relative h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+              <span key={i} className="relative h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
                 <motion.span
                   className="absolute inset-0 origin-left rounded-full bg-gradient-to-r from-primary to-chart-4"
                   initial={false}
@@ -129,7 +129,7 @@ function Backdrop({ preview, reduce }: { preview: string | null; reduce: boolean
         SPARKS.map((s, i) => (
           <i
             key={i}
-            className="absolute animate-twinkle rounded-full bg-white"
+            className="absolute animate-twinkle rounded-full bg-foreground"
             style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: `${s.delay}s` }}
           />
         ))}
@@ -142,7 +142,7 @@ function PhotoStage({ preview, reduce }: { preview: string; reduce: boolean }) {
   const corner = "absolute size-9 border-[3px] border-primary";
   return (
     <motion.div
-      className="relative aspect-[4/5] w-[min(78vw,22rem)] overflow-hidden rounded-[2rem] shadow-[0_0_80px_rgb(198_255_0/0.18)] ring-1 ring-white/15"
+      className="relative aspect-[4/5] w-[min(78vw,22rem)] overflow-hidden rounded-[2rem] shadow-[0_0_80px_rgb(var(--primary-rgb)/0.18)] ring-1 ring-white/15"
       style={{ maxHeight: "50dvh" }}
       initial={reduce ? false : { scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -157,7 +157,7 @@ function PhotoStage({ preview, reduce }: { preview: string; reduce: boolean }) {
       {!reduce && (
         <div className="absolute inset-x-0 top-0 h-[34%] animate-laser will-change-transform">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-primary/35" />
-          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-primary shadow-[0_0_28px_8px_rgb(198_255_0/0.75)]" />
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-primary shadow-[0_0_28px_8px_rgb(var(--primary-rgb)/0.75)]" />
         </div>
       )}
 
@@ -176,7 +176,7 @@ function PhotoStage({ preview, reduce }: { preview: string; reduce: boolean }) {
         ].map((p, i) => (
           <span key={i} className="absolute size-12 -translate-x-1/2 -translate-y-1/2" style={{ left: p.left, top: p.top }}>
             <i className="absolute inset-0 animate-sonar rounded-full border-2 border-primary" style={{ animationDelay: `${p.delay}s` }} />
-            <i className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_12px_3px_rgb(198_255_0/0.8)]" />
+            <i className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_12px_3px_rgb(var(--primary-rgb)/0.8)]" />
           </span>
         ))}
     </motion.div>
@@ -199,7 +199,7 @@ function OrbStage({ reduce, name }: { reduce: boolean; name: string }) {
 
         {rings.map((ring) => (
           <div key={ring.radius} className="absolute inset-0 grid place-items-center">
-            <div className="absolute rounded-full border border-dashed border-white/10" style={{ inset: `calc(50% - ${ring.radius})` }} />
+            <div className="absolute rounded-full border border-dashed border-foreground/10" style={{ inset: `calc(50% - ${ring.radius})` }} />
             <div
               className={cn("absolute inset-0", !reduce && "animate-orbit will-change-transform")}
               style={{ animationDuration: `${ring.seconds}s`, animationDirection: ring.reverse ? "reverse" : "normal" }}
@@ -227,7 +227,7 @@ function OrbStage({ reduce, name }: { reduce: boolean; name: string }) {
         ))}
 
         <motion.div
-          className="absolute inset-[34%] grid place-items-center rounded-full bg-gradient-to-br from-primary via-[#4dffb0] to-chart-4 shadow-[0_0_70px_rgb(198_255_0/0.5)]"
+          className="absolute inset-[34%] grid place-items-center rounded-full bg-gradient-to-br from-primary via-mid to-chart-4 shadow-[0_0_70px_rgb(var(--primary-rgb)/0.5)]"
           animate={reduce ? undefined : { scale: [1, 1.08, 1] }}
           transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         >
@@ -236,7 +236,7 @@ function OrbStage({ reduce, name }: { reduce: boolean; name: string }) {
       </div>
 
       {name && (
-        <p className="max-w-[80vw] truncate rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur">
+        <p className="max-w-[80vw] truncate rounded-full border border-foreground/10 bg-foreground/5 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur">
           “{name}”
         </p>
       )}

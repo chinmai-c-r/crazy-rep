@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MEAL_TYPES } from "@/lib/types";
+import { THEMES } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { NUTRIENT_ROWS } from "./NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "./Page";
@@ -481,6 +482,27 @@ export function ProfileSkeleton() {
 
         <Skeleton className="h-12 w-full rounded-full" />
       </div>
+
+      <Card className="rounded-3xl">
+        <CardContent className="grid gap-4">
+          <SectionTitle>Appearance</SectionTitle>
+          <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device.</p>
+          {/* The same groups as the picker. Each tile is 10px padding around a 56px preview and a 36px label, plus the border */}
+          {[
+            { label: "Dark", count: THEMES.filter((t) => t.dark).length },
+            { label: "Light", count: THEMES.filter((t) => !t.dark).length },
+          ].map((g) => (
+            <div key={g.label} className="grid gap-3" aria-hidden>
+              <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{g.label}</span>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {Array.from({ length: g.count }, (_, i) => (
+                  <Skeleton key={i} className="h-[122px] rounded-2xl" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-3xl bg-transparent">
         <CardContent className="grid gap-4">

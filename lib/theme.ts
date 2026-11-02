@@ -1,0 +1,100 @@
+/**
+ * Colour themes. The choice lives in localStorage (no account needed) and is applied as data-theme on <html>,
+ * where app/globals.css swaps the colour variables. A tiny inline script applies it before first paint.
+ */
+export type ThemeId = "neon" | "black" | "ocean" | "aurora" | "emerald" | "violet" | "cyber" | "rose" | "sunset" | "gold" | "mocha" | "light" | "sky" | "blossom";
+
+export const THEME_KEY = "crazy-rep-theme";
+export const DEFAULT_THEME: ThemeId = "neon";
+
+type Theme = {
+  id: ThemeId;
+  name: string;
+  tagline: string;
+  /** Light themes drop the `dark` class, so `dark:` variants stay off. */
+  dark: boolean;
+  /** Preview colours (page, card, accent start and end) for the picker. */
+  bg: string;
+  card: string;
+  from: string;
+  to: string;
+};
+
+export const THEMES: Theme[] = [
+  { id: "neon", name: "Neon", tagline: "The original lime glow", dark: true, bg: "#0a0a0c", card: "#16161d", from: "#c6ff00", to: "#00e5ff" },
+  { id: "black", name: "Black", tagline: "True black for OLED", dark: true, bg: "#000000", card: "#0b0b0e", from: "#c6ff00", to: "#00e5ff" },
+  { id: "ocean", name: "Ocean", tagline: "Deep blue calm", dark: true, bg: "#060b14", card: "#0f1828", from: "#38bdf8", to: "#818cf8" },
+  { id: "aurora", name: "Aurora", tagline: "Teal meets violet", dark: true, bg: "#060d12", card: "#0d1a22", from: "#2dd4bf", to: "#a78bfa" },
+  { id: "emerald", name: "Emerald", tagline: "Fresh and green", dark: true, bg: "#050f0b", card: "#0d1b15", from: "#34d399", to: "#a3e635" },
+  { id: "violet", name: "Violet", tagline: "Soft purple night", dark: true, bg: "#0b0814", card: "#151024", from: "#a78bfa", to: "#60a5fa" },
+  { id: "cyber", name: "Cyber", tagline: "Magenta and cyan", dark: true, bg: "#08050f", card: "#130a1f", from: "#e879f9", to: "#22d3ee" },
+  { id: "rose", name: "Rose", tagline: "Soft pink glow", dark: true, bg: "#12080c", card: "#1e0f15", from: "#fb7185", to: "#fdba74" },
+  { id: "sunset", name: "Sunset", tagline: "Warm orange and pink", dark: true, bg: "#110907", card: "#1c110d", from: "#ff8a3d", to: "#ff4d8d" },
+  { id: "gold", name: "Gold", tagline: "Warm and golden", dark: true, bg: "#0e0b04", card: "#1a1608", from: "#facc15", to: "#fb923c" },
+  { id: "mocha", name: "Mocha", tagline: "Cozy coffee tones", dark: true, bg: "#110c09", card: "#1c1510", from: "#e0b08a", to: "#8fbfa0" },
+  { id: "light", name: "Light", tagline: "Clean and bright", dark: false, bg: "#f5f6f8", card: "#ffffff", from: "#357f00", to: "#0891b2" },
+  { id: "sky", name: "Sky", tagline: "Light and blue", dark: false, bg: "#f2f7fc", card: "#ffffff", from: "#0a70c2", to: "#7c3aed" },
+  { id: "blossom", name: "Blossom", tagline: "Light and rose", dark: false, bg: "#fbf3f5", card: "#ffffff", from: "#c0265f", to: "#ea580c" },
+];
+
+export const isTheme = (v: unknown): v is ThemeId => THEMES.some((t) => t.id === v);
+
+export function storedTheme(): ThemeId {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    return isTheme(v) ? v : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME; // storage blocked (private mode): the default still works
+  }
+}
+
+/** Sets the theme on the page. `animate` lets colours glide over a moment instead of snapping. */
+export function applyTheme(id: ThemeId, { animate = false } = {}) {
+  const root = document.documentElement;
+  const theme = THEMES.find((t) => t.id === id) ?? THEMES[0];
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (animate && !reduced) {
+    root.dataset.themeSwitching = "";
+    window.setTimeout(() => delete root.dataset.themeSwitching, 450);
+  }
+  root.dataset.theme = theme.id;
+  root.classList.toggle("dark", theme.dark);
+  // The browser or installed-app chrome follows the page colour
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme.bg);
+}
+
+const EVENT = "crazy-rep-theme";
+
+export function setTheme(id: ThemeId) {
+  try {
+    localStorage.setItem(THEME_KEY, id);
+  } catch {}
+  applyTheme(id, { animate: true });
+  window.dispatchEvent(new Event(EVENT));
+}
+
+export function subscribeTheme(onChange: () => void) {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== THEME_KEY) return;
+    applyTheme(storedTheme()); // another tab changed it
+    onChange();
+  };
+  window.addEventListener(EVENT, onChange);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(EVENT, onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** The theme currently on the page (the attribute is the source of truth, so it matches what is painted). */
+export const currentTheme = (): ThemeId => {
+  const v = document.documentElement.dataset.theme;
+  return isTheme(v) ? v : DEFAULT_THEME;
+};
+
+/** Runs in <head> before the page paints, so a saved theme never flashes the default first. */
+export function themeInitScript() {
+  const table = Object.fromEntries(THEMES.map((t) => [t.id, { d: t.dark, b: t.bg }]));
+  return `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});var m=${JSON.stringify(table)};if(!m[t])t=${JSON.stringify(DEFAULT_THEME)};var r=document.documentElement;r.dataset.theme=t;r.classList.toggle("dark",m[t].d);var c=document.querySelector('meta[name="theme-color"]');if(c)c.setAttribute("content",m[t].b)}catch(e){}})()`;
+}

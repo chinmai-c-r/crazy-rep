@@ -35,6 +35,7 @@ import type { Profile } from "@/lib/types";
 import { ProfileSkeleton } from "../_components/Skeletons";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import GoogleHealthCard from "./GoogleHealthCard";
+import ThemePicker from "./ThemePicker";
 
 const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscle" } as const;
 const SEX_LABELS = { male: "Male", female: "Female" } as const;
@@ -252,6 +253,8 @@ function ProfileForm({ initial }: { initial: Profile }) {
       </form>
 
       <GoogleHealthCard />
+
+      <ThemePicker />
 
       <Card className="rounded-3xl bg-transparent">
         <CardContent className="grid gap-4">

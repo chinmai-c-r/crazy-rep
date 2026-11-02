@@ -15,9 +15,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-body {
+/* The page colours apply to the landing page only; the app takes its colours from the theme */
+body:has(.landing) {
   background: var(--bg);
   color: var(--text);
+}
+body {
   font-family: var(--font-body), system-ui, sans-serif;
   line-height: 1.6;
   overflow-x: hidden;

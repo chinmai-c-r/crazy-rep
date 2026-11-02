@@ -77,7 +77,7 @@ export function MealTypeRow({ value, onChange }: { value: MealType; onChange: (v
             }}
             className={cn(
               "flex h-8 min-w-0 flex-auto items-center justify-center gap-1 rounded-full px-1 text-xs font-semibold max-[359px]:text-[0.68rem] max-[330px]:text-[0.6rem] transition-[background-color,color,box-shadow] duration-300 active:scale-95",
-              on ? "bg-primary text-primary-foreground shadow-[0_6px_22px_rgb(198_255_0/0.35)]" : "text-muted-foreground hover:bg-white/5",
+              on ? "bg-primary text-primary-foreground shadow-[0_6px_22px_rgb(var(--primary-rgb)/0.35)]" : "text-muted-foreground hover:bg-foreground/5",
             )}
           >
             <motion.span className="text-base leading-none" animate={on ? { scale: [1, 1.3, 1], rotate: [0, -12, 0] } : { scale: 1 }} transition={{ duration: 0.45 }}>
@@ -135,9 +135,9 @@ function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
       name="name"
       render={({ field, fieldState }) => (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
-          <div className="group relative rounded-[1.75rem] p-[1.5px] transition-shadow duration-500 focus-within:shadow-[0_0_70px_rgb(198_255_0/0.2)]">
+          <div className="group relative rounded-[1.75rem] p-[1.5px] transition-shadow duration-500 focus-within:shadow-[0_0_70px_rgb(var(--primary-rgb)/0.2)]">
             {/* A bead of light circles the border while you type */}
-            <div aria-hidden className="absolute inset-0 overflow-hidden rounded-[inherit] bg-white/10">
+            <div aria-hidden className="absolute inset-0 overflow-hidden rounded-[inherit] bg-foreground/10">
               <div className="absolute -inset-[150%] animate-[spin_5s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0_55%,var(--color-primary)_78%,var(--color-chart-4)_92%,transparent_100%)] opacity-50 transition-opacity duration-500 group-focus-within:opacity-100 motion-reduce:animate-none" />
             </div>
             <div className="relative rounded-[calc(1.75rem-1.5px)] bg-card p-5">
@@ -168,7 +168,7 @@ function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
                         animate={{ scale: 1, rotate: 0 }}
                         exit={{ scale: 0 }}
                         transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                        className="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_0_24px_rgb(198_255_0/0.6)]"
+                        className="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_0_24px_rgb(var(--primary-rgb)/0.6)]"
                       >
                         <Check className="size-4" strokeWidth={3} />
                       </motion.span>
@@ -177,7 +177,7 @@ function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
                 </div>
               </div>
 
-              <div className="mt-4 border-t border-white/5 pt-3">
+              <div className="mt-4 border-t border-foreground/5 pt-3">
                 <RecentDishes
                   value={name}
                   fallback={IDEAS}
@@ -214,7 +214,7 @@ function MoreDetails({ form }: { form: Form }) {
       >
         <Plus className="size-4 text-primary" />
         <span className="flex-1">Add portion or notes</span>
-        {filled && <span className="size-2 rounded-full bg-primary shadow-[0_0_10px_rgb(198_255_0/0.8)]" />}
+        {filled && <span className="size-2 rounded-full bg-primary shadow-[0_0_10px_rgb(var(--primary-rgb)/0.8)]" />}
         <ChevronDown className={cn("size-4 transition-transform", shown && "rotate-180")} />
       </button>
       <AnimatePresence initial={false}>
@@ -296,7 +296,7 @@ function PhotoAdd({ preview, onCamera, onGallery, onRemove, onDrop }: PhotoProps
               }}
               className="group relative grid h-28 content-between overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/5 to-transparent p-4 text-left transition-transform active:scale-95"
             >
-              <span className="grid size-10 animate-bob place-items-center rounded-2xl bg-primary text-primary-foreground shadow-[0_8px_24px_rgb(198_255_0/0.35)] motion-reduce:animate-none">
+              <span className="grid size-10 animate-bob place-items-center rounded-2xl bg-primary text-primary-foreground shadow-[0_8px_24px_rgb(var(--primary-rgb)/0.35)] motion-reduce:animate-none">
                 <Camera className="size-5" />
               </span>
               <span>
@@ -376,8 +376,8 @@ export default function DetailsStage({
             "relative h-14 w-full overflow-hidden rounded-full text-base font-semibold transition-all duration-500 active:scale-[0.98]",
             // Shadows stay within the 16px gutter beside the button (negative spread), so nothing is cut off at the screen edge
             ready
-              ? "bg-gradient-to-r from-primary via-[#4dffb0] to-chart-4 text-primary-foreground shadow-[0_10px_22px_-8px_rgb(198_255_0/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)]"
-              : "border border-white/10 bg-secondary text-muted-foreground shadow-[0_10px_16px_-6px_rgb(0_0_0/0.65),0_3px_6px_-2px_rgb(0_0_0/0.45),inset_0_1px_0_rgb(255_255_255/0.07)] hover:bg-secondary",
+              ? "bg-gradient-to-r from-primary via-mid to-chart-4 text-primary-foreground shadow-[0_10px_22px_-8px_rgb(var(--primary-rgb)/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)]"
+              : "border border-foreground/10 bg-secondary text-muted-foreground shadow-[0_10px_16px_-6px_rgb(0_0_0/0.65),0_3px_6px_-2px_rgb(0_0_0/0.45),inset_0_1px_0_rgb(var(--fg-rgb)/0.07)] hover:bg-secondary",
           )}
         >
           {ready && !reduce && <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-1/4 animate-shimmer bg-white/50 blur-md" />}

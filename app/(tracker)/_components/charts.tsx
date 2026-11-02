@@ -39,7 +39,7 @@ export function CaloriesChart({ points, goal }: { points: CalPoint[]; goal: numb
     <div onMouseLeave={() => setHover(null)}>
       <div className="relative flex h-56 items-end gap-0.5 border-b lg:h-72">
         {[0.25, 0.5, 0.75].map((g) => (
-          <i key={g} aria-hidden className="pointer-events-none absolute inset-x-0 border-t border-white/5" style={{ bottom: `${g * 100}%` }} />
+          <i key={g} aria-hidden className="pointer-events-none absolute inset-x-0 border-t border-foreground/5" style={{ bottom: `${g * 100}%` }} />
         ))}
         <div className="pointer-events-none absolute inset-x-0 z-10 border-t-[1.5px] border-dashed border-foreground/40" style={{ top: `${(1 - goal / max) * 100}%` }}>
           <span className="absolute -top-5 right-0 rounded-full bg-card px-2 text-xs text-muted-foreground">Goal {fmt(goal)}</span>
@@ -59,8 +59,8 @@ export function CaloriesChart({ points, goal }: { points: CalPoint[]; goal: numb
                 className={cn(
                   "block min-h-0.5 w-full max-w-7 origin-bottom rounded-t-md bg-gradient-to-t opacity-70 transition-opacity group-hover:opacity-100",
                   over ? "from-chart-2 to-chart-3" : "from-primary/50 to-primary",
-                  active === i && "opacity-100 shadow-[0_0_18px_rgb(198_255_0/0.35)] ring-2 ring-foreground ring-offset-2 ring-offset-card",
-                  active === i && over && "shadow-[0_0_18px_rgb(255_46_147/0.4)]",
+                  active === i && "opacity-100 shadow-[0_0_18px_rgb(var(--primary-rgb)/0.35)] ring-2 ring-foreground ring-offset-2 ring-offset-card",
+                  active === i && over && "shadow-[0_0_18px_rgb(var(--chart-3-rgb)/0.4)]",
                 )}
                 style={{ height: `${(pt.kcal / max) * 100}%` }}
                 initial={reduce ? false : { scaleY: 0 }}
@@ -169,12 +169,12 @@ export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { s
           <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-48 w-full overflow-visible" role="img" aria-label="Weight trend">
             <defs>
               <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#00e5ff" stopOpacity="0.32" />
-                <stop offset="1" stopColor="#00e5ff" stopOpacity="0" />
+                <stop offset="0" stopColor="var(--chart-4)" stopOpacity="0.32" />
+                <stop offset="1" stopColor="var(--chart-4)" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[0.25, 0.5, 0.75].map((g) => (
-              <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="white" strokeOpacity="0.06" vectorEffect="non-scaling-stroke" />
+              <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="var(--foreground)" strokeOpacity="0.07" vectorEffect="non-scaling-stroke" />
             ))}
             {area && <path d={area} fill={`url(#${id}-fill)`} />}
             <path
@@ -185,7 +185,7 @@ export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { s
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
-              className="[filter:drop-shadow(0_0_6px_rgb(0_229_255/0.55))]"
+              className="[filter:drop-shadow(0_0_6px_rgb(var(--chart-4-rgb)/0.55))]"
             />
           </svg>
         </motion.div>
@@ -195,7 +195,7 @@ export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { s
             className={cn(
               "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-chart-4 transition-transform",
               points.length > 45 && k !== active && "opacity-0",
-              k === active && "z-10 scale-[1.9] shadow-[0_0_14px_3px_rgb(0_229_255/0.6)]",
+              k === active && "z-10 scale-[1.9] shadow-[0_0_14px_3px_rgb(var(--chart-4-rgb)/0.6)]",
             )}
             style={{ left: `${(xy[k].x / W) * 100}%`, top: `${(xy[k].y / H) * 100}%` }}
             onMouseEnter={() => setHover(k)}
@@ -310,8 +310,8 @@ export function Sparkline({ values, className }: { values: number[]; className?:
     <svg viewBox={`0 0 ${W} ${H}`} className={cn("overflow-visible", className)} aria-hidden>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#00e5ff" stopOpacity="0.3" />
-          <stop offset="1" stopColor="#00e5ff" stopOpacity="0" />
+          <stop offset="0" stopColor="var(--chart-4)" stopOpacity="0.3" />
+          <stop offset="1" stopColor="var(--chart-4)" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={`${line} L${end.x},${H} L${pts[0].x},${H} Z`} fill={`url(#${id})`} />
@@ -325,7 +325,7 @@ export function Sparkline({ values, className }: { values: number[]; className?:
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.9, ease: EASE }}
       />
-      <circle cx={end.x} cy={end.y} r="3" fill="#fff" />
+      <circle cx={end.x} cy={end.y} r="3" fill="var(--foreground)" />
     </svg>
   );
 }

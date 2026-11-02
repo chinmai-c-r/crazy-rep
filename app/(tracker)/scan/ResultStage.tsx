@@ -31,7 +31,7 @@ const buzz = () => {
 
 /* ─────────────────────────────── Celebration ─────────────────────────────── */
 
-const COLORS = ["#c6ff00", "#00e5ff", "#ff2e93", "#ff8a00"];
+const COLORS = ["var(--primary)", "var(--chart-4)", "var(--chart-3)", "var(--chart-2)"];
 const PARTICLES = Array.from({ length: 26 }, (_, i) => ({
   angle: (i / 26) * Math.PI * 2 + (i % 3) * 0.12,
   dist: 90 + ((i * 37) % 80),
@@ -75,7 +75,7 @@ function SourceChip({ source, provider, badge }: { source: AnalysisSource; provi
 }
 
 const Chip = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full bg-black/35 px-3 text-xs font-semibold backdrop-blur-md ring-1 ring-white/10", className)}>{children}</span>
+  <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full bg-card/70 px-3 text-xs font-semibold backdrop-blur-md ring-1 ring-foreground/10", className)}>{children}</span>
 );
 
 /** Health score as a little ring with the score inside. */
@@ -84,7 +84,7 @@ function ScoreChip({ score }: { score: number }) {
   return (
     <Chip className="pl-1.5">
       <svg viewBox="0 0 20 20" className="size-5 -rotate-90" aria-hidden>
-        <circle cx="10" cy="10" r="8" fill="none" strokeWidth="3" className="stroke-white/15" />
+        <circle cx="10" cy="10" r="8" fill="none" strokeWidth="3" className="stroke-foreground/15" />
         <motion.circle
           cx="10"
           cy="10"
@@ -132,7 +132,7 @@ function ServingsStepper({ value, onChange }: { value: number; onChange: (v: num
             </motion.b>
           </AnimatePresence>
         </span>
-        <Button type="button" size="icon-sm" className="size-8 rounded-full shadow-[0_4px_12px_-3px_rgb(198_255_0/0.6)] active:scale-90" onClick={() => step(value >= 1 ? 0.5 : 0.25)} aria-label="More servings">
+        <Button type="button" size="icon-sm" className="size-8 rounded-full shadow-[0_4px_12px_-3px_rgb(var(--primary-rgb)/0.6)] active:scale-90" onClick={() => step(value >= 1 ? 0.5 : 0.25)} aria-label="More servings">
           <Plus className="size-4" />
         </Button>
       </div>
@@ -205,7 +205,7 @@ function ItemCard({ item, share, index, onRemove, last }: { item: FoodItem; shar
         </Button>
       </div>
       {/* This item's share of the meal */}
-      <span className="mt-3 block h-1 overflow-hidden rounded-full bg-white/5">
+      <span className="mt-3 block h-1 overflow-hidden rounded-full bg-foreground/5">
         <motion.span className="block h-full rounded-full bg-gradient-to-r from-primary/60 to-chart-4" initial={{ width: 0 }} animate={{ width: `${Math.max(share * 100, 3)}%` }} transition={{ duration: 0.9, ease: EASE, delay: 0.3 + index * 0.07 }} />
       </span>
     </motion.li>
@@ -257,7 +257,7 @@ export default function ResultStage(p: ResultProps) {
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
       {/* Hero */}
       <motion.section {...rise(0)} className="relative overflow-hidden rounded-[2rem] border bg-card">
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgb(198_255_0/0.16),transparent_55%),radial-gradient(90%_80%_at_100%_100%,rgb(0_229_255/0.13),transparent_60%)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_0%_0%,rgb(var(--primary-rgb)/0.16),transparent_55%),radial-gradient(90%_80%_at_100%_100%,rgb(var(--chart-4-rgb)/0.13),transparent_60%)]" />
         {burst && <Burst />}
 
         {p.preview ? (
@@ -281,7 +281,7 @@ export default function ResultStage(p: ResultProps) {
         <div className="relative grid grid-cols-[minmax(0,1fr)] gap-4 p-5 pt-3">
           <div>
             <p className="flex items-baseline gap-2">
-              <span className="bg-gradient-to-r from-primary via-[#4dffb0] to-chart-4 bg-clip-text font-heading text-7xl leading-none text-transparent [filter:drop-shadow(0_0_24px_rgb(198_255_0/0.35))]">
+              <span className="bg-gradient-to-r from-primary via-mid to-chart-4 bg-clip-text font-heading text-7xl leading-none text-transparent [filter:drop-shadow(0_0_24px_rgb(var(--primary-rgb)/0.35))]">
                 {fmt(Math.round(kcal))}
               </span>
               <span className="text-base text-muted-foreground">kcal</span>
@@ -385,11 +385,11 @@ export default function ResultStage(p: ResultProps) {
       <motion.div {...rise(3)} className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 -mx-4 px-4 pt-6 pb-5 sm:-mx-6 sm:px-6 lg:bottom-4">
         <div aria-hidden className="pointer-events-none absolute inset-0 backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent,black_1.25rem,black_calc(100%-1.25rem),transparent)]" />
         <div className="relative flex gap-3">
-          <Button variant="outline" className="h-14 flex-[0.8] rounded-full border-white/10 bg-secondary text-base shadow-[0_10px_16px_-6px_rgb(0_0_0/0.65),0_3px_6px_-2px_rgb(0_0_0/0.45)] hover:bg-secondary" onClick={p.onDiscard} disabled={p.saving}>
+          <Button variant="outline" className="h-14 flex-[0.8] rounded-full border-foreground/10 bg-secondary text-base shadow-[0_10px_16px_-6px_rgb(0_0_0/0.65),0_3px_6px_-2px_rgb(0_0_0/0.45)] hover:bg-secondary" onClick={p.onDiscard} disabled={p.saving}>
             Discard
           </Button>
           <Button
-            className="relative h-14 flex-[1.5] overflow-hidden rounded-full bg-gradient-to-r from-primary via-[#4dffb0] to-chart-4 text-base font-semibold text-primary-foreground shadow-[0_10px_22px_-8px_rgb(198_255_0/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)] transition-transform active:scale-[0.98]"
+            className="relative h-14 flex-[1.5] overflow-hidden rounded-full bg-gradient-to-r from-primary via-mid to-chart-4 text-base font-semibold text-primary-foreground shadow-[0_10px_22px_-8px_rgb(var(--primary-rgb)/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)] transition-transform active:scale-[0.98]"
             onClick={p.onSave}
             disabled={p.saving}
           >

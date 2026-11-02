@@ -9,9 +9,9 @@ import { useRolling } from "./Ring";
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 const RINGS = [
-  { key: "protein", label: "Protein", dot: "bg-protein", stops: ["#c6ff00", "#4dffb0"] },
-  { key: "carbs", label: "Carbs", dot: "bg-carbs", stops: ["#ffd000", "#ff6a00"] },
-  { key: "fat", label: "Fat", dot: "bg-fat", stops: ["#ff7ab8", "#ff2e93"] },
+  { key: "protein", label: "Protein", dot: "bg-protein", stops: ["var(--protein)", "var(--mid)"] },
+  { key: "carbs", label: "Carbs", dot: "bg-carbs", stops: ["var(--warn)", "var(--carbs)"] },
+  { key: "fat", label: "Fat", dot: "bg-fat", stops: ["color-mix(in oklab, var(--fat), white 45%)", "var(--fat)"] },
 ] as const;
 
 function MacroRing({ label, dot, stops, value, goal, delay }: { label: string; dot: string; stops: readonly [string, string]; value: number; goal?: number; delay: number }) {

@@ -77,7 +77,7 @@ export default function DashboardView() {
           <RingCardSkeleton />
         ) : (
         <Card className={`relative items-center justify-center gap-4 rounded-3xl py-8 ${ENTER}`}>
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-20 h-64 bg-[radial-gradient(closest-side,rgb(198_255_0/0.09),transparent)]" />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-20 h-64 bg-[radial-gradient(closest-side,rgb(var(--primary-rgb)/0.09),transparent)]" />
           <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} />
           <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} />
         </Card>
@@ -160,7 +160,7 @@ export default function DashboardView() {
         }}
       />
 
-      <Button asChild size="xl" className="fixed right-8 bottom-8 z-40 hidden shadow-[0_10px_40px_rgb(198_255_0/0.35)] lg:inline-flex">
+      <Button asChild size="xl" className="fixed right-8 bottom-8 z-40 hidden shadow-[0_10px_40px_rgb(var(--primary-rgb)/0.35)] lg:inline-flex">
         <Link href="/scan">
           <Camera /> Log meal
         </Link>

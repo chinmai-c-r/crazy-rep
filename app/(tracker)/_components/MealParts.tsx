@@ -19,7 +19,7 @@ export function MealSectionHeader({ icon, label, kcal, loading }: { icon: string
   return (
     <div className="flex items-center justify-between px-1">
       <h2 className="flex items-center gap-2.5 font-bold">
-        <span className={cn("grid size-8 place-items-center rounded-xl bg-gradient-to-br to-transparent text-base ring-1 ring-white/10", TINTS[label] ?? "from-muted")} aria-hidden>
+        <span className={cn("grid size-8 place-items-center rounded-xl bg-gradient-to-br to-transparent text-base ring-1 ring-foreground/10", TINTS[label] ?? "from-muted")} aria-hidden>
           {icon}
         </span>
         {label}
@@ -48,9 +48,9 @@ export function MealRow({ meal, url, index = 0, onOpen }: { meal: Meal; url?: st
     <li className="animate-in duration-500 fade-in slide-in-from-left-4 fill-mode-both" style={{ animationDelay: `${index * 70}ms` }}>
       <button
         onClick={onOpen}
-        className="group flex w-full items-center gap-3.5 rounded-2xl border bg-card p-2.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_12px_30px_-14px_rgb(198_255_0/0.4)] active:scale-[0.99]"
+        className="group flex w-full items-center gap-3.5 rounded-2xl border bg-card p-2.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_12px_30px_-14px_rgb(var(--primary-rgb)/0.4)] active:scale-[0.99]"
       >
-        <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-muted to-card text-3xl ring-1 ring-white/5">
+        <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-muted to-card text-3xl ring-1 ring-foreground/5">
           {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
           {url ? <img src={url} alt="" className="size-full object-cover transition-transform duration-500 group-hover:scale-110" /> : <span className="transition-transform duration-300 group-hover:scale-125 group-hover:-rotate-6">{foodEmoji(meal.name)}</span>}
         </span>
@@ -82,7 +82,7 @@ export function EmptyMeal({ href, icon, label }: { href: string; icon: string; l
   return (
     <Link
       href={href}
-      className="group relative flex h-[78px] items-center gap-3.5 overflow-hidden rounded-2xl border border-dashed p-2.5 transition-all duration-300 hover:border-primary hover:bg-primary/5 hover:shadow-[0_12px_30px_-16px_rgb(198_255_0/0.4)] active:scale-[0.99]"
+      className="group relative flex h-[78px] items-center gap-3.5 overflow-hidden rounded-2xl border border-dashed p-2.5 transition-all duration-300 hover:border-primary hover:bg-primary/5 hover:shadow-[0_12px_30px_-16px_rgb(var(--primary-rgb)/0.4)] active:scale-[0.99]"
     >
       <span aria-hidden className="pointer-events-none absolute -right-1 -bottom-4 animate-float text-6xl opacity-[0.08] motion-reduce:animate-none">
         {icon}

@@ -29,8 +29,8 @@ export function useRolling(target: number, reduce: boolean, duration = DURATION)
 }
 
 const GRADIENTS = {
-  ok: ["#c6ff00", "#4dffb0", "#00e5ff"],
-  over: ["#ffd000", "#ff8a00", "#ff2e93"],
+  ok: ["var(--primary)", "var(--mid)", "var(--chart-4)"],
+  over: ["var(--warn)", "var(--chart-2)", "var(--chart-3)"],
 };
 
 export default function Ring({ value, goal }: { value: number; goal: number }) {
@@ -97,8 +97,8 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
             animate={{ rotate: fill * 360 }}
             transition={arc.transition}
           >
-            <circle cx="112" cy="60" r="5.5" fill="#fff" opacity="0.28" />
-            <circle cx="112" cy="60" r="2.4" fill="#fff" />
+            <circle cx="112" cy="60" r="5.5" fill="var(--foreground)" opacity="0.28" />
+            <circle cx="112" cy="60" r="2.4" fill="var(--foreground)" />
           </motion.g>
         </g>
       </svg>
