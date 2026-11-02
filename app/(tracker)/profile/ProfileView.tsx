@@ -230,14 +230,14 @@ function ProfileForm({ initial }: { initial: Profile }) {
                       variant="outline"
                       value={String(field.value ?? DEFAULT_DIET)}
                       onValueChange={(v) => v && field.onChange(v)}
-                      className="w-full"
+                      className="grid w-full grid-cols-2 sm:grid-cols-4"
                       aria-label="Diet"
                     >
                       {DIET_OPTIONS.map((d) => (
                         <ToggleGroupItem
                           key={d.id}
                           value={d.id}
-                          className="h-11 min-w-0 flex-1 gap-1 px-1.5 text-[0.8rem] max-[339px]:px-1 max-[339px]:text-[0.7rem] data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground sm:text-sm"
+                          className="h-11 min-w-0 gap-1.5 px-2 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                         >
                           <span aria-hidden>{d.emoji}</span> {d.label}
                         </ToggleGroupItem>

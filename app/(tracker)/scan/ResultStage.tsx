@@ -370,7 +370,7 @@ export default function ResultStage(p: ResultProps) {
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               <AnimatePresence mode="popLayout" initial>
                 {p.items.map((it, i) => (
-                  <ItemCard key={`${it.name}-${it.portion}-${i}`} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} flag={dietConflict(diet, it.name) ? `Not ${diet === "vegan" ? "vegan" : "veg"}` : undefined} onRemove={() => p.onRemoveItem(i)} />
+                  <ItemCard key={`${it.name}-${it.portion}-${i}`} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} flag={dietConflict(diet, it.name) ? (diet === "vegan" ? "Not vegan" : "Not veg") : undefined} onRemove={() => p.onRemoveItem(i)} />
                 ))}
               </AnimatePresence>
             </ul>

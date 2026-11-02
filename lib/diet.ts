@@ -7,6 +7,7 @@ export const dietOf = (profile: Pick<Profile, "diet"> | null | undefined): Diet 
 
 export const DIET_OPTIONS: { id: Diet; label: string; emoji: string; hint: string; noun: string }[] = [
   { id: "vegetarian", label: "Vegetarian", emoji: "🥦", hint: "No meat, fish or eggs. Dairy is fine.", noun: "vegetarian" },
+  { id: "eggetarian", label: "Eggetarian", emoji: "🥚", hint: "Vegetarian, plus eggs. No meat or fish.", noun: "eggetarian" },
   { id: "non_vegetarian", label: "Non-veg", emoji: "🍗", hint: "Everything is on the menu.", noun: "non-vegetarian" },
   { id: "vegan", label: "Vegan", emoji: "🌱", hint: "No animal products at all.", noun: "vegan" },
 ];
@@ -15,6 +16,8 @@ export const DIET_OPTIONS: { id: Diet; label: string; emoji: string; hint: strin
 export const DIET_PROMPT: Record<Diet, string> = {
   vegetarian:
     "The user is vegetarian: no meat, poultry, fish, seafood or eggs (dairy and honey are fine). Every food, recipe or meal idea you suggest must fit that. Never suggest non-vegetarian food, and for protein point to paneer, dairy, lentils, beans, tofu, soy and nuts. If they logged something that isn't vegetarian, don't lecture them.",
+  eggetarian:
+    "The user is an eggetarian: vegetarian who also eats eggs. No meat, poultry, fish or seafood; eggs, dairy and honey are fine. Every food, recipe or meal idea you suggest must fit that. Never suggest meat or fish, and for protein point to eggs, paneer, dairy, lentils, beans, tofu and soy. If they logged something that isn't eggetarian, don't lecture them.",
   vegan:
     "The user is vegan: no meat, fish, eggs, dairy, honey or any other animal product. Every food, recipe or meal idea you suggest must be fully plant-based. For protein point to lentils, beans, tofu, tempeh, soy, seitan and nuts. If they logged something that isn't vegan, don't lecture them.",
   non_vegetarian: "The user eats everything, so any food is fine to suggest.",
@@ -38,14 +41,17 @@ const IDEAS: { name: string; diet: Diet }[] = [
   { name: "Tofu stir fry", diet: "vegan" },
   { name: "Veg fried rice", diet: "vegan" },
   { name: "Upma", diet: "vegan" },
+  { name: "Egg omelette", diet: "eggetarian" },
+  { name: "Egg bhurji", diet: "eggetarian" },
+  { name: "Boiled eggs and toast", diet: "eggetarian" },
+  { name: "Egg curry", diet: "eggetarian" },
   { name: "Chicken biryani", diet: "non_vegetarian" },
-  { name: "Egg omelette", diet: "non_vegetarian" },
   { name: "Butter chicken", diet: "non_vegetarian" },
   { name: "Grilled chicken salad", diet: "non_vegetarian" },
   { name: "Fish curry", diet: "non_vegetarian" },
 ];
 
-const RANK: Record<Diet, number> = { vegan: 0, vegetarian: 1, non_vegetarian: 2 };
+const RANK: Record<Diet, number> = { vegan: 0, vegetarian: 1, eggetarian: 2, non_vegetarian: 3 };
 
 /** Dish names for the meal name box that fit a diet, with the dishes most people recognise first. */
 export function ideasFor(diet: Diet): string[] {
@@ -70,6 +76,7 @@ const WORDS: { kind: Kind; re: RegExp }[] = [
 const FORBIDDEN: Record<Diet, Kind[]> = {
   non_vegetarian: [],
   vegetarian: ["meat", "fish", "egg"],
+  eggetarian: ["meat", "fish"],
   vegan: ["meat", "fish", "egg", "dairy"],
 };
 
@@ -97,6 +104,7 @@ const COVERS: Record<Topic, RegExp> = {
 
 const LOW_PROTEIN: Record<Diet, string> = {
   vegetarian: "Low in protein; pair with paneer, dal, curd or sprouts.",
+  eggetarian: "Low in protein; pair with eggs, paneer, dal or curd.",
   vegan: "Low in protein; pair with tofu, lentils, chickpeas or soy.",
   non_vegetarian: "Low in protein; pair with eggs, dal, yogurt or lean meat.",
 };

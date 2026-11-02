@@ -7,7 +7,7 @@ export const mealTypeSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 export const sexSchema = z.enum(["male", "female"]);
 export const activitySchema = z.enum(["sedentary", "light", "moderate", "active", "very_active"]);
 export const goalSchema = z.enum(["lose", "maintain", "gain"]);
-export const dietSchema = z.enum(["vegetarian", "non_vegetarian", "vegan"]);
+export const dietSchema = z.enum(["vegetarian", "eggetarian", "non_vegetarian", "vegan"]);
 /** How a meal was estimated: AI from a photo, AI from the name, USDA FoodData Central, or a saved result. */
 export const analysisSourceSchema = z.enum(["photo", "text", "cache", "usda"]);
 

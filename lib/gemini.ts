@@ -127,6 +127,7 @@ export type MealContext = { name?: string; portion?: string; notes?: string; die
 
 const DIET_LINE: Partial<Record<Diet, string>> = {
   vegetarian: "vegetarian (no meat, poultry, fish, seafood or eggs; dairy is fine)",
+  eggetarian: "an eggetarian (vegetarian who also eats eggs: no meat, poultry, fish or seafood; eggs and dairy are fine)",
   vegan: "vegan (no meat, fish, eggs, dairy, honey or any other animal product)",
 };
 
