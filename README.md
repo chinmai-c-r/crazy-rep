@@ -109,7 +109,9 @@ Never edit a migration that has already been pushed; always add a new one.
 2. Click **Create API key**, then choose or create a Google Cloud project. No billing is needed for the free tier.
 3. Copy the key into `GEMINI_API_KEY`.
 
-> Free-tier limits are per project and change from time to time; check them at <https://ai.google.dev/gemini-api/docs/rate-limits>. When the limit is hit, the app shows "The AI is busy right now…". To use a different model later, set `GEMINI_MODEL` (default `gemini-3.5-flash`) and `GEMINI_FALLBACK_MODELS` (tried in order when the main model is busy or retired).
+> Free-tier limits are per project and change from time to time; check them at <https://ai.google.dev/gemini-api/docs/rate-limits>. When the limit is hit, the app shows "The AI is busy right now…". To use different models later, set `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_FALLBACK_MODELS` (tried in order when the main model is busy, used up for the day or retired).
+>
+> Each model has its own free quota, so a longer list is more capacity. On the free tier the full Flash models allow only about 20 requests a day and 5 a minute, while the Flash Lite models allow 500 a day and 15 a minute. That is why the defaults try the full Flash models first and fall back to Flash Lite. The coach makes several calls per message, so it has its own list (`COACH_MODEL`, `COACH_FALLBACK_MODELS`) that starts on Flash Lite. Check your own limits in Google AI Studio under Rate limits.
 >
 > On the free tier, Google may use prompts and images to improve its products. Mention this in your privacy policy, or enable billing (the paid tier) to opt out.
 
@@ -136,7 +138,7 @@ Sign up, complete your profile, then go to **Scan** and upload a meal photo.
 2. At <https://vercel.com/new>, import the repo. The framework is detected as Next.js automatically.
 3. Under **Environment Variables**, add the same keys from `.env.local`:
    - Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GEMINI_API_KEY`, `USDA_API_KEY`
-   - Optional: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `EMBEDDING_MODEL`, `CHAT_DAILY_LIMIT`, `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH`
+   - Optional: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `COACH_MODEL`, `COACH_FALLBACK_MODELS`, `EMBEDDING_MODEL`, `CHAT_DAILY_LIMIT`, `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH`
 4. Click **Deploy**.
 5. Back in Supabase, open **Authentication → URL Configuration**, set **Site URL** to `https://YOUR-APP.vercel.app` and add `https://YOUR-APP.vercel.app/**` to **Redirect URLs**.
 
@@ -211,8 +213,10 @@ To refresh the source data: `npm run data:build` (downloads INDB, IFCT 2017, the
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Publishable (or anon) key | Yes |
 | `SUPABASE_SECRET_KEY` | Supabase → Secret (or service_role) key | **No** |
 | `GEMINI_API_KEY` | Google AI Studio | **No** |
-| `GEMINI_MODEL` | Optional, default `gemini-3.5-flash` | No |
-| `GEMINI_FALLBACK_MODELS` | Optional, comma-separated, default `gemini-3.8-flash,gemini-3.1-flash-lite` | No |
+| `GEMINI_MODEL` | Optional, default `gemini-3.8-flash` | No |
+| `GEMINI_FALLBACK_MODELS` | Optional, comma-separated, default `gemini-3.6-flash,gemini-3.1-flash-lite,gemini-3.5-flash-lite` | No |
+| `COACH_MODEL` | Optional, the coach's first model, default `gemini-3.1-flash-lite` | No |
+| `COACH_FALLBACK_MODELS` | Optional, comma-separated, default `gemini-3.5-flash-lite,gemini-3.8-flash,gemini-3.6-flash` | No |
 | `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH` | `true` once Google is configured | Yes |
 | `EMBEDDING_MODEL` | Optional, default `gemini-embedding-001` (768 dims; re-embed if you change it) | No |
 | `USDA_API_KEY` | <https://fdc.nal.usda.gov/api-key-signup> (free) | **No** |

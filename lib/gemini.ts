@@ -3,13 +3,30 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { analysisSchema } from "./schemas";
 import { NUTRIENT_KEYS } from "./types";
 
-/** Primary model first, then fallbacks tried when it is overloaded, rate-limited or retired. */
-export const MODELS = [
-  process.env.GEMINI_MODEL || "gemini-3.5-flash",
-  ...(process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.8-flash,gemini-3.1-flash-lite").split(","),
-]
-  .map((m) => m.trim())
-  .filter((m, i, all) => m && all.indexOf(m) === i);
+/** A primary model followed by fallbacks, trimmed and without blanks or repeats. */
+const modelList = (primary: string, fallbacks: string) =>
+  [primary, ...fallbacks.split(",")].map((m) => m.trim()).filter((m, i, all) => m && all.indexOf(m) === i);
+
+/*
+ * Every model has its own free quota, so a longer list is more capacity, not just more fallbacks. The free tier is
+ * lopsided: full Flash models allow about 20 requests a day and 5 a minute, Flash Lite models 500 a day and 15 a minute.
+ * So the order is quality first, then volume: when a Flash model is rate-limited the next one takes over.
+ */
+
+/** Photo and text analysis: full Flash models first, then Flash Lite when those are busy, used up for the day or retired. */
+export const MODELS = modelList(
+  process.env.GEMINI_MODEL || "gemini-3.8-flash",
+  process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.6-flash,gemini-3.1-flash-lite,gemini-3.5-flash-lite",
+);
+
+/**
+ * Coach chat. One message can take up to six calls (the model asks for data, reads it, asks again), which would
+ * blow through a 5 a minute Flash limit, so it starts on Flash Lite (15 a minute) and keeps Flash as the fallback.
+ */
+export const COACH_MODELS = modelList(
+  process.env.COACH_MODEL || "gemini-3.1-flash-lite",
+  process.env.COACH_FALLBACK_MODELS ?? "gemini-3.5-flash-lite,gemini-3.8-flash,gemini-3.6-flash",
+);
 
 /** Stay inside the route's 60s maxDuration. */
 const TOTAL_BUDGET_MS = 50_000;

@@ -2,7 +2,7 @@ import "server-only";
 import type { Content, FunctionCall, Tool } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { activityLabel } from "./activities";
-import { getAI, isRetryable, MODELS, thinkingFor } from "./gemini";
+import { COACH_MODELS, getAI, isRetryable, thinkingFor } from "./gemini";
 import type { Profile } from "./types";
 
 const TOTAL_BUDGET_MS = 52_000;
@@ -229,7 +229,7 @@ export async function coachReply(opts: { db: SupabaseClient; tz: string; profile
   ];
   let lastError: unknown;
 
-  for (const model of MODELS) {
+  for (const model of COACH_MODELS) {
     if (deadline - Date.now() < 8_000) break;
     const contents = [...base];
     try {
