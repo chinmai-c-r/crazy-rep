@@ -24,7 +24,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
-button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+/* Scoped: this whole file sits in a global layer, and a bare `button { border: 0 }` removed the border colour from every app button */
+.landing button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
 ul, ol { list-style: none; }
 .landing :is(h1, h2, h3) { font-family: var(--font-display), Impact, sans-serif; font-weight: 400; letter-spacing: 0.02em; line-height: 1.05; }
 .accent { color: var(--lime); }
