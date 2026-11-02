@@ -1,4 +1,4 @@
-import type { Diet, Profile } from "./types";
+import type { Diet, Nutrients, Profile } from "./types";
 
 export const DEFAULT_DIET: Diet = "vegetarian";
 
@@ -81,4 +81,53 @@ export function dietConflict(diet: Diet, text: string): string | null {
     if (m) return m[0].toLowerCase();
   }
   return null;
+}
+
+/* ─── Tips that fit the diet ───────────────────────────────────── */
+
+type Topic = "protein" | "sodium" | "sugar" | "fiber" | "fat";
+
+const COVERS: Record<Topic, RegExp> = {
+  protein: /protein/i,
+  sodium: /sodium|salt/i,
+  sugar: /sugar/i,
+  fiber: /fib(?:er|re)/i,
+  fat: /saturated|\bfat\b/i,
+};
+
+const LOW_PROTEIN: Record<Diet, string> = {
+  vegetarian: "Low in protein; pair with paneer, dal, curd or sprouts.",
+  vegan: "Low in protein; pair with tofu, lentils, chickpeas or soy.",
+  non_vegetarian: "Low in protein; pair with eggs, dal, yogurt or lean meat.",
+};
+
+/** Plain tips from a meal's totals, worded for the diet. */
+function ruleTips(diet: Diet, n: Nutrients): { topic: Topic; text: string }[] {
+  const kcal = n.calories || 1;
+  const tips: { topic: Topic; text: string }[] = [];
+  if ((n.protein_g * 4) / kcal >= 0.25) tips.push({ topic: "protein", text: "Good protein density, which helps keep you full." });
+  else if (n.protein_g < 15) tips.push({ topic: "protein", text: LOW_PROTEIN[diet] });
+  if (n.sodium_mg > 800) tips.push({ topic: "sodium", text: "High in sodium; balance with low-salt meals today." });
+  if ((n.sugar_g * 4) / kcal > 0.2) tips.push({ topic: "sugar", text: "Sugar is high relative to calories." });
+  if (n.saturated_fat_g > 10) tips.push({ topic: "fat", text: `Saturated fat is high; go lighter on ${diet === "vegan" ? "oil and coconut" : "ghee, butter or coconut"} next time.` });
+  if (n.fiber_g < 3) tips.push({ topic: "fiber", text: "Add vegetables or whole grains for more fiber." });
+  return tips;
+}
+
+/**
+ * Makes a meal's insights fit a diet. Analyses are cached and shared between people, so their tips are written for no
+ * particular diet ("pair with eggs, dal, yogurt or lean meat"); this runs on each response. It drops tips that mention
+ * food the diet rules out, and fills the gap with tips worded for the diet. Meat eaters get their tips unchanged.
+ */
+export function fitInsights(diet: Diet, insights: string[], totals: Nutrients): string[] {
+  if (diet === "non_vegetarian") return insights;
+  const kept = insights.filter((tip) => !dietConflict(diet, tip));
+  if (kept.length === insights.length) return insights;
+  const target = Math.min(3, Math.max(insights.length, 2));
+  const out = [...kept];
+  for (const { topic, text } of ruleTips(diet, totals)) {
+    if (out.length >= target) break;
+    if (!out.some((tip) => COVERS[topic].test(tip))) out.push(text);
+  }
+  return out;
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { analysisSchema } from "./schemas";
-import { NUTRIENT_KEYS } from "./types";
+import { NUTRIENT_KEYS, type Diet } from "./types";
 
 /** A primary model followed by fallbacks, trimmed and without blanks or repeats. */
 const modelList = (primary: string, fallbacks: string) =>
@@ -119,7 +119,16 @@ ${RULES}`;
 
 
 /** Optional details the user typed next to the photo. */
-export type MealContext = { name?: string; portion?: string; notes?: string };
+/**
+ * `diet` is set for photo analyses only. Text analyses are saved to a cache shared by everyone, so telling the model
+ * one person's diet there would put it into other people's tips; those are fitted to the diet after the fact instead.
+ */
+export type MealContext = { name?: string; portion?: string; notes?: string; diet?: Diet };
+
+const DIET_LINE: Partial<Record<Diet, string>> = {
+  vegetarian: "vegetarian (no meat, poultry, fish, seafood or eggs; dairy is fine)",
+  vegan: "vegan (no meat, fish, eggs, dairy, honey or any other animal product)",
+};
 
 function contextText(ctx: MealContext, hasPhoto: boolean) {
   const lines = [
@@ -127,9 +136,11 @@ function contextText(ctx: MealContext, hasPhoto: boolean) {
     ctx.portion && `- Portion or quantity: ${ctx.portion}`,
     ctx.notes && `- Notes (ingredients, cooking method, brand): ${ctx.notes}`,
   ].filter(Boolean);
-  if (!lines.length) return "";
+  const diet = ctx.diet && DIET_LINE[ctx.diet];
+  const dietNote = diet ? `\n\nThe user is ${diet}. Write every insight so it fits this diet: only suggest foods it allows. Still describe what is actually in the meal.` : "";
+  if (!lines.length) return dietNote;
   const trust = hasPhoto ? "Trust them over visual guesses, and use" : "Use";
-  return `\n\nThe user provided these details. ${trust} the dish name for meal_name if given:\n${lines.join("\n")}`;
+  return `\n\nThe user provided these details. ${trust} the dish name for meal_name if given:\n${lines.join("\n")}${dietNote}`;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dietOf, DEFAULT_DIET, fitInsights } from "@/lib/diet";
 import { analyzeMeal } from "@/lib/gemini";
 import { lookupTextMeal } from "@/lib/meal-lookup";
 import { analyzeFieldsSchema } from "@/lib/schemas";
@@ -47,14 +48,23 @@ export async function POST(request: Request) {
     }
   }
 
+  // The diet is read alongside the analysis. Reading the whole row keeps this working on a database without the diet column yet.
+  const dietPromise = Promise.resolve(supabase.from("profiles").select("*").maybeSingle())
+    .then(({ data }) => dietOf(data))
+    .catch(() => DEFAULT_DIET);
+
   try {
     if (hasImage) {
       const data = Buffer.from(await file.arrayBuffer()).toString("base64");
-      const { analysis } = await analyzeMeal({ data, mimeType: file.type }, ctx);
-      return NextResponse.json({ analysis, source: "photo", provider: "ai" });
+      const diet = await dietPromise;
+      // Photo analyses are never cached or shared, so the model can be told the diet and write tips for it
+      const { analysis } = await analyzeMeal({ data, mimeType: file.type }, { ...ctx, diet });
+      return NextResponse.json({ analysis: { ...analysis, insights: fitInsights(diet, analysis.insights, analysis.totals) }, source: "photo", provider: "ai" });
     }
 
-    return NextResponse.json(await lookupTextMeal(ctx));
+    // Text results come from a cache shared by everyone, so their tips are written for no diet; fit them to this person's
+    const [result, diet] = await Promise.all([lookupTextMeal(ctx), dietPromise]);
+    return NextResponse.json({ ...result, analysis: { ...result.analysis, insights: fitInsights(diet, result.analysis.insights, result.analysis.totals) } });
   } catch (err) {
     console.error("analyze failed", err);
     const status = (err as { status?: number })?.status;
