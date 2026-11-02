@@ -102,6 +102,8 @@ sequenceDiagram
 
 Tools: `get_profile`, `get_summary`, `list_meals`, `list_activities` and `list_weights`.
 
+The profile's `diet` (vegetarian by default, or non-vegetarian or vegan) is in the coach's instructions, so every food or recipe it suggests fits. The same setting picks the starter dish ideas on the scan screen and drives a gentle heads-up when a logged meal contains something the diet rules out.
+
 Each user can keep several conversations (`chat_threads`). The coach only sees the messages of the open conversation, the daily message limit counts across all of them, and deleting a conversation deletes its messages.
 
 ## Data model
@@ -117,6 +119,7 @@ erDiagram
     CHAT_THREADS ||--o{ CHAT_MESSAGES : contains
 
     PROFILES {
+        text diet
         int calorie_goal
         int protein_goal_g
         numeric weight_kg

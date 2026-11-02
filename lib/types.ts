@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { activitySchema, AnalysisSource, FoodItem, goalSchema, mealTypeSchema, Nutrients, sexSchema } from "./schemas";
+import type { activitySchema, AnalysisSource, dietSchema, FoodItem, goalSchema, mealTypeSchema, Nutrients, sexSchema } from "./schemas";
 
 export type { Analysis, FoodItem, Nutrients } from "./schemas";
 
@@ -42,6 +42,7 @@ export type Meal = Nutrients & {
 
 export type Sex = z.infer<typeof sexSchema>;
 export type ActivityLevel = z.infer<typeof activitySchema>;
+export type Diet = z.infer<typeof dietSchema>;
 export type Goal = z.infer<typeof goalSchema>;
 
 export type Profile = {
@@ -53,6 +54,8 @@ export type Profile = {
   weight_kg: number | null;
   activity_level: ActivityLevel;
   goal: Goal;
+  /** Missing on a profile read before the diet migration ran; treat as vegetarian (see dietOf). */
+  diet?: Diet;
   calorie_goal: number;
   protein_goal_g: number;
   carbs_goal_g: number;

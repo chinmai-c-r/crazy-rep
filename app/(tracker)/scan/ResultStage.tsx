@@ -1,13 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Camera, Check, Database, Lightbulb, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
+import { Camera, Check, Database, Lightbulb, Loader2, Minus, Plus, Sparkles, TriangleAlert, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import { useWatch, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import { TextField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks";
+import { DIET_OPTIONS, dietConflict, dietOf } from "@/lib/diet";
 import { foodEmoji } from "@/lib/food-emoji";
 import { fmt } from "@/lib/nutrition";
 import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
@@ -160,7 +162,7 @@ function MacroRow({ label, grams, share, dot, bar }: { label: string; grams: num
   );
 }
 
-function ItemCard({ item, share, index, onRemove, last }: { item: FoodItem; share: number; index: number; onRemove: () => void; last: boolean }) {
+function ItemCard({ item, share, index, onRemove, last, flag }: { item: FoodItem; share: number; index: number; onRemove: () => void; last: boolean; flag?: string }) {
   return (
     <motion.li
       layout
@@ -175,7 +177,10 @@ function ItemCard({ item, share, index, onRemove, last }: { item: FoodItem; shar
           {foodEmoji(item.name)}
         </span>
         <div className="grid min-w-0 flex-1">
-          <b className="truncate">{item.name}</b>
+          <span className="flex min-w-0 items-center gap-2">
+            <b className="truncate">{item.name}</b>
+            {flag && <span className="shrink-0 rounded-full bg-chart-2/15 px-2 py-px text-[0.65rem] font-semibold text-chart-2">{flag}</span>}
+          </span>
           <small className="truncate text-xs text-muted-foreground">
             {item.portion} · {fmt(item.grams)}g
           </small>
@@ -237,6 +242,11 @@ export default function ResultStage(p: ResultProps) {
   const reduce = useReducedMotion() ?? false;
   const { profile } = useProfile();
   const goal = profile?.calorie_goal ?? 2000;
+  // Anything in this meal the diet rules out (words like "chicken" or "egg"), found in the detected items and the name
+  const diet = dietOf(profile);
+  const dietNoun = DIET_OPTIONS.find((d) => d.id === diet)?.noun ?? diet;
+  const typedName = useWatch({ control: p.form.control, name: "name" }) ?? "";
+  const conflicts = [...new Set([...p.items.map((it) => dietConflict(diet, it.name)), dietConflict(diet, typedName)].filter((w): w is string => Boolean(w)))];
   const kcal = useRolling(p.totals.calories, reduce);
   const goalPct = Math.round((p.totals.calories / goal) * 100);
   const [burst, setBurst] = useState(!reduce);
@@ -302,6 +312,22 @@ export default function ResultStage(p: ResultProps) {
             </div>
           </div>
 
+          <AnimatePresence initial={false}>
+            {conflicts.length > 0 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
+                <div role="status" className="flex gap-3 rounded-2xl border border-chart-2/30 bg-chart-2/10 p-3 text-sm">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-chart-2" aria-hidden />
+                  <p className="leading-snug">
+                    Heads up: this has <b>{conflicts.join(" and ")}</b>, which {conflicts.length > 1 ? "aren't" : "isn't"} {dietNoun}. You can change your diet in{" "}
+                    <Link href="/profile" className="font-semibold text-chart-2 underline underline-offset-2">
+                      Profile
+                    </Link>
+                    .
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <TextField control={p.form.control} name="name" label="Meal name" maxLength={120} />
           <MealTypeRow value={p.mealType} onChange={p.onMealType} />
           <ServingsStepper value={p.servings} onChange={p.onServings} />
@@ -344,7 +370,7 @@ export default function ResultStage(p: ResultProps) {
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               <AnimatePresence mode="popLayout" initial>
                 {p.items.map((it, i) => (
-                  <ItemCard key={`${it.name}-${it.portion}-${i}`} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} onRemove={() => p.onRemoveItem(i)} />
+                  <ItemCard key={`${it.name}-${it.portion}-${i}`} item={it} index={i} share={it.calories / itemTotal} last={p.items.length === 1} flag={dietConflict(diet, it.name) ? `Not ${diet === "vegan" ? "vegan" : "veg"}` : undefined} onRemove={() => p.onRemoveItem(i)} />
                 ))}
               </AnimatePresence>
             </ul>

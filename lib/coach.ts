@@ -2,6 +2,7 @@ import "server-only";
 import type { Content, FunctionCall, Tool } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { activityLabel } from "./activities";
+import { DIET_PROMPT, dietOf } from "./diet";
 import { COACH_MODELS, getAI, isRetryable, thinkingFor } from "./gemini";
 import type { Profile } from "./types";
 
@@ -133,11 +134,12 @@ async function runTool(call: FunctionCall, db: SupabaseClient, tz: string): Prom
 
   switch (call.name) {
     case "get_profile": {
-      const { data, error } = await db
-        .from("profiles")
-        .select("display_name, sex, age, height_cm, weight_kg, activity_level, goal, calorie_goal, protein_goal_g, carbs_goal_g, fat_goal_g, water_goal_ml")
-        .maybeSingle();
-      return error ? { error: error.message } : { profile: data };
+      // Read the whole row and pick fields here: naming columns in the query would fail on a database without the diet column yet
+      const { data, error } = await db.from("profiles").select("*").maybeSingle();
+      if (error) return { error: error.message };
+      if (!data) return { profile: null };
+      const { display_name, sex, age, height_cm, weight_kg, activity_level, goal, calorie_goal, protein_goal_g, carbs_goal_g, fat_goal_g, water_goal_ml } = data;
+      return { profile: { display_name, sex, age, height_cm, weight_kg, activity_level, goal, diet: dietOf(data), calorie_goal, protein_goal_g, carbs_goal_g, fat_goal_g, water_goal_ml } };
     }
     case "get_summary": {
       const span = daysBetween(start, end);
@@ -199,6 +201,7 @@ function systemPrompt(profile: Profile | null, tz: string) {
     : "";
   return `You are Crazy Rep Coach, a friendly, motivating and concise nutrition and fitness coach inside a calorie-tracking app.
 Today is ${weekday}, ${today} in the user's timezone (${tz}). ${profile?.display_name ? `The user's name is ${profile.display_name}.` : ""} ${goals}
+Diet: ${DIET_PROMPT[dietOf(profile)]}
 
 How to answer:
 - For any question about the user's own meals, calories, macros, activity, water or weight, call the tools first. Never invent or guess numbers; if there is no data, say so and suggest logging.

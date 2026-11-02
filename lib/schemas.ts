@@ -7,6 +7,7 @@ export const mealTypeSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 export const sexSchema = z.enum(["male", "female"]);
 export const activitySchema = z.enum(["sedentary", "light", "moderate", "active", "very_active"]);
 export const goalSchema = z.enum(["lose", "maintain", "gain"]);
+export const dietSchema = z.enum(["vegetarian", "non_vegetarian", "vegan"]);
 /** How a meal was estimated: AI from a photo, AI from the name, USDA FoodData Central, or a saved result. */
 export const analysisSourceSchema = z.enum(["photo", "text", "cache", "usda"]);
 
@@ -158,6 +159,8 @@ export const profileSchema = z.object({
   weight_kg: optionalNumber(25, 400, "Weight"),
   activity_level: activitySchema,
   goal: goalSchema,
+  // Vegetarian unless chosen otherwise (a blank or missing value means the default)
+  diet: z.preprocess((v) => (v === "" || v === null || v === undefined ? "vegetarian" : v), dietSchema),
   calorie_goal: target(800, 10000, "Calories"),
   protein_goal_g: target(0, 1000, "Protein"),
   carbs_goal_g: target(0, 1500, "Carbs"),

@@ -487,7 +487,7 @@ export function CoachSkeleton() {
 
 /* ---------- Profile ---------- */
 
-const ABOUT_FIELDS: { label: string; wide?: boolean }[] = [
+const ABOUT_FIELDS: { label: string; wide?: boolean; hint?: boolean }[] = [
   { label: "Display name", wide: true },
   { label: "Sex" },
   { label: "Age" },
@@ -495,14 +495,16 @@ const ABOUT_FIELDS: { label: string; wide?: boolean }[] = [
   { label: "Weight (kg)" },
   { label: "Activity level", wide: true },
   { label: "Goal", wide: true },
+  { label: "Diet", wide: true, hint: true },
 ];
 const TARGET_FIELDS = ["Calories (kcal)", "Protein (g)", "Carbs (g)", "Fat (g)", "Water (ml)"];
 
-function FieldSkeleton({ label, className, radius = "rounded-xl" }: { label: string; className?: string; radius?: string }) {
+function FieldSkeleton({ label, className, radius = "rounded-xl", hint }: { label: string; className?: string; radius?: string; hint?: boolean }) {
   return (
     <div className={cn("flex w-full flex-col gap-2", className)}>
       <FieldLabel>{label}</FieldLabel>
       <Skeleton className={cn("h-11 w-full", radius)} />
+      {hint && <Line className="h-4 w-56 max-w-full" />}
     </div>
   );
 }
@@ -528,7 +530,7 @@ export function ProfileSkeleton() {
             <SectionTitle>About you</SectionTitle>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {ABOUT_FIELDS.map((f) => (
-                <FieldSkeleton key={f.label} label={f.label} className={f.wide ? "sm:col-span-2" : undefined} />
+                <FieldSkeleton key={f.label} label={f.label} hint={f.hint} className={f.wide ? "sm:col-span-2" : undefined} />
               ))}
             </div>
             <Line className="h-5 w-3/4" />

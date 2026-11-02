@@ -8,6 +8,8 @@ import type { z } from "zod";
 import { TextareaField, TextField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
+import { dietOf, ideasFor } from "@/lib/diet";
+import { useProfile } from "@/lib/hooks";
 import { mealDetailsSchema } from "@/lib/schemas";
 import { MEAL_TYPES, type MealType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,8 +26,6 @@ const buzz = () => {
   } catch {}
 };
 
-/** Shown under the input when you haven't logged anything yet, and typed out in the empty field. */
-export const IDEAS = ["Chicken biryani", "Masala dosa", "Paneer butter masala", "Oats with banana", "Greek yogurt bowl", "Egg omelette", "Dal and rice", "Avocado toast"];
 
 const FOODS = [
   { e: "🍛", left: "6%", top: "10%", size: "2.6rem", dur: 8, delay: 0, tilt: "-12deg" },
@@ -94,11 +94,11 @@ export function MealTypeRow({ value, onChange }: { value: MealType; onChange: (v
 /* ──────────────────────────────── Name hero ──────────────────────────────── */
 
 /** Types example dishes into the empty field, one after another. */
-function Typewriter({ reduce }: { reduce: boolean }) {
+function Typewriter({ reduce, ideas }: { reduce: boolean; ideas: string[] }) {
   const [s, setS] = useState({ line: 0, chars: 0, deleting: false });
   useEffect(() => {
     if (reduce) return;
-    const text = IDEAS[s.line];
+    const text = ideas[s.line % ideas.length];
     let delay = s.deleting ? 26 : 62;
     let next = s;
     if (!s.deleting && s.chars === text.length) {
@@ -106,12 +106,12 @@ function Typewriter({ reduce }: { reduce: boolean }) {
       next = { ...s, deleting: true };
     } else if (s.deleting && s.chars === 0) {
       delay = 300;
-      next = { line: (s.line + 1) % IDEAS.length, chars: 0, deleting: false };
+      next = { line: (s.line + 1) % ideas.length, chars: 0, deleting: false };
     } else next = { ...s, chars: s.chars + (s.deleting ? -1 : 1) };
     const t = setTimeout(() => setS(next), delay);
     return () => clearTimeout(t);
-  }, [s, reduce]);
-  const text = reduce ? IDEAS[0] : IDEAS[s.line].slice(0, s.chars);
+  }, [s, reduce, ideas]);
+  const text = reduce ? ideas[0] : ideas[s.line % ideas.length].slice(0, s.chars);
   return (
     <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center text-muted-foreground/45">
       <span className="truncate">{text}</span>
@@ -121,6 +121,10 @@ function Typewriter({ reduce }: { reduce: boolean }) {
 }
 
 function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
+  // Starter dishes that fit the diet in the profile (vegetarian until it says otherwise)
+  const { profile } = useProfile();
+  const diet = dietOf(profile);
+  const ideas = useMemo(() => ideasFor(diet), [diet]);
   const name = useWatch({ control: form.control, name: "name" }) ?? "";
   const ready = useMemo(() => mealDetailsSchema.shape.name.safeParse(name).success, [name]);
 
@@ -158,7 +162,7 @@ function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
                     aria-invalid={fieldState.invalid}
                     className="size-full bg-transparent outline-none"
                   />
-                  {!name && <Typewriter reduce={reduce} />}
+                  {!name && <Typewriter reduce={reduce} ideas={ideas} />}
                 </div>
                 <div className="grid size-8 shrink-0 place-items-center">
                   <AnimatePresence>
@@ -180,7 +184,7 @@ function NameHero({ form, reduce }: { form: Form; reduce: boolean }) {
               <div className="mt-4 border-t border-foreground/5 pt-3">
                 <RecentDishes
                   value={name}
-                  fallback={IDEAS}
+                  fallback={ideas}
                   onPick={(picked) => {
                     buzz();
                     form.setValue("name", picked, { shouldDirty: true, shouldTouch: true, shouldValidate: true });

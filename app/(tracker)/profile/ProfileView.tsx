@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_DIET, DIET_OPTIONS } from "@/lib/diet";
 import { keys, useProfile, useUser } from "@/lib/hooks";
 import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
@@ -63,7 +64,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const { id, ...fields } = initial;
   const form = useForm<ProfileInput, unknown, ProfileValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { ...fields, display_name: fields.display_name ?? "", water_goal_ml: fields.water_goal_ml ?? 2500 },
+    defaultValues: { ...fields, display_name: fields.display_name ?? "", water_goal_ml: fields.water_goal_ml ?? 2500, diet: fields.diet ?? DEFAULT_DIET },
   });
   const { control, setValue, formState } = form;
 
@@ -93,9 +94,11 @@ function ProfileForm({ initial }: { initial: Profile }) {
   }
 
   const onSubmit = form.handleSubmit(async (values) => {
+    // A profile read before the diet migration ran has no diet column yet; leave it out so saving still works
+    const { diet, ...rest } = values;
     const { error } = await createClient()
       .from("profiles")
-      .update({ ...values, display_name: values.display_name || null })
+      .update({ ...rest, ...("diet" in initial ? { diet } : {}), display_name: values.display_name || null })
       .eq("id", id);
     if (error) return toast.error(error.message);
     void queryClient.invalidateQueries({ queryKey: keys.profile });
@@ -213,6 +216,34 @@ function ProfileForm({ initial }: { initial: Profile }) {
                         </ToggleGroupItem>
                       ))}
                     </ToggleGroup>
+                  </Field>
+                )}
+              />
+              <Controller
+                control={control}
+                name="diet"
+                render={({ field }) => (
+                  <Field className="sm:col-span-2">
+                    <FieldLabel>Diet</FieldLabel>
+                    <ToggleGroup
+                      type="single"
+                      variant="outline"
+                      value={String(field.value ?? DEFAULT_DIET)}
+                      onValueChange={(v) => v && field.onChange(v)}
+                      className="w-full"
+                      aria-label="Diet"
+                    >
+                      {DIET_OPTIONS.map((d) => (
+                        <ToggleGroupItem
+                          key={d.id}
+                          value={d.id}
+                          className="h-11 min-w-0 flex-1 gap-1 px-1.5 text-[0.8rem] max-[339px]:px-1 max-[339px]:text-[0.7rem] data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground sm:text-sm"
+                        >
+                          <span aria-hidden>{d.emoji}</span> {d.label}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                    <p className="h-4 text-xs text-muted-foreground">{DIET_OPTIONS.find((d) => d.id === field.value)?.hint}</p>
                   </Field>
                 )}
               />
