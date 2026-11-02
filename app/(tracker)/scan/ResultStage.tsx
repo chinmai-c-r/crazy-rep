@@ -244,6 +244,8 @@ export type ResultProps = {
   mealType: MealType;
   onMealType: (v: MealType) => void;
   saving: boolean;
+  /** No connection: the meal can't be saved until it's back. */
+  offline?: boolean;
   onSave: () => void;
   onDiscard: () => void;
 };
@@ -427,11 +429,11 @@ export default function ResultStage(p: ResultProps) {
           <Button
             className="relative h-14 flex-[1.5] overflow-hidden rounded-full bg-gradient-to-r from-primary via-mid to-chart-4 text-base font-semibold text-primary-foreground shadow-[0_10px_22px_-8px_rgb(var(--primary-rgb)/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)] transition-transform active:scale-[0.98]"
             onClick={p.onSave}
-            disabled={p.saving}
+            disabled={p.saving || p.offline}
           >
             {!p.saving && !reduce && <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-1/4 animate-shimmer bg-white/50 blur-md" />}
             {p.saving ? <Loader2 className="animate-spin" /> : <Sparkles className={cn(!reduce && "animate-twinkle")} />}
-            {p.saving ? "Logging…" : "Log this meal"}
+            {p.saving ? "Logging…" : p.offline ? "Offline" : "Log this meal"}
           </Button>
         </div>
       </motion.div>

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { activityIcon, activityLabel } from "@/lib/activities";
 import { fmt } from "@/lib/nutrition";
+import { useOnline } from "@/lib/offline";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { ActivityLog, WaterLog, WeightLog } from "@/lib/types";
@@ -25,6 +26,7 @@ export function ActivityCard({
   onAdd: () => void;
   onDeleted: (id: string) => void;
 }) {
+  const online = useOnline();
   const burned = activities.reduce((s, a) => s + Number(a.calories_burned), 0);
   const minutes = activities.reduce((s, a) => s + a.duration_min, 0);
 
@@ -61,14 +63,14 @@ export function ActivityCard({
                   </small>
                 </span>
                 <span className="text-sm font-bold whitespace-nowrap">{fmt(a.calories_burned)} kcal</span>
-                <Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground hover:text-destructive" onClick={() => remove(a)} aria-label="Remove activity">
+                <Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground hover:text-destructive" onClick={() => remove(a)} disabled={!online} aria-label="Remove activity">
                   <Trash2 />
                 </Button>
               </li>
             ))}
           </ul>
         )}
-        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading}>
+        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading || !online}>
           <Plus /> Log activity
         </Button>
       </CardContent>
@@ -91,6 +93,7 @@ export function WaterCard({
   onAdded: (row: WaterLog) => void;
   onRemoved: (id: string) => void;
 }) {
+  const online = useOnline();
   const total = logs.reduce((s, l) => s + l.ml, 0);
 
   async function add(ml: number) {
@@ -133,13 +136,13 @@ export function WaterCard({
           })}
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(250)} disabled={loading}>
+          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(250)} disabled={loading || !online}>
             +250 ml
           </Button>
-          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(500)} disabled={loading}>
+          <Button variant="secondary" className="h-10 flex-1 rounded-full" onClick={() => add(500)} disabled={loading || !online}>
             +500 ml
           </Button>
-          <Button variant="ghost" size="icon-lg" className="size-10 rounded-full" onClick={undo} disabled={!logs.length} aria-label="Undo last water entry">
+          <Button variant="ghost" size="icon-lg" className="size-10 rounded-full" onClick={undo} disabled={!logs.length || !online} aria-label="Undo last water entry">
             <Undo2 />
           </Button>
         </div>
@@ -149,6 +152,7 @@ export function WaterCard({
 }
 
 export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; loading?: boolean; onAdd: () => void }) {
+  const online = useOnline();
   const [latest, previous] = weights;
   const delta = latest && previous ? Number(latest.weight_kg) - Number(previous.weight_kg) : null;
   const trend = [...weights].reverse().map((w) => Number(w.weight_kg));
@@ -194,7 +198,7 @@ export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; 
         ) : (
           <p className="text-sm text-muted-foreground">No weigh-ins yet. Log one to see your trend.</p>
         )}
-        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading}>
+        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading || !online}>
           <Plus /> Log weight
         </Button>
       </CardContent>

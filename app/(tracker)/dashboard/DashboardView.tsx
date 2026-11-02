@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useOnline } from "@/lib/offline";
 import { useLogRange, useMeals, useProfile, useSignedUrls, useWeights } from "@/lib/hooks";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
+import { OfflineNote } from "../_components/OfflineBanner";
 import { ActivityCard, WaterCard, WeightCard } from "../_components/BodyCards";
 import { ActivitySheet, WeightSheet } from "../_components/LogSheets";
 import MacroRings from "../_components/MacroRings";
@@ -26,7 +28,8 @@ export default function DashboardView() {
   const [date, setDate] = useState(() => new Date());
   const { start, end } = useMemo(() => dayRange(date), [date]);
   const { profile, loading: profileLoading, reload: reloadProfile } = useProfile();
-  const { meals, loading, error, setMeals } = useMeals(start, end);
+  const online = useOnline();
+  const { meals, loading, unavailable, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
@@ -58,15 +61,15 @@ export default function DashboardView() {
         title={isToday ? "Today" : date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
       >
         <div className="flex gap-1.5">
-          <Button variant="outline" size="icon-lg" className="size-11 rounded-xl" onClick={() => shift(-1)} aria-label="Previous day">
+          <Button variant="outline" size="icon-lg" className="size-11 rounded-xl" onClick={() => shift(-1)} aria-label="Previous day" disabled={!online}>
             <ChevronLeft />
           </Button>
           {!isToday && (
-            <Button variant="outline" className="h-11 rounded-xl px-4" onClick={() => setDate(new Date())}>
+            <Button variant="outline" className="h-11 rounded-xl px-4" onClick={() => setDate(new Date())} disabled={!online}>
               Today
             </Button>
           )}
-          <Button variant="outline" size="icon-lg" className="size-11 rounded-xl" onClick={() => shift(1)} disabled={isToday} aria-label="Next day">
+          <Button variant="outline" size="icon-lg" className="size-11 rounded-xl" onClick={() => shift(1)} disabled={isToday || !online} aria-label="Next day">
             <ChevronRight />
           </Button>
         </div>
@@ -95,7 +98,9 @@ export default function DashboardView() {
         )}
       </section>
 
-      {error && (
+      {unavailable && <OfflineNote>This day isn&apos;t saved on your device. Connect to the internet to see it.</OfflineNote>}
+
+      {error && online && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -117,7 +122,7 @@ export default function DashboardView() {
                   ))}
                 </ul>
               ) : (
-                <EmptyMeal href={`/scan?type=${t.value}`} icon={t.icon} label={t.label} />
+                <EmptyMeal href={`/scan?type=${t.value}`} icon={t.icon} label={t.label} disabled={!online} />
               )}
             </div>
           );
@@ -160,11 +165,13 @@ export default function DashboardView() {
         }}
       />
 
-      <Button asChild size="xl" className="fixed right-8 bottom-8 z-40 hidden shadow-[0_10px_40px_rgb(var(--primary-rgb)/0.35)] lg:inline-flex">
-        <Link href="/scan">
-          <Camera /> Log meal
-        </Link>
-      </Button>
+      {online && (
+        <Button asChild size="xl" className="fixed right-8 bottom-8 z-40 hidden shadow-[0_10px_40px_rgb(var(--primary-rgb)/0.35)] lg:inline-flex">
+          <Link href="/scan">
+            <Camera /> Log meal
+          </Link>
+        </Button>
+      )}
 
       <MealSheet
         meal={open}

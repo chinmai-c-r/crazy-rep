@@ -20,11 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useOnline } from "@/lib/offline";
 import { keys, useChatMessages, useChatThreads } from "@/lib/hooks";
 import { chatRequestSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import type { ChatMessage, ChatThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader } from "../_components/Page";
 import { ChatBubblesSkeleton } from "../_components/Skeletons";
 
@@ -39,6 +41,7 @@ const SUGGESTIONS = [
 
 export default function CoachView() {
   const qc = useQueryClient();
+  const online = useOnline();
   const { threads, loading: threadsLoading } = useChatThreads();
   // undefined: nothing picked yet, so open the latest conversation. null: a new, empty conversation.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined);
@@ -63,6 +66,7 @@ export default function CoachView() {
     id === null ? setFresh(fn) : qc.setQueryData<ChatMessage[]>(keys.chat(id), (old) => fn(old ?? []));
 
   async function send(text: string) {
+    if (!online) return;
     const parsed = chatRequestSchema.safeParse({ message: text, threadId: current ?? undefined, tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
     if (sending) return;
@@ -111,6 +115,7 @@ export default function CoachView() {
   }
 
   async function removeThread(t: ChatThread) {
+    if (!online) return;
     const { error } = await createClient().from("chat_threads").delete().eq("id", t.id);
     if (error) return toast.error(error.message);
     qc.setQueryData<ChatThread[]>(keys.chatThreads, (old) => (old ?? []).filter((x) => x.id !== t.id));
@@ -131,7 +136,7 @@ export default function CoachView() {
             size="icon-lg"
             className="size-11 rounded-full"
             onClick={newChat}
-            disabled={sending || (current === null && fresh.length === 0)}
+            disabled={!online || sending || (current === null && fresh.length === 0)}
             aria-label="New chat"
           >
             <SquarePen />
@@ -146,7 +151,7 @@ export default function CoachView() {
             <DrawerDescription>Pick up an earlier conversation or start a new one.</DrawerDescription>
           </DrawerHeader>
           <div data-vaul-no-drag className="grid max-h-[60vh] gap-2 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-            <Button className="h-11 rounded-full" onClick={newChat}>
+            <Button className="h-11 rounded-full" onClick={newChat} disabled={!online}>
               <SquarePen /> New chat
             </Button>
             {threadsLoading ? (
@@ -171,6 +176,7 @@ export default function CoachView() {
                     variant="ghost"
                     size="icon-lg"
                     className="size-10 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+                    disabled={!online}
                     onClick={() => {
                       setHistoryOpen(false);
                       setToDelete(t);
@@ -206,6 +212,8 @@ export default function CoachView() {
       <section className="grid content-start gap-4" aria-live="polite">
         {loading ? (
           <ChatBubblesSkeleton />
+        ) : stored.unavailable ? (
+          <OfflineNote>This chat isn&apos;t saved on your device. Connect to the internet to read it.</OfflineNote>
         ) : messages.length === 0 ? (
           <div className="grid justify-items-center gap-4 py-8 text-center">
             <div className="grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -216,7 +224,7 @@ export default function CoachView() {
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
-                <Button key={s} variant="outline" className="h-auto rounded-full px-4 py-2 whitespace-normal" onClick={() => send(s)}>
+                <Button key={s} variant="outline" className="h-auto rounded-full px-4 py-2 whitespace-normal" onClick={() => send(s)} disabled={!online}>
                   {s}
                 </Button>
               ))}
@@ -240,6 +248,7 @@ export default function CoachView() {
           send(input);
         }}
       >
+        {!online && <p className="text-center text-xs text-warn">You&apos;re offline. You can read past chats, but the coach needs a connection.</p>}
         <div className="flex items-end gap-2 rounded-3xl border bg-card/95 p-2 backdrop-blur-lg">
           <Textarea
             value={input}
@@ -250,13 +259,14 @@ export default function CoachView() {
                 send(input);
               }
             }}
-            placeholder="Ask your coach…"
+            placeholder={online ? "Ask your coach…" : "Offline: connect to ask your coach"}
+            disabled={!online}
             rows={1}
             maxLength={1000}
             className="max-h-40 min-h-11 resize-none border-0 bg-transparent! shadow-none focus-visible:ring-0"
             aria-label="Message"
           />
-          <Button type="submit" size="icon-lg" className="size-11 shrink-0 rounded-full" disabled={sending || !input.trim()} aria-label="Send">
+          <Button type="submit" size="icon-lg" className="size-11 shrink-0 rounded-full" disabled={!online || sending || !input.trim()} aria-label="Send">
             {sending ? <Loader2 className="animate-spin" /> : <ArrowUp />}
           </Button>
         </div>

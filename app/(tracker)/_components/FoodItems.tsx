@@ -35,7 +35,7 @@ export function FoodItemList({ items, onRemove }: { items: FoodItem[]; onRemove?
 }
 
 /** Detected items of a logged meal, each with a quantity stepper. `meta[i]` is the quantity shown and whether it can go lower. */
-export function EditableItemList({ items, meta, onStep }: { items: FoodItem[]; meta: { label: string; canDown: boolean }[]; onStep: (index: number, dir: 1 | -1) => void }) {
+export function EditableItemList({ items, meta, onStep, disabled }: { disabled?: boolean; items: FoodItem[]; meta: { label: string; canDown: boolean }[]; onStep: (index: number, dir: 1 | -1) => void }) {
   return (
     <ul className="grid gap-2">
       {items.map((it, i) => (
@@ -51,7 +51,7 @@ export function EditableItemList({ items, meta, onStep }: { items: FoodItem[]; m
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-muted-foreground">Quantity</span>
-            <ItemStepper name={it.name} label={meta[i]?.label ?? "1"} canDown={meta[i]?.canDown ?? false} onStep={(dir) => onStep(i, dir)} />
+            <ItemStepper disabled={disabled} name={it.name} label={meta[i]?.label ?? "1"} canDown={meta[i]?.canDown ?? false} onStep={(dir) => onStep(i, dir)} />
           </div>
         </li>
       ))}

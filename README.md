@@ -14,7 +14,8 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **History** (`/history`): 7d, 30d, 90d, 1y and 5y ranges, computed in the database by `history_summary()` (day, week or month buckets in your timezone): calories against your goal, weight trend, burned calories, water and a breakdown table.
 - **Profile and goals** (`/profile`): enter sex, age, height, weight, activity level and goal, then apply recommended calorie and macro targets (Mifflin–St Jeor). You can also sign out or permanently delete your account.
 - **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
-- **PWA**: installable from the browser on Android and iPhone, with an offline fallback page, app icons and a manifest.
+- **PWA**: installable from the browser on Android and iPhone, with app icons and a manifest.
+- **Offline reading**: the app opens without a connection and shows the last data it fetched (today, the last 7 days of history, saved coach chats, the profile). Logging, editing and the coach are paused until the connection returns. Themes still work offline.
 - **Landing page** (`/`): what the app does today, plus a **Request access** form. Requests are saved to `access_requests` (one per email, server-only); approve someone by adding their email to the `sign-in-users` flag.
 
 ## Project layout
@@ -45,7 +46,8 @@ lib/
   supabase/                Browser, server and proxy clients
 proxy.ts                   Refreshes the session and protects app routes
 supabase/migrations/        Versioned schema (tables, RLS, storage bucket, triggers)
-public/sw.js               Service worker (offline page only)
+public/sw.js               Service worker (caches pages and app files so the app opens offline)
+lib/offline.ts             Online hook and the on-device copy of fetched data (localStorage)
 ```
 
 ---

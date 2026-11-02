@@ -20,6 +20,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import { syncMeal } from "@/lib/google-health-client";
 import { isEdited, itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
 import { fmt, sumNutrients } from "@/lib/nutrition";
+import { useOnline } from "@/lib/offline";
 import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
@@ -51,6 +52,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [servings, setServings] = useState(Number(meal.servings));
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
   const [busy, setBusy] = useState(false);
+  const online = useOnline();
 
   // Each detected item can be raised or lowered. Items are per serving; the saved nutrients include the saved servings.
   const [entries, setEntries] = useState<ItemEntry[]>(() => toEntries(meal.items ?? [], () => crypto.randomUUID()));
@@ -129,8 +131,12 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <MealTypePicker value={mealType} onChange={setMealType} />
-          <Stepper value={servings} onChange={setServings} />
+          <fieldset disabled={!online} className="contents">
+            <MealTypePicker value={mealType} onChange={setMealType} />
+          </fieldset>
+          <fieldset disabled={!online} className="contents">
+            <Stepper value={servings} onChange={setServings} />
+          </fieldset>
         </div>
 
         <div className="grid gap-3">
@@ -145,7 +151,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             <SectionTitle>
               Detected items <span className="font-normal tracking-normal normal-case">(per serving)</span>
             </SectionTitle>
-            <EditableItemList items={items} meta={itemMeta} onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))} />
+            <EditableItemList disabled={!online} items={items} meta={itemMeta} onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))} />
           </section>
         )}
 
@@ -160,7 +166,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
       <DrawerFooter className="flex-row gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="xl" className="flex-1" disabled={busy}>
+            <Button variant="destructive" size="xl" className="flex-1" disabled={busy || !online}>
               <Trash2 /> Delete
             </Button>
           </AlertDialogTrigger>
@@ -177,7 +183,8 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <Button size="xl" className="flex-1" onClick={save} disabled={busy || !dirty}>
+        <Button size="xl" className="flex-1" onClick={save} disabled={busy || !dirty || !online}>
+
           {busy && <Loader2 className="animate-spin" />}
           Save changes
         </Button>

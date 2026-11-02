@@ -11,7 +11,7 @@ const buzz = () => {
 };
 
 /** A quantity pill for one detected item: whole numbers for things you count (dosas), halves for measures (a cup). */
-export default function ItemStepper({ name, label, canDown, onStep }: { name: string; label: string; canDown: boolean; onStep: (dir: 1 | -1) => void }) {
+export default function ItemStepper({ name, label, canDown, onStep, disabled }: { disabled?: boolean; name: string; label: string; canDown: boolean; onStep: (dir: 1 | -1) => void }) {
   return (
     <div className="inline-flex items-center rounded-full border bg-background/40 p-0.5" role="group" aria-label={`${name} quantity`}>
       <Button
@@ -23,7 +23,7 @@ export default function ItemStepper({ name, label, canDown, onStep }: { name: st
           buzz();
           onStep(-1);
         }}
-        disabled={!canDown}
+        disabled={!canDown || disabled}
         aria-label={`Fewer ${name}`}
       >
         <Minus className="size-3.5" />
@@ -45,6 +45,7 @@ export default function ItemStepper({ name, label, canDown, onStep }: { name: st
       <Button
         type="button"
         size="icon-sm"
+        disabled={disabled}
         className="size-7 rounded-full shadow-[0_4px_12px_-3px_rgb(var(--primary-rgb)/0.6)] active:scale-90"
         onClick={() => {
           buzz();

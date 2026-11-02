@@ -4,6 +4,7 @@ import { createClient, type LDClient } from "@launchdarkly/js-client-sdk";
 import { createContext, useContext, useEffect, useState } from "react";
 import { flagContext, flagDefault, requestAccessUrl, type BoolFlag, type FlagUser } from "@/lib/flags";
 import { useUser } from "@/lib/hooks";
+import { clearOfflineData } from "@/lib/offline";
 import { createClient as createSupabase } from "@/lib/supabase/client";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_LAUNCHDARKLY_CLIENT_ID;
@@ -28,7 +29,10 @@ export function FlagsProvider({ children }: { children: React.ReactNode }) {
       if (!client.boolVariation("sign-in-users", flagDefault("sign-in-users"))) {
         void createSupabase()
           .auth.signOut()
-          .then(() => window.location.replace(requestAccessUrl(email)));
+          .then(() => {
+            clearOfflineData();
+            window.location.replace(requestAccessUrl(email));
+          });
       }
       setState((s) => ({ client, version: s.version + 1 }));
     };

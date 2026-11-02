@@ -3,7 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, WifiOff } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
 import { itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
+import { useOnline } from "@/lib/offline";
 import { guessMealType, scaleNutrients, sumNutrients } from "@/lib/nutrition";
 import { analyzeResponseSchema, mealDetailsSchema, mealWriteSchema, type AnalysisSource } from "@/lib/schemas";
 
@@ -26,6 +28,7 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
 import { invalidateRecentDishes, invalidateSummary, useUser } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { MEAL_TYPES, type Analysis, type Meal, type MealType } from "@/lib/types";
+import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader } from "../_components/Page";
 import AnalyzingScreen from "./AnalyzingScreen";
 import DetailsStage from "./DetailsStage";
@@ -40,6 +43,7 @@ export default function ScanView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { userId } = useUser();
+  const online = useOnline();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -227,7 +231,24 @@ export default function ScanView() {
         </Alert>
       )}
 
-      {stage === "details" && (
+      {!online && stage !== "result" && (
+        <div className="grid justify-items-center gap-4 rounded-3xl border border-dashed px-6 py-14 text-center" role="status">
+          <span className="grid size-16 place-items-center rounded-2xl bg-warn/10 text-warn">
+            <WifiOff className="size-8" aria-hidden />
+          </span>
+          <div className="grid gap-1">
+            <h2 className="font-heading text-3xl tracking-wide">You&apos;re offline</h2>
+            <p className="max-w-sm text-muted-foreground">You can&apos;t log a meal without a connection. Please connect to the internet and try again.</p>
+          </div>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/dashboard">Back to today</Link>
+          </Button>
+        </div>
+      )}
+
+      {!online && stage === "result" && <OfflineNote>You&apos;re offline. Please connect to the internet to log this meal. Your results are kept here until then.</OfflineNote>}
+
+      {online && stage === "details" && (
         <DetailsStage
           form={form}
           mealType={mealType}
@@ -264,6 +285,7 @@ export default function ScanView() {
           mealType={mealType}
           onMealType={setMealType}
           saving={saving}
+          offline={!online}
           onSave={save}
           onDiscard={reset}
         />

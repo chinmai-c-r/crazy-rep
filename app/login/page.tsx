@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldSeparator } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requestAccessUrl } from "@/lib/flags";
+import { clearOfflineData } from "@/lib/offline";
 import { resetRequestSchema, signInSchema, signUpSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 
@@ -125,6 +126,7 @@ function SignInForm({ next, onNotice }: { next: string; onNotice: (n: Notice) =>
     onNotice(null);
     const { error } = await createClient().auth.signInWithPassword(values);
     if (error) return onNotice({ ok: false, text: error.message });
+    clearOfflineData(); // never show the last person's saved data
     router.replace(next);
     router.refresh();
   });
@@ -162,6 +164,7 @@ function SignUpForm({ onNotice }: { onNotice: (n: Notice) => void }) {
     });
     if (error) return onNotice({ ok: false, text: error.message });
     if (data.session) {
+      clearOfflineData();
       router.replace("/profile?welcome=1");
       router.refresh();
       return;

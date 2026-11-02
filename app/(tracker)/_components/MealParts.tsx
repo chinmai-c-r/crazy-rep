@@ -78,7 +78,20 @@ export function MealRow({ meal, url, index = 0, onOpen }: { meal: Meal; url?: st
 }
 
 /** The empty meal slot: the same height as a meal row (78px), so nothing jumps when meals load. */
-export function EmptyMeal({ href, icon, label }: { href: string; icon: string; label: string }) {
+export function EmptyMeal({ href, icon, label, disabled }: { href: string; icon: string; label: string; disabled?: boolean }) {
+  if (disabled) {
+    return (
+      <div className="flex h-[78px] items-center gap-3.5 rounded-2xl border border-dashed p-2.5 opacity-60" aria-disabled>
+        <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-muted/60 text-2xl" aria-hidden>
+          {icon}
+        </span>
+        <span className="grid">
+          <b>No {label.toLowerCase()} logged</b>
+          <small className="text-xs text-muted-foreground">Logging needs a connection</small>
+        </span>
+      </div>
+    );
+  }
   return (
     <Link
       href={href}

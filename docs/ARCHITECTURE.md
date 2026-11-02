@@ -106,6 +106,15 @@ The profile's `diet` (vegetarian by default, or eggetarian, non-vegetarian or ve
 
 Each user can keep several conversations (`chat_threads`). The coach only sees the messages of the open conversation, the daily message limit counts across all of them, and deleting a conversation deletes its messages.
 
+## Working offline
+
+The installed app can be opened and read without a connection.
+
+- `public/sw.js` keeps the last good copy of each page (network first) and caches `/_next/static` files, so the app shell opens offline. API and Supabase calls are never cached by the service worker.
+- `lib/offline.ts` saves the React Query cache to `localStorage` (profile, meals, logs, weights, history summaries, coach chats; not photo URLs, which expire). It is loaded before the first render and saved again as data changes, with a per-kind limit so it stays small.
+- Offline, queries with nothing saved wait instead of failing, and each page says so. `useOnline()` disables everything that writes: dashboard date arrows, add and delete buttons, meal edits, the whole profile form, the coach input, and logging a meal. History is limited to the last 7 days, which are fetched whichever range is open. Themes are local, so they still work.
+- Signing in, signing out, deleting the account and a flag-forced sign-out clear the saved data and the page cache, so one person's data never shows for the next.
+
 ## Data model
 
 ```mermaid

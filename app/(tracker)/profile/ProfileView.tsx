@@ -29,10 +29,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_DIET, DIET_OPTIONS } from "@/lib/diet";
 import { keys, useProfile, useUser } from "@/lib/hooks";
+import { clearOfflineData, useOnline } from "@/lib/offline";
 import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
+import { OfflineNote } from "../_components/OfflineBanner";
 import { ProfileSkeleton } from "../_components/Skeletons";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import GoogleHealthCard from "./GoogleHealthCard";
@@ -42,14 +44,18 @@ const GOAL_LABELS = { lose: "Lose fat", maintain: "Maintain", gain: "Build muscl
 const SEX_LABELS = { male: "Male", female: "Female" } as const;
 
 export default function ProfileView() {
-  const { profile, loading } = useProfile();
+  const { profile, loading, unavailable } = useProfile();
   if (loading) return <ProfileSkeleton />;
   if (!profile)
     return (
       <Page>
-        <Alert variant="destructive">
-          <AlertDescription>Could not load your profile.</AlertDescription>
-        </Alert>
+        {unavailable ? (
+          <OfflineNote>Your profile isn&apos;t saved on this device yet. Connect to the internet to load it.</OfflineNote>
+        ) : (
+          <Alert variant="destructive">
+            <AlertDescription>Could not load your profile.</AlertDescription>
+          </Alert>
+        )}
       </Page>
     );
   return <ProfileForm initial={profile} />;
@@ -59,6 +65,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { email } = useUser();
+  const online = useOnline();
   const [welcome] = useState(() => new URLSearchParams(window.location.search).has("welcome"));
 
   const { id, ...fields } = initial;
@@ -109,7 +116,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
   async function signOut() {
     await createClient().auth.signOut();
-    queryClient.clear();
+    clearOfflineData(queryClient);
     router.replace("/login");
     router.refresh();
   }
@@ -141,7 +148,11 @@ function ProfileForm({ initial }: { initial: Profile }) {
         </Alert>
       )}
 
+      {!online && <OfflineNote>You&apos;re offline, so your profile is read-only. Reconnect to change it. You can still pick a theme.</OfflineNote>}
+
       <form onSubmit={onSubmit} noValidate className="grid gap-5">
+        {/* A disabled fieldset turns off every field and button inside it */}
+        <fieldset disabled={!online} className="grid min-w-0 gap-5 disabled:opacity-70">
         <Card className="rounded-3xl">
           <CardContent className="grid gap-5">
             <SectionTitle>About you</SectionTitle>
@@ -281,6 +292,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
           {formState.isSubmitting && <Loader2 className="animate-spin" />}
           {welcome ? "Save and scan my first meal" : "Save changes"}
         </Button>
+        </fieldset>
       </form>
 
       <GoogleHealthCard />
@@ -291,7 +303,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
         <CardContent className="grid gap-4">
           <SectionTitle>Account</SectionTitle>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="outline" className="rounded-full" onClick={signOut}>
+            <Button variant="outline" className="rounded-full" onClick={signOut} disabled={!online}>
               <LogOut /> Sign out
             </Button>
             <Button asChild variant="link">
@@ -344,6 +356,7 @@ function NumberField({
 
 function DeleteAccount() {
   const router = useRouter();
+  const online = useOnline();
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -357,7 +370,7 @@ function DeleteAccount() {
       return toast.error((await res.json()).error ?? "Could not delete account.");
     }
     await createClient().auth.signOut();
-    queryClient.clear();
+    clearOfflineData(queryClient);
     toast.success("Your account has been deleted");
     router.replace("/");
   }
@@ -365,7 +378,7 @@ function DeleteAccount() {
   return (
     <AlertDialog onOpenChange={() => setTyped("")}>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" className="rounded-full">
+        <Button variant="destructive" className="rounded-full" disabled={!online}>
           <Trash2 /> Delete account
         </Button>
       </AlertDialogTrigger>

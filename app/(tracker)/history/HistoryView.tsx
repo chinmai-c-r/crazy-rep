@@ -8,10 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProfile, useSummary } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
+import { useOnline } from "@/lib/offline";
 import type { SummaryRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CaloriesChart, Donut, MiniBars, WeightLine, type CalPoint } from "../_components/charts";
 import { toLocalDate } from "../_components/LogSheets";
+import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import {
   BarChartSkeleton,
@@ -60,7 +62,10 @@ const UNIT = { day: "days", week: "weeks", month: "months" } as const;
 const hours = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min}m`);
 
 export default function HistoryView() {
-  const [range, setRange] = useState<RangeKey>("30d");
+  const online = useOnline();
+  const [picked, setRange] = useState<RangeKey>("30d");
+  // Only the last 7 days are kept for offline use, so that's all there is to look at without a connection
+  const range: RangeKey = online ? picked : "7d";
   const { days, bucket } = RANGES[range];
   const { profile, loading: profileLoading } = useProfile();
   const goal = profile?.calorie_goal ?? 2000;
@@ -71,7 +76,15 @@ export default function HistoryView() {
     first.setDate(today.getDate() - (days - 1));
     return { start: toLocalDate(first), end: toLocalDate(today) };
   }, [days]);
-  const { rows, loading, error } = useSummary(start, end, bucket);
+  const { rows, loading, unavailable, error } = useSummary(start, end, bucket);
+  // Fetch the last 7 days whichever range is open, so there's something to read when the connection drops
+  const lastWeek = useMemo(() => {
+    const today = new Date();
+    const first = new Date(today);
+    first.setDate(today.getDate() - (RANGES["7d"].days - 1));
+    return { start: toLocalDate(first), end: toLocalDate(today) };
+  }, []);
+  useSummary(lastWeek.start, lastWeek.end, "day");
   const pending = loading || profileLoading;
   const unit = bucket === "day" ? "" : " (avg per logged day)";
 
@@ -134,7 +147,7 @@ export default function HistoryView() {
         <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
           <TabsList className="h-11 rounded-full p-1">
             {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-              <TabsTrigger key={r} value={r} className="rounded-full px-3 sm:px-4">
+              <TabsTrigger key={r} value={r} disabled={!online && r !== "7d"} className="rounded-full px-3 sm:px-4">
                 {r}
               </TabsTrigger>
             ))}
@@ -142,7 +155,10 @@ export default function HistoryView() {
         </Tabs>
       </PageHeader>
 
-      {error && (
+      {!online && !unavailable && <OfflineNote>Offline: showing your last 7 days. Longer ranges need a connection.</OfflineNote>}
+      {unavailable && <OfflineNote>Your last 7 days aren&apos;t saved on this device yet. Connect to the internet and open History once to save them.</OfflineNote>}
+
+      {error && online && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
