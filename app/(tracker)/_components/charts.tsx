@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { fmt } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +24,34 @@ export type CalPoint = {
  * Bars with a goal line. Bars within reach of the goal are lime to teal, bars well over it turn amber to pink.
  * One bar is always selected (the latest by default) and its numbers sit in the panel below, so the chart never has an empty "tap a bar" state.
  */
+/** Which axis labels fit without touching. With 60 bars on a phone, a label is wider than ten bars, so most are skipped. */
+function visibleLabels(labels: string[], width: number) {
+  const slot = width / Math.max(labels.length, 1);
+  const labelPx = Math.max(...labels.map((l) => l.length), 1) * 6.2 + 18; // text-[0.65rem] with room around it
+  const step = Math.max(1, Math.ceil(labelPx / slot));
+  const shown = new Set<number>();
+  // Start at the first bar where a label fits inside the chart, so the left edge isn't left empty
+  const first = Math.max(0, Math.ceil(labelPx / 2 / slot - 0.5));
+  for (let i = first; i < labels.length; i += step) {
+    const centre = (i + 0.5) * slot;
+    if (labels[i] && centre >= labelPx / 2 && centre <= width - labelPx / 2) shown.add(i); // fully inside the chart
+  }
+  return shown;
+}
+
 export function CaloriesChart({ points, goal }: { points: CalPoint[]; goal: number }) {
   const reduce = useReducedMotion() ?? false;
   const [hover, setHover] = useState<number | null>(null);
+  const plot = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(320);
+  useEffect(() => {
+    const el = plot.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const labelAt = visibleLabels(points.map((p) => p.axis), width);
   const max = Math.max(goal * 1.25, ...points.map((p) => p.kcal)) || 1;
   const latest = (() => {
     for (let i = points.length - 1; i >= 0; i--) if (points[i].kcal > 0) return i;
@@ -36,8 +61,8 @@ export function CaloriesChart({ points, goal }: { points: CalPoint[]; goal: numb
   const p = points[active];
 
   return (
-    <div onMouseLeave={() => setHover(null)}>
-      <div className="relative flex h-56 items-end gap-0.5 border-b lg:h-72">
+    <div className="min-w-0" onMouseLeave={() => setHover(null)}>
+      <div ref={plot} className="relative flex h-56 items-end gap-0.5 border-b lg:h-72">
         {[0.25, 0.5, 0.75].map((g) => (
           <i key={g} aria-hidden className="pointer-events-none absolute inset-x-0 border-t border-foreground/5" style={{ bottom: `${g * 100}%` }} />
         ))}
@@ -72,9 +97,9 @@ export function CaloriesChart({ points, goal }: { points: CalPoint[]; goal: numb
         })}
       </div>
       <div className="mt-1.5 flex gap-0.5">
-        {points.map((pt) => (
+        {points.map((pt, i) => (
           <span key={pt.key} className="min-w-0 flex-1 overflow-visible text-center text-[0.65rem] whitespace-nowrap text-muted-foreground">
-            {pt.axis}
+            {labelAt.has(i) ? pt.axis : ""}
           </span>
         ))}
       </div>

@@ -44,11 +44,12 @@ function periodLabel(bucket: string, kind: Bucket) {
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-function axisLabel(bucket: string, kind: Bucket, i: number, count: number) {
+/** The label under a bar. Every bar has one; the chart shows as many as fit. */
+function axisLabel(bucket: string, kind: Bucket, count: number) {
   const d = asDate(bucket);
-  if (kind === "day") return count <= 7 ? d.toLocaleDateString(undefined, { weekday: "short" }) : i % 5 === 0 ? `${d.getDate()}` : "";
-  if (kind === "week") return i % (count > 20 ? 8 : 3) === 0 ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
-  return i % 6 === 0 ? d.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) : "";
+  if (kind === "day") return count <= 7 ? d.toLocaleDateString(undefined, { weekday: "short" }) : `${d.getDate()}`;
+  if (kind === "week") return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
 }
 
 /** Average per logged day for week/month buckets; the day's total for day buckets. */
@@ -92,9 +93,9 @@ export default function HistoryView() {
     const kcalFrom = { protein: sum("protein_g") * 4, carbs: sum("carbs_g") * 4, fat: sum("fat_g") * 9 };
     const kcalTotal = kcalFrom.protein + kcalFrom.carbs + kcalFrom.fat || 1;
 
-    const points: CalPoint[] = rows.map((r, i) => ({
+    const points: CalPoint[] = rows.map((r) => ({
       key: r.bucket,
-      axis: axisLabel(r.bucket, bucket, i, rows.length),
+      axis: axisLabel(r.bucket, bucket, rows.length),
       title: periodLabel(r.bucket, bucket),
       kcal: perDay(r, r.calories, bucket),
       protein: perDay(r, r.protein_g, bucket),
@@ -202,7 +203,7 @@ export default function HistoryView() {
       )}
 
       <Card className="rounded-3xl">
-        <CardContent className="grid gap-4">
+        <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
           <SectionTitle>Calories vs goal{unit}</SectionTitle>
           {pending ? <BarChartSkeleton /> : <CaloriesChart goal={goal} points={view.points} />}
         </CardContent>
@@ -238,7 +239,7 @@ export default function HistoryView() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="rounded-3xl">
-          <CardContent className="grid content-start gap-4">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] content-start gap-4">
             <SectionTitle>Macro balance</SectionTitle>
             {pending ? (
               <DonutSkeleton />
@@ -279,7 +280,7 @@ export default function HistoryView() {
         </Card>
 
         <Card className="rounded-3xl">
-          <CardContent className="grid content-start gap-4">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] content-start gap-4">
             <div className="flex min-h-6 items-center justify-between">
               <SectionTitle>Weight trend</SectionTitle>
               {!pending && view.weightChange !== null && (
@@ -311,7 +312,7 @@ export default function HistoryView() {
 
       <section className="grid grid-cols-2 gap-3 lg:gap-4">
         <Card className="rounded-3xl">
-          <CardContent className="grid content-start gap-3">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] content-start gap-3">
             <SectionTitle>Burned</SectionTitle>
             {pending ? (
               <MiniCardSkeleton />
@@ -327,7 +328,7 @@ export default function HistoryView() {
           </CardContent>
         </Card>
         <Card className="rounded-3xl">
-          <CardContent className="grid content-start gap-3">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] content-start gap-3">
             <SectionTitle>Water</SectionTitle>
             {pending ? (
               <MiniCardSkeleton />
@@ -345,7 +346,7 @@ export default function HistoryView() {
       </section>
 
       <Card className="rounded-3xl">
-        <CardContent className="grid gap-4">
+        <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
           <SectionTitle>Breakdown{unit}</SectionTitle>
           <Table>
             <TableHeader>
