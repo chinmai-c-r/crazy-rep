@@ -309,7 +309,12 @@ export function ChatBubblesSkeleton() {
 export function CoachSkeleton() {
   return (
     <Page narrow className="min-h-[calc(100dvh-6rem)] grid-rows-[auto_1fr_auto] lg:min-h-dvh">
-      <PageHeader eyebrow="Ask about your meals, activity and weight" title="Coach" />
+      <PageHeader eyebrow="Ask about your meals, activity and weight" title="Coach">
+        <div className="flex gap-1.5" aria-hidden>
+          <Skeleton className="size-11 rounded-full" />
+          <Skeleton className="size-11 rounded-full" />
+        </div>
+      </PageHeader>
       <section className="grid content-start gap-4">
         <ChatBubblesSkeleton />
       </section>
@@ -318,7 +323,6 @@ export function CoachSkeleton() {
           <div className="flex min-h-11 flex-1 items-center px-3.5 text-base text-muted-foreground md:text-sm">Ask your coach…</div>
           <Skeleton className="size-11 shrink-0 rounded-full" />
         </div>
-        <p className="px-3 text-xs text-muted-foreground">AI coach, not medical advice.</p>
       </div>
     </Page>
   );

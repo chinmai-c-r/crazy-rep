@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { AuthShell } from "@/components/AuthShell";
-import { TextField } from "@/components/form-fields";
+import { PasswordField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { newPasswordSchema } from "@/lib/schemas";
@@ -31,8 +31,8 @@ export default function ResetPasswordPage() {
     <AuthShell title="Set a new password">
       <form onSubmit={onSubmit} noValidate>
         <FieldGroup>
-          <TextField control={form.control} name="password" label="New password" type="password" autoComplete="new-password" />
-          <TextField control={form.control} name="confirm" label="Confirm password" type="password" autoComplete="new-password" />
+          <PasswordField control={form.control} name="password" label="New password" autoComplete="new-password" />
+          <PasswordField control={form.control} name="confirm" label="Confirm password" autoComplete="new-password" />
           <Button type="submit" size="xl" className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
             Save password

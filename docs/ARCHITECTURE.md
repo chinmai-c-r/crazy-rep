@@ -90,17 +90,19 @@ sequenceDiagram
 
     U->>C: "How is my weight trending?"
     C->>C: check login and daily limit
-    C->>G: question, recent chat, tool list
+    C->>G: question, recent messages of this chat, tool list
     G-->>C: call list_weights(Oct 1–31)
     C->>DB: select weight_logs
     DB-->>C: rows (own data only)
     C->>G: tool result
     G-->>C: final answer (markdown)
-    C->>DB: save both messages
+    C->>DB: save both messages (a new chat is created with the first answer)
     C-->>U: answer
 ```
 
 Tools: `get_profile`, `get_summary`, `list_meals`, `list_activities` and `list_weights`.
+
+Each user can keep several conversations (`chat_threads`). The coach only sees the messages of the open conversation, the daily message limit counts across all of them, and deleting a conversation deletes its messages.
 
 ## Data model
 
@@ -111,7 +113,8 @@ erDiagram
     USERS ||--o{ ACTIVITY_LOGS : logs
     USERS ||--o{ WEIGHT_LOGS : logs
     USERS ||--o{ WATER_LOGS : logs
-    USERS ||--o{ CHAT_MESSAGES : sends
+    USERS ||--o{ CHAT_THREADS : starts
+    CHAT_THREADS ||--o{ CHAT_MESSAGES : contains
 
     PROFILES {
         int calorie_goal
@@ -140,6 +143,10 @@ erDiagram
     WATER_LOGS {
         timestamptz logged_at
         int ml
+    }
+    CHAT_THREADS {
+        text title
+        timestamptz updated_at
     }
     CHAT_MESSAGES {
         text role

@@ -194,6 +194,8 @@ export const waterLogSchema = z.object({ ml: z.number().int().min(1).max(5000) }
 // ─── Coach chat ─────────────────────────────────────────────
 
 export const chatRequestSchema = z.object({
+  /** Omit to start a new conversation. */
+  threadId: z.uuid().optional(),
   message: z.string().trim().min(1, "Type a message").max(1000, "Keep messages under 1000 characters"),
   tz: z.string().trim().min(1).max(64).default("UTC"),
 });

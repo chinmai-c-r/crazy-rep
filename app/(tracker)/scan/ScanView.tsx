@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Camera, Check, Database, ImageUp, Loader2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { TextareaField, TextField } from "@/components/form-fields";
@@ -26,13 +26,14 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
   indb: { badge: "Indian food data", credit: "Indian Nutrient Databank (INDB)" },
   ifct: { badge: "Indian food data", credit: "Indian Food Composition Tables 2017 (ICMR-NIN)" },
 };
-import { invalidateSummary, useUser } from "@/lib/hooks";
+import { invalidateRecentDishes, invalidateSummary, useUser } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { MEAL_TYPES, type Analysis, type FoodItem, type Meal, type MealType } from "@/lib/types";
 import { MealTypePicker, Stepper } from "../_components/Controls";
 import { FoodItemList, Insights } from "../_components/FoodItems";
 import MacroBar from "../_components/MacroBar";
 import NutrientGrid from "../_components/NutrientGrid";
+import RecentDishes from "../_components/RecentDishes";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 
 type Stage = "details" | "analyzing" | "result";
@@ -190,6 +191,7 @@ export default function ScanView() {
       }
     }
     void invalidateSummary(queryClient);
+    void invalidateRecentDishes(queryClient);
     toast.success("Meal logged");
     saved.current = true;
     router.push("/dashboard");
@@ -241,6 +243,7 @@ export default function ScanView() {
               placeholder="e.g. Chicken biryani"
               maxLength={120}
               autoFocus
+              belowInput={<NameChips form={form} />}
               description="Required, at least 3 letters. We estimate nutrition from the name, even without a photo."
             />
             <TextField
@@ -389,6 +392,17 @@ function SourceBadge({ source, provider }: { source: AnalysisSource; provider: P
     <Badge variant="secondary">
       <Sparkles /> Estimated from name
     </Badge>
+  );
+}
+
+/** Recent-dish chips under the meal name; picking one fills the name. */
+function NameChips({ form }: { form: UseFormReturn<Details, unknown, z.output<typeof mealDetailsSchema>> }) {
+  const name = useWatch({ control: form.control, name: "name" });
+  return (
+    <RecentDishes
+      value={name ?? ""}
+      onPick={(picked) => form.setValue("name", picked, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+    />
   );
 }
 

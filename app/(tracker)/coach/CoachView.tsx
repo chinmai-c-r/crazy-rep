@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowUp, Bot, Loader2, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowUp, Bot, History, Loader2, SquarePen, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -14,13 +15,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { keys, useChatMessages, useChatThreads } from "@/lib/hooks";
 import { chatRequestSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ChatThread } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Page, PageHeader } from "../_components/Page";
 import { ChatBubblesSkeleton } from "../_components/Skeletons";
@@ -35,49 +38,59 @@ const SUGGESTIONS = [
 ];
 
 export default function CoachView() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
+  const { threads, loading: threadsLoading } = useChatThreads();
+  // undefined: nothing picked yet, so open the latest conversation. null: a new, empty conversation.
+  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  const current = chosen === undefined ? (threads?.[0]?.id ?? null) : chosen;
+  const stored = useChatMessages(current);
+  const [fresh, setFresh] = useState<ChatMessage[]>([]);
+  const messages = useMemo(() => (current === null ? fresh : (stored.messages ?? [])), [current, fresh, stored.messages]);
+  const loading = threadsLoading || stored.loading;
+
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<ChatThread | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    createClient()
-      .from("chat_messages")
-      .select("id, role, content, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        setMessages(((data as ChatMessage[]) ?? []).reverse());
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, sending]);
+  }, [messages, sending, current]);
+
+  /** Edits the messages of one conversation (null: the unsaved new one), wherever it's cached. */
+  const editMessages = (id: string | null, fn: (m: ChatMessage[]) => ChatMessage[]) =>
+    id === null ? setFresh(fn) : qc.setQueryData<ChatMessage[]>(keys.chat(id), (old) => fn(old ?? []));
 
   async function send(text: string) {
-    const parsed = chatRequestSchema.safeParse({ message: text, tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    const parsed = chatRequestSchema.safeParse({ message: text, threadId: current ?? undefined, tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
     if (sending) return;
 
+    const target = current;
     const pending: ChatMessage = { id: `pending-${crypto.randomUUID()}`, role: "user", content: parsed.data.message, created_at: new Date().toISOString() };
-    setMessages((m) => [...m, pending]);
+    editMessages(target, (m) => [...m, pending]);
     setInput("");
     setSending(true);
     try {
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
       const json = await res.json();
-      if (typeof json.remaining === "number") setRemaining(json.remaining);
       if (!res.ok) throw new Error(json.error || "Something went wrong");
       const saved = (json.messages as ChatMessage[])?.length
         ? (json.messages as ChatMessage[])
         : [pending, { id: crypto.randomUUID(), role: "assistant" as const, content: json.reply, created_at: new Date().toISOString() }];
-      setMessages((m) => [...m.filter((x) => x.id !== pending.id), ...saved]);
+      const thread = json.thread as ChatThread | null;
+      if (target === null && thread) {
+        // The first answer created the conversation: move into it
+        qc.setQueryData<ChatMessage[]>(keys.chat(thread.id), saved);
+        setFresh([]);
+        setChosen(thread.id);
+      } else {
+        editMessages(target, (m) => [...m.filter((x) => x.id !== pending.id), ...saved]);
+      }
+      if (thread) qc.setQueryData<ChatThread[]>(keys.chatThreads, (old) => [thread, ...(old ?? []).filter((t) => t.id !== thread.id)]);
     } catch (e) {
-      setMessages((m) => m.filter((x) => x.id !== pending.id));
+      editMessages(target, (m) => m.filter((x) => x.id !== pending.id));
       setInput(parsed.data.message);
       toast.error((e as Error).message);
     } finally {
@@ -85,38 +98,110 @@ export default function CoachView() {
     }
   }
 
-  async function clear() {
-    const { error } = await createClient().from("chat_messages").delete().not("id", "is", null);
+  function openThread(id: string) {
+    setChosen(id);
+    setHistoryOpen(false);
+  }
+
+  function newChat() {
+    setChosen(null);
+    setFresh([]);
+    setInput("");
+    setHistoryOpen(false);
+  }
+
+  async function removeThread(t: ChatThread) {
+    const { error } = await createClient().from("chat_threads").delete().eq("id", t.id);
     if (error) return toast.error(error.message);
-    setMessages([]);
-    toast.success("Chat cleared");
+    qc.setQueryData<ChatThread[]>(keys.chatThreads, (old) => (old ?? []).filter((x) => x.id !== t.id));
+    qc.removeQueries({ queryKey: keys.chat(t.id) });
+    if (current === t.id) newChat();
+    toast.success("Chat deleted");
   }
 
   return (
     <Page narrow className="min-h-[calc(100dvh-6rem)] grid-rows-[auto_1fr_auto] lg:min-h-dvh">
       <PageHeader eyebrow="Ask about your meals, activity and weight" title="Coach">
-        {messages.length > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" className="rounded-full text-muted-foreground">
-                <Trash2 /> Clear
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear chat history?</AlertDialogTitle>
-                <AlertDialogDescription>This deletes all messages with the coach. Your meals and logs are not affected.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={clear}>
-                  Clear chat
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <div className="flex gap-1.5">
+          <Button variant="outline" size="icon-lg" className="size-11 rounded-full" onClick={() => setHistoryOpen(true)} disabled={sending} aria-label="Chat history">
+            <History />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-lg"
+            className="size-11 rounded-full"
+            onClick={newChat}
+            disabled={sending || (current === null && fresh.length === 0)}
+            aria-label="New chat"
+          >
+            <SquarePen />
+          </Button>
+        </div>
       </PageHeader>
+
+      <Drawer open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Chat history</DrawerTitle>
+            <DrawerDescription>Pick up an earlier conversation or start a new one.</DrawerDescription>
+          </DrawerHeader>
+          <div data-vaul-no-drag className="grid max-h-[60vh] gap-2 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <Button className="h-11 rounded-full" onClick={newChat}>
+              <SquarePen /> New chat
+            </Button>
+            {threadsLoading ? (
+              [0, 1, 2].map((i) => <Skeleton key={i} className="h-[58px] rounded-xl" />)
+            ) : !threads?.length ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No conversations yet.</p>
+            ) : (
+              threads.map((t) => (
+                <div key={t.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => openThread(t.id)}
+                    aria-current={t.id === current ? "true" : undefined}
+                    className={cn(
+                      "grid min-w-0 flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors hover:border-primary/40",
+                      t.id === current && "border-primary bg-primary/5",
+                    )}
+                  >
+                    <b className="truncate text-sm">{t.title}</b>
+                    <small className="text-xs text-muted-foreground">{when(t.updated_at)}</small>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon-lg"
+                    className="size-10 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setHistoryOpen(false);
+                      setToDelete(t);
+                    }}
+                    aria-label={`Delete chat: ${t.title}`}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{toDelete?.title}” and its messages will be deleted. Your meals and logs are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => toDelete && removeThread(toDelete)}>
+              Delete chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <section className="grid content-start gap-4" aria-live="polite">
         {loading ? (
@@ -175,12 +260,18 @@ export default function CoachView() {
             {sending ? <Loader2 className="animate-spin" /> : <ArrowUp />}
           </Button>
         </div>
-        <p className="px-3 text-xs text-muted-foreground">
-          AI coach, not medical advice.{remaining !== null ? ` ${remaining} messages left today.` : ""}
-        </p>
       </form>
     </Page>
   );
+}
+
+/** "Today 14:05", "Yesterday", or "Oct 31". */
+function when(iso: string) {
+  const d = new Date(iso);
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days === 0) return `Today ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  if (days === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", ...(days > 300 ? { year: "numeric" } : {}) });
 }
 
 function Bubble({ message }: { message: ChatMessage }) {

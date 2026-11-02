@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { createClient } from "./supabase/client";
-import type { Meal, Profile, SummaryRow, WeightLog } from "./types";
+import type { ChatMessage, ChatThread, Meal, Profile, SummaryRow, WeightLog } from "./types";
 
 type Updater<T> = (rows: T[]) => T[];
 
@@ -15,10 +15,15 @@ export const keys = {
   log: (table: string, start: string, end: string) => ["log", table, start, end] as const,
   weights: (limit: number) => ["weights", limit] as const,
   summary: (start: string, end: string, bucket: string) => ["summary", start, end, bucket] as const,
+  recentDishes: ["recent-dishes"] as const,
+  chatThreads: ["chat-threads"] as const,
+  chat: (threadId: string) => ["chat", threadId] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
 export const invalidateSummary = (qc: QueryClient) => qc.invalidateQueries({ queryKey: ["summary"] });
+/** Call after meals are added or removed so the name suggestions stay current. */
+export const invalidateRecentDishes = (qc: QueryClient) => qc.invalidateQueries({ queryKey: keys.recentDishes });
 
 export function useUser() {
   const { data } = useQuery({
@@ -79,6 +84,7 @@ export function useMeals(start: string, end: string) {
     (fn: Updater<Meal>) => {
       qc.setQueryData<Meal[]>(key, (old) => fn(old ?? []));
       void invalidateSummary(qc);
+      void invalidateRecentDishes(qc);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key is derived from start/end
     [qc, start, end],
@@ -167,4 +173,58 @@ function numeric(r: SummaryRow) {
     if (k !== "bucket") (out as Record<string, unknown>)[k] = v === null ? null : Number(v);
   }
   return out;
+}
+
+const RECENT_DISHES = 20;
+
+/** Names of the most recently logged dishes, newest first, one per name. */
+export function useRecentDishes() {
+  const { data, isPending } = useQuery({
+    queryKey: keys.recentDishes,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await createClient().from("meals").select("name").order("eaten_at", { ascending: false }).limit(120);
+      const seen = new Set<string>();
+      const names: string[] = [];
+      for (const { name } of (data as { name: string }[]) ?? []) {
+        const key = name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        names.push(name.trim());
+        if (names.length === RECENT_DISHES) break;
+      }
+      return names;
+    },
+  });
+  return { dishes: data ?? [], loading: isPending };
+}
+
+/** Coach conversations, most recently active first. */
+export function useChatThreads() {
+  const { data, isPending } = useQuery({
+    queryKey: keys.chatThreads,
+    queryFn: async () => {
+      const { data } = await createClient().from("chat_threads").select("id, title, updated_at").order("updated_at", { ascending: false }).limit(50);
+      return (data as ChatThread[]) ?? [];
+    },
+  });
+  return { threads: data, loading: isPending };
+}
+
+/** Messages of one conversation, oldest first. Pass null for a conversation that doesn't exist yet. */
+export function useChatMessages(threadId: string | null) {
+  const { data, isPending } = useQuery({
+    queryKey: keys.chat(threadId ?? "new"),
+    enabled: threadId !== null,
+    queryFn: async () => {
+      const { data } = await createClient()
+        .from("chat_messages")
+        .select("id, role, content, created_at")
+        .eq("thread_id", threadId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      return ((data as ChatMessage[]) ?? []).reverse();
+    },
+  });
+  return { messages: data, loading: threadId !== null && isPending };
 }

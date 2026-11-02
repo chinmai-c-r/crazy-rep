@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { AuthShell } from "@/components/AuthShell";
-import { TextField } from "@/components/form-fields";
+import { PasswordField, TextField } from "@/components/form-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldSeparator } from "@/components/ui/field";
@@ -133,7 +133,7 @@ function SignInForm({ next, onNotice }: { next: string; onNotice: (n: Notice) =>
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="email" placeholder="you@example.com" />
-        <TextField control={form.control} name="password" label="Password" type="password" autoComplete="current-password" />
+        <PasswordField control={form.control} name="password" label="Password" autoComplete="current-password" />
         <SubmitButton busy={form.formState.isSubmitting}>Sign in</SubmitButton>
       </FieldGroup>
     </form>
@@ -175,11 +175,10 @@ function SignUpForm({ onNotice }: { onNotice: (n: Notice) => void }) {
       <FieldGroup>
         <TextField control={form.control} name="name" label="Name (optional)" autoComplete="name" placeholder="Alex" />
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="email" placeholder="you@example.com" />
-        <TextField
+        <PasswordField
           control={form.control}
           name="password"
           label="Password"
-          type="password"
           autoComplete="new-password"
           description="At least 6 characters."
         />
