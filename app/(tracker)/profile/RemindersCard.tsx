@@ -8,8 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { keys, useUser } from "@/lib/hooks";
 import { useOnline } from "@/lib/offline";
-import { currentSubscription, disablePush, enablePush, pushSupport, VAPID_PUBLIC_KEY, type PushSupport } from "@/lib/push";
-import { DEFAULT_REMINDER_TIMES, hhmm, REMINDER_LABELS, REMINDER_MEALS, type ReminderMeal, type ReminderSettings } from "@/lib/reminders";
+import {
+  currentSubscription,
+  disablePush,
+  enablePush,
+  pushSupport,
+  VAPID_PUBLIC_KEY,
+  type PushSupport,
+} from "@/lib/push";
+import {
+  DEFAULT_REMINDER_TIMES,
+  hhmm,
+  REMINDER_LABELS,
+  REMINDER_MEALS,
+  type ReminderMeal,
+  type ReminderSettings,
+} from "@/lib/reminders";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "../_components/Page";
@@ -45,9 +59,20 @@ function Reminders() {
   const { data: settings = FRESH } = useQuery({
     queryKey: keys.reminders,
     queryFn: async (): Promise<ReminderSettings> => {
-      const { data, error } = await createClient().from("reminder_settings").select("*").maybeSingle();
+      const { data, error } = await createClient()
+        .from("reminder_settings")
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
-      return data ? { ...FRESH, ...data, breakfast_at: hhmm(data.breakfast_at), lunch_at: hhmm(data.lunch_at), dinner_at: hhmm(data.dinner_at) } : FRESH;
+      return data
+        ? {
+            ...FRESH,
+            ...data,
+            breakfast_at: hhmm(data.breakfast_at),
+            lunch_at: hhmm(data.lunch_at),
+            dinner_at: hhmm(data.dinner_at),
+          }
+        : FRESH;
     },
   });
 
@@ -57,7 +82,12 @@ function Reminders() {
     void (async () => {
       const support = pushSupport();
       const sub = support === "ok" ? await currentSubscription() : null;
-      if (live) setDevice({ support, subscribed: Boolean(sub), blocked: support === "ok" && Notification.permission === "denied" });
+      if (live)
+        setDevice({
+          support,
+          subscribed: Boolean(sub),
+          blocked: support === "ok" && Notification.permission === "denied",
+        });
     })();
     return () => {
       live = false;
@@ -69,7 +99,12 @@ function Reminders() {
       if (!userId) return;
       const { last_sent: _kept, ...fields } = next;
       void _kept; // the server owns last_sent
-      const { error } = await createClient().from("reminder_settings").upsert({ user_id: userId, ...fields, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      const { error } = await createClient()
+        .from("reminder_settings")
+        .upsert(
+          { user_id: userId, ...fields, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" },
+        );
       if (error) toast.error(`Couldn't save reminders: ${error.message}`);
     },
     [userId],
@@ -78,7 +113,10 @@ function Reminders() {
   /** Updates the screen at once and saves after a short pause, so dragging through times sends one request. */
   const change = useCallback(
     (patch: Partial<ReminderSettings>, now = false) => {
-      const next = { ...(qc.getQueryData<ReminderSettings>(keys.reminders) ?? FRESH), ...patch };
+      const next = {
+        ...(qc.getQueryData<ReminderSettings>(keys.reminders) ?? FRESH),
+        ...patch,
+      };
       qc.setQueryData(keys.reminders, next);
       clearTimeout(timer.current);
       if (now) return void write(next);
@@ -102,7 +140,8 @@ function Reminders() {
 
   // Travelling: keep reminders on local time
   useEffect(() => {
-    if (on && online && settings.timezone !== timezone()) change({ timezone: timezone() }, true);
+    if (on && online && settings.timezone !== timezone())
+      change({ timezone: timezone() }, true);
   }, [on, online, settings.timezone, change]);
 
   async function toggle(next: boolean) {
@@ -112,10 +151,16 @@ function Reminders() {
         const result = await enablePush();
         if (result === "denied") {
           setDevice((d) => d && { ...d, blocked: true });
-          return toast.error("Notifications are blocked. Allow them for Crazy Rep in your phone's settings.");
+          return toast.error(
+            "Notifications are blocked. Allow them for Crazy Rep in your phone's settings.",
+          );
         }
-        if (result === "no-worker") return toast.error("Reminders work in the installed app. Open it from your home screen.");
-        if (result === "failed") return toast.error("Couldn't turn reminders on. Please try again.");
+        if (result === "no-worker")
+          return toast.error(
+            "Reminders work in the installed app. Open it from your home screen.",
+          );
+        if (result === "failed")
+          return toast.error("Couldn't turn reminders on. Please try again.");
         setDevice((d) => d && { ...d, subscribed: true });
         change({ enabled: true, timezone: timezone() }, true);
         toast.success("Reminders are on");
@@ -149,19 +194,37 @@ function Reminders() {
         <div className="flex items-center justify-between gap-3">
           <div className="grid gap-0.5">
             <SectionTitle>Meal reminders</SectionTitle>
-            <p className="text-sm text-muted-foreground">A nudge at meal times, so logging becomes a habit. Skipped if you&apos;ve already logged that meal.</p>
+            <p className="text-sm text-muted-foreground">
+              A nudge at meal times, so logging becomes a habit. Skipped if
+              you&apos;ve already logged that meal.
+            </p>
           </div>
           {device?.support === "ok" && !device.blocked && (
-            <Switch checked={on} onChange={toggle} disabled={!online || busy !== null} label="Meal reminders" busy={busy === "toggle"} />
+            <Switch
+              checked={on}
+              onChange={toggle}
+              disabled={!online || busy !== null}
+              label="Meal reminders"
+              busy={busy === "toggle"}
+            />
           )}
         </div>
 
         {device === null ? null : device.support === "needs-install" ? (
-          <Note>On iPhone, reminders need the app on your Home Screen. Tap Share, then Add to Home Screen, and open Crazy Rep from there.</Note>
+          <Note>
+            On iPhone, reminders need the app on your Home Screen. Tap Share,
+            then Add to Home Screen, and open Crazy Rep from there.
+          </Note>
         ) : device.support === "unsupported" ? (
-          <Note>This browser can&apos;t show notifications. Try the installed app on your phone.</Note>
+          <Note>
+            This browser can&apos;t show notifications. Try the installed app on
+            your phone.
+          </Note>
         ) : device.blocked ? (
-          <Note>Notifications are blocked for Crazy Rep. Allow them in your phone&apos;s settings, then come back and turn reminders on.</Note>
+          <Note>
+            Notifications are blocked for Crazy Rep. Allow them in your
+            phone&apos;s settings, then come back and turn reminders on.
+          </Note>
         ) : !online ? (
           <Note>Connect to the internet to change reminders.</Note>
         ) : null}
@@ -170,13 +233,33 @@ function Reminders() {
           <>
             <ul className="grid gap-2">
               {REMINDER_MEALS.map((meal) => (
-                <MealRow key={meal} meal={meal} time={settings[`${meal}_at`]} disabled={!online} onChange={(t) => change({ [`${meal}_at`]: t } as Partial<ReminderSettings>)} />
+                <MealRow
+                  key={meal}
+                  meal={meal}
+                  time={settings[`${meal}_at`]}
+                  disabled={!online}
+                  onChange={(t) =>
+                    change({ [`${meal}_at`]: t } as Partial<ReminderSettings>)
+                  }
+                />
               ))}
             </ul>
-            <p className="text-xs text-muted-foreground">Reminders are sent once an hour, so one can arrive up to an hour after the time you pick.</p>
+            <p className="text-xs text-muted-foreground">
+              Reminders may arrive with a slight delay.
+            </p>
             <div>
-              <Button variant="outline" className="rounded-full" onClick={test} disabled={!online || busy !== null}>
-                {busy === "test" ? <Loader2 className="animate-spin" /> : <Send />} Send a test
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={test}
+                disabled={!online || busy !== null}
+              >
+                {busy === "test" ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Send />
+                )}{" "}
+                Send a test
               </Button>
             </div>
           </>
@@ -186,14 +269,31 @@ function Reminders() {
   );
 }
 
-function MealRow({ meal, time, disabled, onChange }: { meal: ReminderMeal; time: string | null; disabled: boolean; onChange: (t: string | null) => void }) {
+function MealRow({
+  meal,
+  time,
+  disabled,
+  onChange,
+}: {
+  meal: ReminderMeal;
+  time: string | null;
+  disabled: boolean;
+  onChange: (t: string | null) => void;
+}) {
   const { label, icon } = REMINDER_LABELS[meal];
   return (
     <li className="flex items-center gap-2.5 rounded-2xl border bg-muted/30 px-3 py-2.5">
       <span aria-hidden className="text-xl">
         {icon}
       </span>
-      <span className={cn("min-w-0 flex-1 truncate font-medium", !time && "text-muted-foreground")}>{label}</span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate font-medium",
+          !time && "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
       <input
         type="time"
         value={time ?? DEFAULT_REMINDER_TIMES[meal]}
@@ -202,7 +302,12 @@ function MealRow({ meal, time, disabled, onChange }: { meal: ReminderMeal; time:
         aria-label={`${label} reminder time`}
         className="h-10 w-[8.5rem] shrink-0 rounded-xl border bg-background/60 px-2 text-[0.95rem] tabular-nums outline-none focus-visible:border-primary disabled:opacity-40"
       />
-      <Switch checked={Boolean(time)} onChange={(v) => onChange(v ? DEFAULT_REMINDER_TIMES[meal] : null)} disabled={disabled} label={`${label} reminder`} />
+      <Switch
+        checked={Boolean(time)}
+        onChange={(v) => onChange(v ? DEFAULT_REMINDER_TIMES[meal] : null)}
+        disabled={disabled}
+        label={`${label} reminder`}
+      />
     </li>
   );
 }
@@ -216,7 +321,19 @@ function Note({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Switch({ checked, onChange, disabled, label, busy }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string; busy?: boolean }) {
+function Switch({
+  checked,
+  onChange,
+  disabled,
+  label,
+  busy,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  label: string;
+  busy?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -230,8 +347,17 @@ function Switch({ checked, onChange, disabled, label, busy }: { checked: boolean
         checked ? "border-primary bg-primary" : "bg-muted",
       )}
     >
-      <span className={cn("absolute top-0.5 left-0.5 grid size-6 place-items-center rounded-full bg-background shadow transition-transform", checked && "translate-x-5")}>
-        {busy ? <Loader2 className="size-3.5 animate-spin" /> : checked ? <Bell className="size-3.5 text-primary" /> : null}
+      <span
+        className={cn(
+          "absolute top-0.5 left-0.5 grid size-6 place-items-center rounded-full bg-background shadow transition-transform",
+          checked && "translate-x-5",
+        )}
+      >
+        {busy ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : checked ? (
+          <Bell className="size-3.5 text-primary" />
+        ) : null}
       </span>
     </button>
   );

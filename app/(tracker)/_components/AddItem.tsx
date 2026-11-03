@@ -84,7 +84,7 @@ export default function AddItem({ onAdd, className }: { onAdd: (items: FoodItem[
         Add item
       </Button>
       <p id="add-item-help" role={error ? "alert" : undefined} className={cn("text-xs", error ? "text-destructive" : "text-muted-foreground")}>
-        {busy ? "Looking it up…" : (error ?? "Type it the way you'd say it, with an amount if you like.")}
+        {busy ? "Looking it up…" : (error ?? "Add an amount if you like.")}
       </p>
     </form>
   );
