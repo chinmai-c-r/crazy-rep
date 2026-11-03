@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MEAL_TYPES } from "@/lib/types";
-import { THEMES } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { NUTRIENT_ROWS } from "./NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "./Page";
@@ -487,18 +486,6 @@ export function CoachSkeleton() {
 
 /* ---------- Profile ---------- */
 
-const ABOUT_FIELDS: { label: string; wide?: boolean; hint?: boolean; choices?: number }[] = [
-  { label: "Display name", wide: true },
-  { label: "Sex" },
-  { label: "Age" },
-  { label: "Height (cm)" },
-  { label: "Weight (kg)" },
-  { label: "Activity level", wide: true },
-  { label: "Goal", wide: true },
-  { label: "Diet", wide: true, hint: true, choices: 4 },
-];
-const TARGET_FIELDS = ["Calories (kcal)", "Protein (g)", "Carbs (g)", "Fat (g)", "Water (ml)"];
-
 function FieldSkeleton({ label, className, radius = "rounded-xl", hint, choices }: { label: string; className?: string; radius?: string; hint?: boolean; choices?: number }) {
   return (
     <div className={cn("flex w-full flex-col gap-2", className)}>
@@ -517,79 +504,53 @@ function FieldSkeleton({ label, className, radius = "rounded-xl", hint, choices 
   );
 }
 
+/** Mirrors the profile page: header, hero card, the tab bar, then the Body tab's two cards. */
 export function ProfileSkeleton() {
   return (
     <Page narrow>
-      <PageHeader title="Profile and goals" />
+      <PageHeader title="Profile" />
 
-      <Card className="rounded-3xl">
-        <CardContent className="flex items-center gap-4" aria-hidden>
-          <Skeleton className="size-14 shrink-0 rounded-full" />
-          <div className="grid min-w-0 gap-1">
-            <Line className="h-7 w-32" />
-            <Line className="h-6 w-52 max-w-full" />
+      <div className="grid gap-3 rounded-3xl border bg-card p-4" aria-hidden>
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-16 shrink-0 rounded-full" />
+          <div className="grid min-w-0 gap-1.5">
+            <Line className="h-8 w-40 max-w-full" />
+            <Line className="h-4 w-48 max-w-full" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-[26px] w-24 rounded-full" />
+          <Skeleton className="h-[26px] w-24 rounded-full" />
+          <Skeleton className="h-[26px] w-28 rounded-full" />
+        </div>
+      </div>
+
+      <div className="-mx-4 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" aria-hidden>
+        <Skeleton className="h-[66px] w-full rounded-2xl" />
+      </div>
 
       <div className="grid gap-5">
         <Card className="rounded-3xl">
-          <CardContent className="grid gap-5">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-5">
             <SectionTitle>About you</SectionTitle>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {ABOUT_FIELDS.map((f) => (
-                <FieldSkeleton key={f.label} label={f.label} hint={f.hint} choices={f.choices} className={f.wide ? "sm:col-span-2" : undefined} />
-              ))}
+            <div className="grid grid-cols-2 gap-4">
+              <FieldSkeleton label="Display name" className="col-span-2" />
+              <FieldSkeleton label="Sex" className="col-span-2 sm:col-span-1" />
+              <FieldSkeleton label="Age" />
+              <FieldSkeleton label="Height (cm)" />
+              <FieldSkeleton label="Weight (kg)" />
             </div>
-            <Line className="h-5 w-3/4" />
           </CardContent>
         </Card>
 
         <Card className="rounded-3xl">
-          <CardContent className="grid gap-5">
-            <SectionTitle>Daily targets</SectionTitle>
-            <div className="grid grid-cols-2 gap-4">
-              {TARGET_FIELDS.map((l) => (
-                <FieldSkeleton key={l} label={l} />
-              ))}
-            </div>
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-5">
+            <SectionTitle>Activity and goal</SectionTitle>
+            <FieldSkeleton label="Activity level" />
+            <FieldSkeleton label="Goal" />
           </CardContent>
         </Card>
-
-        <Skeleton className="h-12 w-full rounded-full" />
       </div>
-
-      <Card className="rounded-3xl">
-        <CardContent className="grid gap-4">
-          <SectionTitle>Appearance</SectionTitle>
-          <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device.</p>
-          {/* The same groups as the picker. Each tile is 10px padding around a 56px preview and a 36px label, plus the border */}
-          {[
-            { label: "Dark", count: THEMES.filter((t) => t.dark).length },
-            { label: "Light", count: THEMES.filter((t) => !t.dark).length },
-          ].map((g) => (
-            <div key={g.label} className="grid gap-3" aria-hidden>
-              <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{g.label}</span>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {Array.from({ length: g.count }, (_, i) => (
-                  <Skeleton key={i} className="h-[122px] rounded-2xl" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-3xl bg-transparent">
-        <CardContent className="grid gap-4">
-          <SectionTitle>Account</SectionTitle>
-          <div className="flex flex-wrap items-center justify-between gap-3" aria-hidden>
-            <Skeleton className="h-8 w-[6.75rem] rounded-full" />
-            <Skeleton className="h-8 w-24 rounded-full" />
-            <Skeleton className="h-8 w-[9.25rem] rounded-full" />
-          </div>
-        </CardContent>
-      </Card>
     </Page>
   );
 }

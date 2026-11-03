@@ -9,6 +9,7 @@ import { useOnline } from "@/lib/offline";
 export default function OfflineBanner() {
   const online = useOnline();
   const wasOffline = useRef(false);
+  const bar = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!online) wasOffline.current = true;
@@ -18,9 +19,25 @@ export default function OfflineBanner() {
     }
   }, [online]);
 
+  // Other sticky bars (the profile tabs) sit just below this one: tell them how tall it is
+  useEffect(() => {
+    const el = bar.current;
+    const root = document.documentElement;
+    if (!el) return;
+    const set = () => root.style.setProperty("--banner-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--banner-h");
+    };
+  }, [online]);
+
   if (online) return null;
   return (
     <div
+      ref={bar}
       role="status"
       className="sticky top-0 z-40 flex items-center justify-center gap-2 border-b border-warn/30 bg-background/95 px-4 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 text-center text-xs font-medium text-warn backdrop-blur-lg animate-in slide-in-from-top-2"
     >

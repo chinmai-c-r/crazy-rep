@@ -45,11 +45,12 @@ export default function ThemePicker() {
     <Card className="rounded-3xl">
       <CardContent className="grid gap-4">
         <SectionTitle>Appearance</SectionTitle>
-        <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device.</p>
+        <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device. Swipe for more.</p>
         {GROUPS.map((group) => (
           <div key={group.label} role="radiogroup" aria-label={`${group.label} themes`} className="grid gap-3">
             <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{group.label}</span>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {/* A row to swipe through on phones (twelve themes in a column made the page very long); a grid from tablets up */}
+            <div className="-mx-6 -mt-1.5 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 pt-1.5 pb-2 [scrollbar-width:none] sm:mx-0 sm:mt-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pt-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
               {group.themes.map((t) => {
                 const on = t.id === active;
                 return (
@@ -59,7 +60,7 @@ export default function ThemePicker() {
                     role="radio"
                     aria-checked={on}
                     onClick={() => pick(t.id, t.name)}
-                    className={cn("relative grid gap-2 rounded-2xl border p-2.5 text-left transition-transform duration-200 active:scale-[0.97]", !on && "hover:border-primary/40")}
+                    className={cn("relative grid w-36 shrink-0 snap-start gap-2 rounded-2xl border p-2.5 text-left transition-transform duration-200 active:scale-[0.97] sm:w-auto", !on && "hover:border-primary/40")}
                   >
                     {on && <motion.span layoutId="theme-ring" className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
                     <Preview theme={t} />
