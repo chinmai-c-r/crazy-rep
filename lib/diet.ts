@@ -139,3 +139,12 @@ export function fitInsights(diet: Diet, insights: string[], totals: Nutrients): 
   }
   return out;
 }
+
+/** Examples shown in the "add an item" box: single items with an amount, kept to what the diet allows. */
+export function itemIdeasFor(diet: Diet): string[] {
+  const ideas = ["2 rotis", "1 cup rice", "1 bowl dal", "1 banana", "half cup poha", "handful of almonds"];
+  if (diet !== "vegan") ideas.splice(2, 0, "paneer 100g", "curd 200 ml");
+  if (diet === "eggetarian" || diet === "non_vegetarian") ideas.splice(1, 0, "2 boiled eggs");
+  if (diet === "non_vegetarian") ideas.splice(3, 0, "1 bowl chicken curry");
+  return ideas;
+}
