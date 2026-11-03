@@ -15,7 +15,7 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **Profile and goals** (`/profile`): enter sex, age, height, weight, activity level and goal, then apply recommended calorie and macro targets (Mifflin–St Jeor). You can also sign out or permanently delete your account.
 - **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
 - **PWA**: installable from the browser on Android and iPhone, with app icons and a manifest.
-- **Profile in tabs**: Body, Targets, Prefs and Account, with a sticky tab bar, a profile header and a big calorie control with a live macro split. The tab you're on is kept in the address (`?tab=targets`).
+- **Profile in tabs**: Body (including diet), Targets, Prefs (reminders and themes) and Account, with a sticky tab bar, a profile header and a big calorie control with a live macro split. The tab you're on is kept in the address (`?tab=targets`).
 - **Onboarding**: new users answer five quick questions (goal, sex, body numbers, activity, diet) and get a daily plan to confirm. Most steps are one tap and the body numbers start from typical values. Nobody can use the app until it's done (`ProfileGate`).
 - **Add missed items**: on the results screen (and when editing a logged meal), type an item the way you'd say it ("2 rotis", "1 cup rice", "paneer 100g"). It's looked up like the meal name: saved results, vector search, USDA, then AI.
 - **Meal reminders**: push notifications at breakfast, lunch and dinner (times are set per user in Profile, in their own timezone). Skipped when that meal is already logged. Sent by `pg_cron` calling the app once an hour. Needs one-time setup, see below.

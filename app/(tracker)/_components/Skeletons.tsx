@@ -550,6 +550,18 @@ export function ProfileSkeleton() {
             <FieldSkeleton label="Goal" />
           </CardContent>
         </Card>
+
+        <Card className="rounded-3xl">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
+            <SectionTitle>Diet</SectionTitle>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-hidden>
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-xl" />
+              ))}
+            </div>
+            <Line className="h-4 w-56 max-w-full" />
+          </CardContent>
+        </Card>
       </div>
     </Page>
   );

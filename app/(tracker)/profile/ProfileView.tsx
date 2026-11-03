@@ -64,7 +64,7 @@ const FIELD_TAB: Partial<Record<keyof ProfileInput, TabId>> = {
   carbs_goal_g: "targets",
   fat_goal_g: "targets",
   water_goal_ml: "targets",
-  diet: "prefs",
+  diet: "body",
 };
 
 const TAB_IDS: TabId[] = ["body", "targets", "prefs", "account"];
@@ -121,7 +121,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const tabs: ProfileTab[] = [
     { id: "body", label: "Body", icon: User, alert: bad.has("body") },
     { id: "targets", label: "Targets", icon: Target, alert: bad.has("targets") },
-    { id: "prefs", label: "Prefs", icon: Palette, alert: bad.has("prefs") },
+    { id: "prefs", label: "Prefs", icon: Palette, alert: false },
     { id: "account", label: "Account", icon: ShieldUser },
   ];
 
@@ -253,6 +253,34 @@ function ProfileForm({ initial }: { initial: Profile }) {
                   />
                 </CardContent>
               </Card>
+              <Card className="rounded-3xl">
+                <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
+                  <SectionTitle>Diet</SectionTitle>
+                  <Controller
+                    control={control}
+                    name="diet"
+                    render={({ field }) => (
+                      <Field>
+                        <ToggleGroup
+                          type="single"
+                          variant="outline"
+                          value={String(field.value ?? DEFAULT_DIET)}
+                          onValueChange={(v) => v && field.onChange(v)}
+                          className="grid w-full grid-cols-2 sm:grid-cols-4"
+                          aria-label="Diet"
+                        >
+                          {DIET_OPTIONS.map((d) => (
+                            <ToggleGroupItem key={d.id} value={d.id} className="h-11 min-w-0 gap-1.5 px-2 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                              <span aria-hidden>{d.emoji}</span> {d.label}
+                            </ToggleGroupItem>
+                          ))}
+                        </ToggleGroup>
+                        <p className="min-h-4 text-xs text-muted-foreground">{DIET_OPTIONS.find((d) => d.id === field.value)?.hint}</p>
+                      </Field>
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </fieldset>
           )}
 
@@ -264,36 +292,6 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
           {tab === "prefs" && (
             <>
-              <fieldset disabled={!online} className="grid min-w-0 gap-5 disabled:opacity-70">
-                <Card className="rounded-3xl">
-                  <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
-                    <SectionTitle>Diet</SectionTitle>
-                    <Controller
-                      control={control}
-                      name="diet"
-                      render={({ field }) => (
-                        <Field>
-                          <ToggleGroup
-                            type="single"
-                            variant="outline"
-                            value={String(field.value ?? DEFAULT_DIET)}
-                            onValueChange={(v) => v && field.onChange(v)}
-                            className="grid w-full grid-cols-2 sm:grid-cols-4"
-                            aria-label="Diet"
-                          >
-                            {DIET_OPTIONS.map((d) => (
-                              <ToggleGroupItem key={d.id} value={d.id} className="h-11 min-w-0 gap-1.5 px-2 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                                <span aria-hidden>{d.emoji}</span> {d.label}
-                              </ToggleGroupItem>
-                            ))}
-                          </ToggleGroup>
-                          <p className="min-h-4 text-xs text-muted-foreground">{DIET_OPTIONS.find((d) => d.id === field.value)?.hint}</p>
-                        </Field>
-                      )}
-                    />
-                  </CardContent>
-                </Card>
-              </fieldset>
               <RemindersCard />
               <ThemePicker />
             </>

@@ -96,7 +96,9 @@ export function TabPanels({ active, dir, children }: { active: string; /** 1 whe
         animate={{ opacity: 1, x: 0 }}
         exit={reduce ? undefined : { opacity: 0, x: -28 * dir }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className="grid min-w-0 gap-5"
+        // min-h: the old tab leaves before the new one arrives, and a page that briefly gets shorter than the screen
+        // makes a phone browser show or hide its toolbars, which drags the fixed bottom bar with it
+        className="grid min-h-[75dvh] min-w-0 content-start gap-5"
       >
         {children}
       </motion.div>
