@@ -65,6 +65,11 @@ export const analyzeFieldsSchema = z.object({
   notes: optionalText(300),
 });
 
+/** One item typed into "add an item" on the results screen ("2 rotis", "paneer 100g", "dal"). */
+export const addItemSchema = z.object({
+  text: z.string().trim().min(2, "Type an item, like “2 rotis”").max(120, "Keep it under 120 characters"),
+});
+
 // ─── Nutrition (Gemini output, saved meals) ─────────────────
 
 /** Lenient number: coerces strings, clamps negatives, rounds to 0.1, falls back to 0. */

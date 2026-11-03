@@ -16,7 +16,8 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **Auth**: email and password sign-up with email confirmation, password reset, and optional Google sign-in.
 - **PWA**: installable from the browser on Android and iPhone, with app icons and a manifest.
 - **Onboarding**: new users answer five quick questions (goal, sex, body numbers, activity, diet) and get a daily plan to confirm. Most steps are one tap and the body numbers start from typical values. Nobody can use the app until it's done (`ProfileGate`).
-- **Meal reminders**: push notifications at breakfast, lunch and dinner (times are set per user in Profile, in their own timezone). Skipped when that meal is already logged. Sent by `pg_cron` calling the app every 15 minutes. Needs one-time setup, see below.
+- **Add missed items**: on the results screen (and when editing a logged meal), type an item the way you'd say it ("2 rotis", "1 cup rice", "paneer 100g"). It's looked up like the meal name: saved results, vector search, USDA, then AI.
+- **Meal reminders**: push notifications at breakfast, lunch and dinner (times are set per user in Profile, in their own timezone). Skipped when that meal is already logged. Sent by `pg_cron` calling the app once an hour. Needs one-time setup, see below.
 - **Offline reading**: the app opens without a connection and shows the last data it fetched (today, the last 7 days of history, saved coach chats, the profile). Logging, editing and the coach are paused until the connection returns. Themes still work offline.
 - **Landing page** (`/`): what the app does today, plus a **Request access** form. Requests are saved to `access_requests` (one per email, server-only); approve someone by adding their email to the `sign-in-users` flag.
 
@@ -157,7 +158,7 @@ One-time setup:
 1. Generate the push keys: `npx web-push generate-vapid-keys`.
 2. Add these in Vercel (and `.env.local` to try it locally), then redeploy:
    `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a `mailto:` address) and `REMINDERS_SECRET` (any long random string, for example `openssl rand -hex 32`).
-3. Push the migration (the GitHub Action does this on merge). It creates the tables, turns on `pg_cron` and `pg_net`, and schedules a job named `meal-reminders` that runs every 15 minutes.
+3. Push the migration (the GitHub Action does this on merge). It creates the tables, turns on `pg_cron` and `pg_net`, and schedules a job named `meal-reminders` that runs once an hour, plus a daily job (`cron-history-cleanup`) that keeps only the last 3 days of `cron.job_run_details` so the history never bloats.
 4. Tell the database where the app is. Run this once in the Supabase SQL editor (the secret must match `REMINDERS_SECRET`; both values live in Vault, never in the repo):
 
    ```sql
@@ -169,7 +170,7 @@ One-time setup:
 
 Check it: in the app, open Profile → Meal reminders, switch it on and tap **Send a test**. To see the scheduler working, look at `select * from cron.job_run_details order by start_time desc limit 5;` and `select * from net._http_response order by created desc limit 5;`.
 
-How it works: every 15 minutes `pg_cron` calls `/api/reminders/send` with the secret. The app (`lib/reminders-run.ts`) finds users whose reminder time has arrived in their own timezone, skips meals they've already logged today, and sends the push. A reminder is still sent for up to 90 minutes after its time, so one missed run doesn't lose it, and `last_sent` stops it going out twice in a day.
+How it works: once an hour `pg_cron` calls `/api/reminders/send` with the secret. The app (`lib/reminders-run.ts`) finds users whose reminder time has arrived in their own timezone, skips meals they've already logged today, and sends the push. Because the job runs once an hour, a reminder arrives on the first run at or after its time, so up to an hour late. A reminder is still sent for up to 90 minutes after its time, so one missed run doesn't lose it, and `last_sent` stops it going out twice in a day.
 
 ## 5. Optional: Google sign-in
 

@@ -16,6 +16,7 @@ import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
 import type { Analysis, FoodItem, MealType, Nutrients } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Donut } from "../_components/charts";
+import AddItem from "../_components/AddItem";
 import ItemStepper from "../_components/ItemStepper";
 import NutrientGrid from "../_components/NutrientGrid";
 import { SectionTitle } from "../_components/Page";
@@ -239,6 +240,8 @@ export type ResultProps = {
   itemMeta: { id: string; label: string; canDown: boolean }[];
   onStepItem: (index: number, dir: 1 | -1) => void;
   onRemoveItem: (index: number) => void;
+  /** Items the person typed in because they weren't detected. */
+  onAddItems: (items: FoodItem[]) => void;
   servings: number;
   onServings: (v: number) => void;
   mealType: MealType;
@@ -386,6 +389,8 @@ export default function ResultStage(p: ResultProps) {
                 ))}
               </AnimatePresence>
             </ul>
+
+            <AddItem onAdd={p.onAddItems} />
 
             {p.analysis.insights.length > 0 && (
               <>

@@ -77,6 +77,10 @@ flowchart LR
     E -- "seed (real data) · nutrition (AI, batched) · embed" --> DB[("analysis_cache")]
 ```
 
+### Adding an item that wasn't detected
+
+The results screen and the logged-meal sheet have an "Missing something?" box. `POST /api/analyze/item` splits the text into a name and an amount (`splitItemText`, so "2 rotis" becomes `rotis` and `2`) and calls the same `lookupTextMeal` chain as the meal name box: saved result, then vector search, then USDA, then AI. New answers are saved to `analysis_cache` for the next person. The food items it finds are added to the meal, each with the usual quantity stepper; items added to a logged meal can be removed again before saving.
+
 ## Coach chat
 
 The coach answers questions using read-only tools that run **under the user's own login**, so it can only ever see that user's data.
@@ -109,7 +113,7 @@ Each user can keep several conversations (`chat_threads`). The coach only sees t
 ## Meal reminders
 
 - `reminder_settings` (one row per user: on/off, timezone, a time per meal, `last_sent`) and `push_subscriptions` (one row per device) hold the data. Users can read and change their own settings; subscriptions are written by the server (`/api/push/subscribe`), which only accepts addresses of real push services.
-- A `pg_cron` job (`meal-reminders`, every 15 minutes) runs `ping_meal_reminders()`, which uses `pg_net` to POST to `/api/reminders/send` with a shared secret. The app's URL and the secret are stored in Supabase Vault, not in the repo.
+- A `pg_cron` job (`meal-reminders`, once an hour; a second job, `cron-history-cleanup`, deletes run history older than 3 days each day) runs `ping_meal_reminders()`, which uses `pg_net` to POST to `/api/reminders/send` with a shared secret. The app's URL and the secret are stored in Supabase Vault, not in the repo.
 - The endpoint checks the secret, then `lib/reminders-run.ts` picks the users who are due in their own timezone (`lib/reminders.ts`), skips meals already logged, sends the push with `web-push`, and removes devices the push service says are gone.
 - `public/sw.js` shows the notification and opens `/scan?type=…` when it's tapped.
 

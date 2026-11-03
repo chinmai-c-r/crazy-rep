@@ -35,7 +35,7 @@ export function FoodItemList({ items, onRemove }: { items: FoodItem[]; onRemove?
 }
 
 /** Detected items of a logged meal, each with a quantity stepper. `meta[i]` is the quantity shown and whether it can go lower. */
-export function EditableItemList({ items, meta, onStep, disabled }: { disabled?: boolean; items: FoodItem[]; meta: { label: string; canDown: boolean }[]; onStep: (index: number, dir: 1 | -1) => void }) {
+export function EditableItemList({ items, meta, onStep, onRemove, canRemove, disabled }: { disabled?: boolean; onRemove?: (index: number) => void; canRemove?: (index: number) => boolean; items: FoodItem[]; meta: { label: string; canDown: boolean }[]; onStep: (index: number, dir: 1 | -1) => void }) {
   return (
     <ul className="grid gap-2">
       {items.map((it, i) => (
@@ -48,6 +48,18 @@ export function EditableItemList({ items, meta, onStep, disabled }: { disabled?:
               </small>
             </div>
             <span className="font-bold whitespace-nowrap">{fmt(it.calories)} kcal</span>
+            {onRemove && canRemove?.(i) && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-full text-muted-foreground hover:text-destructive"
+                aria-label={`Remove ${it.name}`}
+                onClick={() => onRemove(i)}
+                disabled={disabled}
+              >
+                <X />
+              </Button>
+            )}
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-muted-foreground">Quantity</span>

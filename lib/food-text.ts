@@ -210,3 +210,38 @@ export function scaleAnalysis(a: Analysis, factor: number, portionLabel?: string
   }));
   return { ...a, items, totals: scaleNutrients(a.totals, factor) };
 }
+
+// ─── One typed item ─────────────────────────────────────────
+
+const QTY = String.raw`\d+(?:\.\d+)?|\d+\/\d+|[½¼¾]|half|one|two|three|four|five|six|an?`;
+const UNITS = String.raw`g|gm|gms|grams?|kg|ml|l|oz|cups?|bowls?|katoris?|glass(?:es)?|plates?|pieces?|pcs?|slices?|tbsp|tsp|spoons?|scoops?|handfuls?`;
+const LEADING = new RegExp(String.raw`^(${QTY})\s*(?:x\s*)?(${UNITS})\b\s*(?:of\s+)?(.+)$|^(${QTY})\s+(?:x\s*)?(.+)$`, "i");
+const TRAILING = new RegExp(String.raw`^(.+?)[\s,\-–(]+(\d+(?:\.\d+)?)\s*(g|gm|gms|grams?|kg|ml|oz)\)?$`, "i");
+
+/** "½", "1/2", "half" and "two" as a plain number, which is what the portion parser understands. */
+function plainQuantity(q: string) {
+  const w = q.toLowerCase();
+  const word: Record<string, string> = { a: "1", an: "1", one: "1", half: "0.5", two: "2", three: "3", four: "4", five: "5", six: "6", "½": "0.5", "¼": "0.25", "¾": "0.75" };
+  if (w in word) return word[w];
+  const frac = w.match(/^(\d+)\/(\d+)$/);
+  if (frac && Number(frac[2])) return String(Math.round((Number(frac[1]) / Number(frac[2])) * 100) / 100);
+  return w;
+}
+
+/**
+ * Splits what someone typed for one item into the dish and how much of it, so the same lookup as the
+ * meal name box can be used: "2 rotis" → rotis / 2, "1 cup rice" → rice / 1 cup, "paneer 100g" → paneer / 100 g, "dal" → dal.
+ */
+export function splitItemText(text: string): { name: string; portion?: string } {
+  const t = text.trim().replace(/\s+/g, " ");
+  const lead = t.match(LEADING);
+  if (lead) {
+    const n = plainQuantity(lead[1] ?? lead[4]);
+    const unit = lead[2];
+    const name = (lead[3] ?? lead[5]).trim();
+    if (name) return { name, portion: unit ? `${n} ${unit}` : n };
+  }
+  const trail = t.match(TRAILING);
+  if (trail && trail[1].trim()) return { name: trail[1].trim(), portion: `${trail[2]} ${trail[3]}` };
+  return { name: t };
+}

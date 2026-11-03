@@ -280,6 +280,7 @@ export default function ScanView() {
           itemMeta={itemMeta}
           onStepItem={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))}
           onRemoveItem={(i) => setEntries((xs) => xs.filter((_, j) => j !== i))}
+          onAddItems={(added) => setEntries((xs) => [...xs, ...toEntries(added, () => crypto.randomUUID())])}
           servings={servings}
           onServings={setServings}
           mealType={mealType}

@@ -25,6 +25,7 @@ import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
 import { MealTypePicker, Stepper } from "./Controls";
+import AddItem from "./AddItem";
 import { EditableItemList, Insights } from "./FoodItems";
 import MacroBar from "./MacroBar";
 import NutrientGrid from "./NutrientGrid";
@@ -58,7 +59,9 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [entries, setEntries] = useState<ItemEntry[]>(() => toEntries(meal.items ?? [], () => crypto.randomUUID()));
   const items = useMemo(() => entries.map(itemOf), [entries]);
   const itemMeta = useMemo(() => entries.map(quantityOf), [entries]);
-  const itemsEdited = entries.some(isEdited);
+  // Items typed in here (not part of the saved meal): they can be taken out again, and they count as a change
+  const [added, setAdded] = useState<string[]>([]);
+  const itemsEdited = entries.some(isEdited) || entries.length !== (meal.items?.length ?? 0);
 
   // Per serving as saved, plus whatever the item changes added or took away (so anything that wasn't an item is kept),
   // then times the servings now chosen. With no item changes this is the saved nutrients scaled by servings.
@@ -146,14 +149,32 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
         </div>
         <NutrientGrid totals={shown} />
 
-        {items.length > 0 && (
-          <section className="grid gap-3">
-            <SectionTitle>
-              Detected items <span className="font-normal tracking-normal normal-case">(per serving)</span>
-            </SectionTitle>
-            <EditableItemList disabled={!online} items={items} meta={itemMeta} onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))} />
-          </section>
-        )}
+        <section className="grid gap-3">
+          <SectionTitle>
+            {items.length > 0 ? "Detected items" : "Items"} <span className="font-normal tracking-normal normal-case">(per serving)</span>
+          </SectionTitle>
+          {items.length > 0 && (
+            <EditableItemList
+              disabled={!online}
+              items={items}
+              meta={itemMeta}
+              onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))}
+              canRemove={(i) => added.includes(entries[i]?.id)}
+              onRemove={(i) => {
+                const gone = entries[i]?.id;
+                setEntries((xs) => xs.filter((_, j) => j !== i));
+                setAdded((ids) => ids.filter((id) => id !== gone));
+              }}
+            />
+          )}
+          <AddItem
+            onAdd={(more) => {
+              const fresh = toEntries(more, () => crypto.randomUUID());
+              setEntries((xs) => [...xs, ...fresh]);
+              setAdded((ids) => [...ids, ...fresh.map((e) => e.id)]);
+            }}
+          />
+        </section>
 
         {meal.notes && (
           <section className="grid gap-3">
