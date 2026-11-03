@@ -13,7 +13,7 @@ const authorised = (request: NextRequest) => {
 };
 
 /**
- * Called every 15 minutes by pg_cron (see supabase/migrations/…_meal_reminders.sql).
+ * Called once an hour by pg_cron (see supabase/migrations/…_meal_reminders.sql and …_reminders_hourly_and_cleanup.sql).
  * Works out who is due in their own timezone, skips meals already logged, and sends the pushes.
  */
 export async function POST(request: NextRequest) {

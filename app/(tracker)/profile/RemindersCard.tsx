@@ -173,6 +173,7 @@ function Reminders() {
                 <MealRow key={meal} meal={meal} time={settings[`${meal}_at`]} disabled={!online} onChange={(t) => change({ [`${meal}_at`]: t } as Partial<ReminderSettings>)} />
               ))}
             </ul>
+            <p className="text-xs text-muted-foreground">Reminders are sent once an hour, so one can arrive up to an hour after the time you pick.</p>
             <div>
               <Button variant="outline" className="rounded-full" onClick={test} disabled={!online || busy !== null}>
                 {busy === "test" ? <Loader2 className="animate-spin" /> : <Send />} Send a test
