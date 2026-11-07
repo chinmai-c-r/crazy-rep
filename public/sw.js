@@ -29,20 +29,58 @@ self.addEventListener("activate", (event) => {
 /** Pages are stored by path, so /scan?type=lunch and /scan share one copy. */
 const pageKey = (url) => new Request(url.origin + url.pathname);
 
+/** The signed-in app pages. Their HTML is only a shell (the data loads in the browser), so it's safe to open from the saved copy. */
+const APP_PATHS = ["/dashboard", "/scan", "/history", "/profile", "/coach", "/onboarding"];
+const isAppPage = (url) => APP_PATHS.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
+
+const isHtml = (res) => res.ok && !res.redirected && res.headers.get("content-type")?.includes("text/html");
+
+/** Sends a message to one open window (or all of them when we don't know which). */
+async function tell(clientId, message) {
+  const one = clientId ? await clients.get(clientId) : null;
+  const targets = one ? [one] : await clients.matchAll({ type: "window" });
+  targets.forEach((c) => c.postMessage(message));
+}
+
+/**
+ * After an app page was opened from the saved copy: fetch the current one and keep it for next time.
+ * If the server sends us somewhere else (signed out, or access removed), the saved page was the wrong thing to show,
+ * so drop it and tell the page to go where the server wanted.
+ */
+async function refresh(event, url, pages) {
+  try {
+    event.preloadResponse?.catch(() => {}); // not used here: a plain fetch lets us see redirects
+    const res = await fetch(url.href, { credentials: "same-origin", headers: { Accept: "text/html" } });
+    if (res.redirected && new URL(res.url).pathname !== url.pathname) {
+      await pages.delete(pageKey(url));
+      return tell(event.resultingClientId, { type: "navigate", url: res.url });
+    }
+    if (isHtml(res)) await pages.put(pageKey(url), res.clone());
+  } catch {
+    // offline or the server is slow: the saved copy is still good
+  }
+}
+
 const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("slow")), ms));
 
 async function page(event) {
   const url = new URL(event.request.url);
   const pages = await caches.open(PAGES);
   const saved = await pages.match(pageKey(url));
+
+  // Opening the app (from the home screen, or from a notification) shouldn't wait for the server, which may be cold:
+  // show the saved page at once, with its loading state, and refresh it behind the scenes
+  if (saved && isAppPage(url)) {
+    event.waitUntil(refresh(event, url, pages));
+    return saved;
+  }
+
   try {
     const load = (async () => (await event.preloadResponse) || (await fetch(event.request)))();
     // With a saved copy to fall back on, don't wait forever for a connection that isn't answering
     const res = saved ? await Promise.race([load, timeout(SLOW_MS)]) : await load;
     // Only keep real pages: not redirects (to sign-in), errors or API responses
-    if (res.ok && !res.redirected && res.headers.get("content-type")?.includes("text/html")) {
-      event.waitUntil(pages.put(pageKey(url), res.clone()));
-    }
+    if (isHtml(res)) event.waitUntil(pages.put(pageKey(url), res.clone()));
     return res;
   } catch {
     return saved || (await pages.match(pageKey(new URL(HOME, url.origin)))) || (await caches.match(OFFLINE));
@@ -100,15 +138,20 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
-      // Reuse the open app if there is one, and send it to the right place
-      for (const w of windows) {
-        if (new URL(w.url).origin === self.location.origin && "focus" in w) {
-          await w.focus();
-          if ("navigate" in w) return w.navigate(target).catch(() => clients.openWindow(target));
-          return;
-        }
-      }
-      return clients.openWindow(target);
+      const app = windows.find((w) => new URL(w.url).origin === self.location.origin && "focus" in w);
+      // The app isn't running: open it (its saved page appears straight away)
+      if (!app) return clients.openWindow(target);
+
+      await app.focus().catch(() => {});
+      // Ask the running app to move there itself. That's instant: no page reload, no waiting on the server.
+      const answered = await new Promise((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => resolve(true);
+        app.postMessage({ type: "open", url: target }, [channel.port2]);
+        setTimeout(() => resolve(false), 3000);
+      });
+      // An older copy of the app that doesn't listen: load the page instead
+      if (!answered && "navigate" in app) await app.navigate(target).catch(() => clients.openWindow(target));
     })(),
   );
 });

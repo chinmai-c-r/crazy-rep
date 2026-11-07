@@ -121,6 +121,8 @@ Each user can keep several conversations (`chat_threads`). The coach only sees t
 
 The installed app can be opened and read without a connection.
 
+- **Opening the app.** For the signed-in pages (`/dashboard`, `/scan`, …) the service worker opens the saved page straight away and refreshes it in the background, so a cold server or a slow sign-in check doesn't hold the launch. If the refresh finds the server redirecting (signed out, access removed), the page is told to go there. A tapped notification is handed to the running app as a message, and the app moves to the page itself without reloading; if no app is running, the saved page opens at once.
+
 - `public/sw.js` keeps the last good copy of each page (network first) and caches `/_next/static` files, so the app shell opens offline. API and Supabase calls are never cached by the service worker.
 - `lib/offline.ts` saves the React Query cache to `localStorage` (profile, meals, logs, weights, history summaries, coach chats; not photo URLs, which expire). It is loaded before the first render and saved again as data changes, with a per-kind limit so it stays small.
 - Offline, queries with nothing saved wait instead of failing, and each page says so. `useOnline()` disables everything that writes: dashboard date arrows, add and delete buttons, meal edits, the whole profile form, the coach input, and logging a meal. History is limited to the last 7 days, which are fetched whichever range is open. Themes are local, so they still work.
