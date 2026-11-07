@@ -2,13 +2,15 @@ import { Lightbulb, X } from "lucide-react";
 import ItemStepper from "./ItemStepper";
 import { Button } from "@/components/ui/button";
 import { fmt } from "@/lib/nutrition";
+import { flatRow } from "@/lib/ui";
+import { cn } from "@/lib/utils";
 import type { FoodItem } from "@/lib/types";
 
 export function FoodItemList({ items, onRemove }: { items: FoodItem[]; onRemove?: (index: number) => void }) {
   return (
     <ul className="grid gap-2">
       {items.map((it, i) => (
-        <li key={i} className="flex items-center gap-3 rounded-xl bg-muted/60 px-3.5 py-3">
+        <li key={i} className={cn("flex items-center gap-3 rounded-xl bg-muted/60 px-3.5 py-3", flatRow)}>
           <div className="grid min-w-0 flex-1">
             <b className="truncate">{it.name}</b>
             <small className="text-xs text-muted-foreground">
@@ -39,7 +41,7 @@ export function EditableItemList({ items, meta, onStep, onRemove, canRemove, dis
   return (
     <ul className="grid gap-2">
       {items.map((it, i) => (
-        <li key={i} className="grid gap-2.5 rounded-xl bg-muted/60 px-3.5 py-3">
+        <li key={i} className={cn("grid gap-2.5 rounded-xl bg-muted/60 px-3.5 py-3", flatRow)}>
           <div className="flex items-center gap-3">
             <div className="grid min-w-0 flex-1">
               <b className="truncate">{it.name}</b>

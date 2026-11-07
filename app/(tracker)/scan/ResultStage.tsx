@@ -25,6 +25,7 @@ import { foodEmoji } from "@/lib/food-emoji";
 import { fmt } from "@/lib/nutrition";
 import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
 import type { Analysis, FoodItem, MealType, Nutrients } from "@/lib/types";
+import { flatRow } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import { Donut } from "../_components/charts";
 import AddItem from "../_components/AddItem";
@@ -319,7 +320,7 @@ function ItemCard({
         damping: 26,
         delay: index * 0.07,
       }}
-      className="relative overflow-hidden rounded-2xl border bg-muted/40 p-3"
+      className={cn("relative overflow-hidden rounded-2xl border bg-muted/40 p-3", flatRow)}
     >
       <div className="flex items-center gap-3">
         <span
@@ -709,7 +710,7 @@ export default function ResultStage(p: ResultProps) {
                         ease: EASE,
                         delay: 0.5 + i * 0.12,
                       }}
-                      className="flex gap-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-transparent p-3 text-sm"
+                      className={cn("flex gap-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-transparent p-3 text-sm", flatRow)}
                     >
                       <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
                         <Lightbulb className="size-4" />
