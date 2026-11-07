@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
-import { useLogRange, useMeals, useProfile, useSignedUrls, useWeights } from "@/lib/hooks";
+import { useLogRange, useMeals, useProfile, useSignedUrls, useStepSync, useSteps, useWeights } from "@/lib/hooks";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
@@ -38,6 +38,8 @@ export default function DashboardView() {
   const online = useOnline();
   const { meals, loading, unavailable, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
+  const steps = useSteps(localDay(date));
+  useStepSync();
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
@@ -140,6 +142,7 @@ export default function DashboardView() {
         <ActivityCard
           activities={activities.rows}
           loading={activities.loading}
+          steps={steps}
           onAdd={() => setSheet("activity")}
           onDeleted={(id) => activities.setRows((rs) => rs.filter((r) => r.id !== id))}
         />

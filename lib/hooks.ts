@@ -31,6 +31,8 @@ export const keys = {
   firstLog: ["first-log"] as const,
   mealSearch: (q: string, similar: boolean) => ["meal-search", q, similar] as const,
   dishHistory: (key: string) => ["dish-history", key] as const,
+  steps: (day: string) => ["steps", day] as const,
+  stepSync: ["steps-sync"] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
@@ -346,4 +348,50 @@ export function useDishHistory(key: string, enabled: boolean) {
     },
   });
   return { times: query.data ?? [], loading: loadingOf(query) };
+}
+
+/** Steps for one local day (YYYY-MM-DD) as imported from Google Health, or null when there are none. */
+export function useSteps(day: string) {
+  const { data } = useQuery({
+    queryKey: keys.steps(day),
+    queryFn: async () => {
+      const { data } = await createClient().from("step_days").select("steps").eq("day", day).maybeSingle();
+      return data?.steps ?? null;
+    },
+  });
+  return data ?? null;
+}
+
+/**
+ * Pulls recent steps and workouts from Google Health, at most every ten minutes. Does nothing unless the user connected
+ * Google Health with the activity permission. Refreshes the step counts when new numbers arrive.
+ */
+export function useStepSync() {
+  const qc = useQueryClient();
+  const { data: status } = useQuery({
+    queryKey: ["google-health-status"],
+    queryFn: async (): Promise<{ configured: boolean; connected: boolean; steps?: boolean } | null> => {
+      const r = await fetch("/api/google-health");
+      return r.ok ? r.json() : null;
+    },
+    staleTime: 10 * 60_000,
+  });
+  useQuery({
+    queryKey: keys.stepSync,
+    enabled: Boolean(status?.steps),
+    staleTime: 10 * 60_000,
+    retry: false,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const now = new Date();
+      const res = await fetch("/api/google-health/steps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(), days: 14 }),
+      });
+      if (!res.ok) throw new Error("steps sync failed");
+      await Promise.all([qc.invalidateQueries({ queryKey: ["steps"] }), qc.invalidateQueries({ queryKey: ["log", "activity_logs"] }), invalidateSummary(qc)]);
+      return Date.now();
+    },
+  });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Droplet, Plus, Scale, Trash2, Undo2 } from "lucide-react";
+import { Droplet, Footprints, Plus, Scale, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { activityIcon, activityLabel } from "@/lib/activities";
 import { fmt } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { createClient } from "@/lib/supabase/client";
+import { flatRow } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import type { ActivityLog, WaterLog, WeightLog } from "@/lib/types";
 import { Sparkline } from "./charts";
@@ -18,11 +19,14 @@ import { SectionTitle } from "./Page";
 export function ActivityCard({
   activities,
   loading,
+  steps,
   onAdd,
   onDeleted,
 }: {
   activities: ActivityLog[];
   loading?: boolean;
+  /** Steps for the day from Google Health, when connected */
+  steps?: number | null;
   onAdd: () => void;
   onDeleted: (id: string) => void;
 }) {
@@ -50,10 +54,16 @@ export function ActivityCard({
             </span>
           )}
         </div>
+        {steps != null && (
+          <p className="flex items-center gap-2 text-sm">
+            <Footprints className="size-4 text-muted-foreground" aria-hidden />
+            <b>{fmt(steps)}</b> steps <span className="text-muted-foreground">from Google Health</span>
+          </p>
+        )}
         {activities.length > 0 && (
           <ul className="grid gap-2">
             {activities.map((a) => (
-              <li key={a.id} className="flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5">
+              <li key={a.id} className={cn("flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5", flatRow)}>
                 <span className="text-xl">{activityIcon(a.activity)}</span>
                 <span className="grid min-w-0 flex-1">
                   <b className="truncate text-sm">{activityLabel(a.activity)}</b>

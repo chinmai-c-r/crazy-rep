@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdmin } from "@/lib/supabase/server";
+import { activityFromExercise } from "@/lib/google-activity";
 import type { Meal } from "@/lib/types";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -8,6 +9,7 @@ const API = "https://health.googleapis.com/v4/users/me";
 const NUTRITION = `${API}/dataTypes/nutrition-log/dataPoints`;
 
 export const SCOPE = "https://www.googleapis.com/auth/googlehealth.nutrition.writeonly";
+export const ACTIVITY_SCOPE = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly";
 
 export const isConfigured = () => Boolean(process.env.GOOGLE_HEALTH_CLIENT_ID && process.env.GOOGLE_HEALTH_CLIENT_SECRET);
 
@@ -18,7 +20,7 @@ export function authUrl(origin: string, state: string) {
     client_id: process.env.GOOGLE_HEALTH_CLIENT_ID!,
     redirect_uri: redirectUri(origin),
     response_type: "code",
-    scope: SCOPE,
+    scope: `${SCOPE} ${ACTIVITY_SCOPE}`,
     access_type: "offline",
     // Always ask, so Google returns a refresh token even when the user reconnects
     prompt: "consent",
@@ -140,5 +142,97 @@ export async function deleteMeal(userId: string, googleHealthId: string) {
   const token = await accessToken(userId);
   if (!token) return false;
   await removeRemote(token, googleHealthId);
+  return true;
+}
+
+type CivilDate = { year: number; month: number; day: number };
+const civil = (d: CivilDate) => ({ date: d, time: { hours: 0, minutes: 0, seconds: 0, nanos: 0 } });
+const dayKey = (d: CivilDate) => `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+
+/**
+ * Reads daily step totals for the last `days` days (today included) and stores them.
+ * Days are the user's local days as Google Health reports them. Returns null when not connected or the
+ * connection lacks the activity permission, and false if Google Health failed.
+ */
+export async function pullSteps(userId: string, days: number, today: CivilDate) {
+  const admin = createAdmin();
+  const { data: conn } = await admin.from("google_health_connections").select("scopes").eq("user_id", userId).maybeSingle();
+  if (!conn?.scopes.split(" ").includes(ACTIVITY_SCOPE)) return null;
+  const token = await accessToken(userId);
+  if (!token) return null;
+
+  const first = new Date(Date.UTC(today.year, today.month - 1, today.day - (days - 1)));
+  const last = new Date(Date.UTC(today.year, today.month - 1, today.day + 1)); // the range is closed-open
+  const at = (d: Date): CivilDate => ({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() });
+
+  const rows: { user_id: string; day: string; steps: number; synced_at: string }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const { ok, json } = await api(token, `${API}/dataTypes/steps/dataPoints:dailyRollUp`, {
+      range: { start: civil(at(first)), end: civil(at(last)) },
+      windowSizeDays: 1,
+      pageSize: 90,
+      pageToken,
+    });
+    if (!ok) return false;
+    for (const p of (json?.rollupDataPoints ?? []) as { civilStartTime?: { date?: CivilDate }; steps?: { countSum?: string | number } }[]) {
+      const date = p.civilStartTime?.date;
+      const steps = Math.round(Number(p.steps?.countSum ?? 0));
+      if (date && Number.isFinite(steps)) rows.push({ user_id: userId, day: dayKey(date), steps, synced_at: new Date().toISOString() });
+    }
+    pageToken = json?.nextPageToken || undefined;
+  } while (pageToken);
+
+  if (rows.length) {
+    const { error } = await admin.from("step_days").upsert(rows, { onConflict: "user_id,day" });
+    if (error) return false;
+  }
+  return true;
+}
+
+export async function hasActivity(userId: string) {
+  const { data } = await createAdmin().from("google_health_connections").select("scopes").eq("user_id", userId).maybeSingle();
+  return Boolean(data?.scopes.split(" ").includes(ACTIVITY_SCOPE));
+}
+
+/**
+ * Imports workouts from the last `days` days (treadmill, runs, classes: whatever Google Health recorded) into activity_logs.
+ * Already imported ones are left alone, as are ones the user deleted. Same return values as pullSteps.
+ */
+export async function pullWorkouts(userId: string, days: number) {
+  const admin = createAdmin();
+  const token = (await hasActivity(userId)) ? await accessToken(userId) : null;
+  if (!token) return null;
+
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const [{ data: profile }, { data: dismissed }] = await Promise.all([
+    admin.from("profiles").select("weight_kg").eq("id", userId).maybeSingle(),
+    admin.from("google_health_dismissed").select("google_health_id").eq("user_id", userId),
+  ]);
+  const skip = new Set((dismissed ?? []).map((d) => d.google_health_id));
+
+  const rows = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < 8; page++) {
+    const params = new URLSearchParams({ pageSize: "25", filter: `exercise.interval.start_time >= "${since}"` });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`${API}/dataTypes/exercise/dataPoints?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("google health api", res.status, JSON.stringify(json));
+      return false;
+    }
+    for (const p of json.dataPoints ?? []) {
+      const row = activityFromExercise(p.name ?? "", p.exercise, profile?.weight_kg ? Number(profile.weight_kg) : null);
+      if (row && !skip.has(row.google_health_id)) rows.push({ ...row, user_id: userId });
+    }
+    pageToken = json.nextPageToken || undefined;
+    if (!pageToken) break;
+  }
+
+  if (rows.length) {
+    const { error } = await admin.from("activity_logs").upsert(rows, { onConflict: "user_id,google_health_id", ignoreDuplicates: true });
+    if (error) return false;
+  }
   return true;
 }
