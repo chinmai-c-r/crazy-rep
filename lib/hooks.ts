@@ -366,9 +366,9 @@ export function useSteps(day: string) {
  * Pulls recent steps and workouts from Google Health, at most every ten minutes. Does nothing unless the user connected
  * Google Health with the activity permission. Refreshes the step counts when new numbers arrive.
  */
-export function useStepSync() {
-  const qc = useQueryClient();
-  const { data: status } = useQuery({
+/** Whether Google Health is connected with the steps permission (known from the last visit too, so layouts don't jump). */
+export function useStepsEnabled() {
+  const { data } = useQuery({
     queryKey: ["google-health-status"],
     queryFn: async (): Promise<{ configured: boolean; connected: boolean; steps?: boolean } | null> => {
       const r = await fetch("/api/google-health");
@@ -376,9 +376,15 @@ export function useStepSync() {
     },
     staleTime: 10 * 60_000,
   });
+  return Boolean(data?.steps);
+}
+
+export function useStepSync() {
+  const qc = useQueryClient();
+  const enabled = useStepsEnabled();
   useQuery({
     queryKey: keys.stepSync,
-    enabled: Boolean(status?.steps),
+    enabled,
     staleTime: 10 * 60_000,
     retry: false,
     refetchOnWindowFocus: true,
@@ -394,4 +400,5 @@ export function useStepSync() {
       return Date.now();
     },
   });
+  return enabled;
 }

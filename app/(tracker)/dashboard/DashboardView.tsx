@@ -39,7 +39,7 @@ export default function DashboardView() {
   const { meals, loading, unavailable, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const steps = useSteps(localDay(date));
-  useStepSync();
+  const showSteps = useStepSync();
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
@@ -91,7 +91,7 @@ export default function DashboardView() {
         <Card className={`relative items-center justify-center gap-4 rounded-3xl py-8 ${ENTER}`}>
           <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-20 h-64 bg-[radial-gradient(closest-side,rgb(var(--primary-rgb)/0.09),transparent)]" />
           <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} />
-          <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} />
+          <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} steps={steps} showSteps={showSteps} />
         </Card>
         )}
         {booting ? (

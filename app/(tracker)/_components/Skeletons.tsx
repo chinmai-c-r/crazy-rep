@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
 import { flatTile } from "@/lib/ui";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStepsEnabled } from "@/lib/hooks";
 import { MEAL_TYPES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GRID, NUTRIENT_ROWS, tileSpan } from "./NutrientGrid";
@@ -54,6 +55,7 @@ function CometRing({ size, stroke, seconds = 2.4, delay = 0 }: { size: number; s
 }
 
 export function RingCardSkeleton() {
+  const showSteps = useStepsEnabled(); // same column count as the real card
   return (
     <Card className="relative items-center justify-center gap-4 rounded-3xl py-8">
       <div className="relative size-48 sm:size-52" aria-hidden>
@@ -73,7 +75,7 @@ export function RingCardSkeleton() {
           </span>
         </div>
       </div>
-      <RingStats loading />
+      <RingStats loading showSteps={showSteps} />
     </Card>
   );
 }

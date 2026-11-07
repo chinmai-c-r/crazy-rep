@@ -1,7 +1,7 @@
 "use client";
 
 import { animate, motion, useReducedMotion } from "framer-motion";
-import { Flame, Gauge, UtensilsCrossed } from "lucide-react";
+import { Flame, Footprints, Gauge, UtensilsCrossed } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import ScrambleText from "./ScrambleText";
 import ShimmerText from "./ShimmerText";
@@ -131,16 +131,38 @@ const STATS = [
   { key: "meals", label: "meals", icon: UtensilsCrossed, color: "text-primary", anim: "animate-wiggle" },
 ] as const;
 
+const STEPS_STAT = { key: "steps", label: "steps", icon: Footprints, color: "text-chart-3", anim: "animate-wiggle" } as const;
+
+/** 8,412 steps read as "8.4k" so four numbers fit side by side on a phone. */
+const compact = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+
 /** Burned, net and meal count under the ring. The loading state shares this markup so both are the same size. */
-export function RingStats({ burned = 0, net = 0, meals = 0, loading }: { burned?: number; net?: number; meals?: number; loading?: boolean }) {
-  const values = { burned, net, meals };
+export function RingStats({
+  burned = 0,
+  net = 0,
+  meals = 0,
+  steps,
+  showSteps,
+  loading,
+}: {
+  burned?: number;
+  net?: number;
+  meals?: number;
+  /** Steps for the day from Google Health, or null when there are none yet */
+  steps?: number | null;
+  /** Whether to show the steps column at all (Google Health connected) */
+  showSteps?: boolean;
+  loading?: boolean;
+}) {
+  const values = { burned, net, meals, steps: steps ?? 0 };
+  const stats = showSteps ? [...STATS, STEPS_STAT] : STATS;
   return (
-    <div className="grid w-full grid-cols-3 px-4 text-center text-sm [&>*+*]:border-l">
-      {STATS.map(({ key, label, icon: Icon, color, anim }, i) => (
+    <div className={cn("grid w-full px-4 text-center text-sm [&>*+*]:border-l", showSteps ? "grid-cols-4 px-2" : "grid-cols-3")}>
+      {stats.map(({ key, label, icon: Icon, color, anim }, i) => (
         <div key={key} className="grid justify-items-center">
           <b className={cn("flex items-center gap-1.5 font-heading text-2xl font-normal", color)}>
             <Icon className={cn("size-4", loading && `${anim} motion-reduce:animate-none`)} style={loading ? { animationDelay: `${i * 0.2}s` } : undefined} aria-hidden />
-            {loading ? <ScrambleText pattern="888" seed={20 + i} /> : fmt(values[key])}
+            {loading ? <ScrambleText pattern="888" seed={20 + i} /> : key === "steps" ? (steps == null ? "–" : compact(steps)) : fmt(values[key])}
           </b>
           <span className="font-semibold text-foreground/70">{loading ? <ShimmerText delay={i * 0.25}>{label}</ShimmerText> : label}</span>
         </div>

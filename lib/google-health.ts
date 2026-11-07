@@ -120,7 +120,10 @@ async function api(token: string, url: string, body: unknown) {
 }
 
 const UNIT_PREFERENCE = ["serving", "piece", "portion", "unit", "gram"];
+// "piece", the unit in Google's own nutrition-log example. Used when we're not allowed to list units (that needs the nutrition read scope).
+const FALLBACK_UNIT = "users/me/dataTypes/food-measurement-unit/dataPoints/251";
 let unitName: string | undefined;
+let cannotListUnits = false;
 
 const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && typeof v === "object" ? Object.values(v).flatMap(strings) : []);
 
@@ -130,8 +133,14 @@ const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && ty
  */
 async function servingUnit(token: string) {
   if (unitName) return unitName;
+  if (cannotListUnits) return FALLBACK_UNIT;
   const res = await fetch(`${API}/dataTypes/food-measurement-unit/dataPoints?pageSize=1000`, { headers: { Authorization: `Bearer ${token}` } });
   const json = await res.json().catch(() => ({}));
+  if (res.status === 403) {
+    // Only the write permission was granted: listing units isn't allowed, so use the known one
+    cannotListUnits = true;
+    return FALLBACK_UNIT;
+  }
   if (!res.ok) {
     console.error("google health api", res.status, JSON.stringify(json));
     return null;
