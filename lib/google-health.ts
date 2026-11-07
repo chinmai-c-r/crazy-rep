@@ -125,8 +125,8 @@ async function removeRemote(token: string, id: string) {
 }
 
 /** Writes the meal to Google Health, replacing the previous entry if there is one. Returns the new entry id. */
-export async function pushMeal(userId: string, meal: MealForSync) {
-  const token = await accessToken(userId);
+export async function pushMeal(userId: string, meal: MealForSync, knownToken?: string) {
+  const token = knownToken ?? (await accessToken(userId));
   if (!token) return { connected: false as const };
 
   if (meal.google_health_id) await removeRemote(token, meal.google_health_id);
@@ -136,6 +136,54 @@ export async function pushMeal(userId: string, meal: MealForSync) {
   const name: string | undefined = json?.response?.name ?? json?.name;
   const id = name?.split("/").pop();
   return { connected: true as const, ok: ok && Boolean(id), id: id ?? null };
+}
+
+/**
+ * Sends meals that were never sent (no Google Health id), oldest first, up to `limit`.
+ * Meals that already have an id are never touched, so running this again can't duplicate anything.
+ * Returns null when not connected, "busy" when another run is in progress.
+ */
+export async function backfillMeals(
+  userId: string,
+  list: (limit: number) => Promise<MealForSync[]>,
+  limit: number,
+) {
+  const admin = createAdmin();
+  // Claim the run: only one at a time per user (a claim older than a minute is a run that died)
+  const stale = new Date(Date.now() - 60_000).toISOString();
+  const { data: claimed } = await admin
+    .from("google_health_connections")
+    .update({ backfill_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .or(`backfill_at.is.null,backfill_at.lt.${stale}`)
+    .select("user_id");
+  if (!claimed?.length) {
+    const { data: conn } = await admin.from("google_health_connections").select("user_id").eq("user_id", userId).maybeSingle();
+    return conn ? ("busy" as const) : null;
+  }
+
+  try {
+    const token = await accessToken(userId);
+    if (!token) return null;
+    let sent = 0;
+    let failed = 0;
+    for (const meal of await list(limit)) {
+      const result = await pushMeal(userId, meal, token);
+      if (!result.connected || !result.ok || !result.id) {
+        failed++;
+        continue;
+      }
+      const { error } = await admin.from("meals").update({ google_health_id: result.id }).eq("id", meal.id).eq("user_id", userId);
+      if (error) {
+        // Couldn't record it: take the entry back out so the next run doesn't send it a second time
+        await removeRemote(token, result.id);
+        failed++;
+      } else sent++;
+    }
+    return { sent, failed };
+  } finally {
+    await admin.from("google_health_connections").update({ backfill_at: null }).eq("user_id", userId);
+  }
 }
 
 export async function deleteMeal(userId: string, googleHealthId: string) {
