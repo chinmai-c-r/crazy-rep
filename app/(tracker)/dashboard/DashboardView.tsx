@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
 import { useLogRange, useMeals, useProfile, useGoogleStatus, useSignedUrls, useSleep, useStepSync, useSteps, useWeights } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
@@ -24,6 +25,8 @@ import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton
 
 /** Cards rise a little as they replace their skeleton. No fade: fading from transparent would flash blank. */
 const ENTER = "animate-in slide-in-from-bottom-2 fill-mode-both duration-500";
+// Cards fill their grid cell, so neighbours match in height
+const CELL = `${ENTER} [&>*]:h-full`;
 
 export default function DashboardView() {
   const [date, setDate] = useState(() => parseDay(new URLSearchParams(window.location.search).get("date")) ?? new Date());
@@ -39,8 +42,9 @@ export default function DashboardView() {
   const { meals, loading, unavailable, error, setMeals } = useMeals(start, end);
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const steps = useSteps(localDay(date));
-  const showSteps = useStepSync();
+  const { steps: showSteps, problems } = useStepSync();
   const google = useGoogleStatus();
+  const fromGoogle = Boolean(google?.steps);
   const sleep = useSleep(localDay(date));
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
@@ -140,28 +144,36 @@ export default function DashboardView() {
         })}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <ActivityCard
-          activities={activities.rows}
-          loading={activities.loading}
-          steps={steps}
-          onAdd={() => setSheet("activity")}
-          onDeleted={(id) => activities.setRows((rs) => rs.filter((r) => r.id !== id))}
-        />
-        <WaterCard
-          logs={water.rows}
-          loading={water.loading || profileLoading}
-          goal={profile?.water_goal_ml ?? 2500}
-          day={date}
-          onAdded={(row) => water.setRows((rs) => [row, ...rs])}
-          onRemoved={(id) => water.setRows((rs) => rs.filter((r) => r.id !== id))}
-        />
-        <WeightCard weights={weights} loading={weightsLoading} onAdd={() => setSheet("weight")} />
+      {/* With Google Health the day's activity and sleep come from it (read-only); without it, activity is logged here */}
+      <section className={cn("grid gap-4", fromGoogle ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
+        <div className={CELL}>
+          <ActivityCard
+            activities={activities.rows}
+            loading={activities.loading}
+            steps={steps}
+            fromGoogle={fromGoogle}
+            onAdd={() => setSheet("activity")}
+            onDeleted={(id) => activities.setRows((rs) => rs.filter((r) => r.id !== id))}
+          />
+        </div>
         {google?.connected && (
-          <div className="lg:col-span-3">
-            <SleepCard sessions={sleep} needsAccess={!google.sleep} />
+          <div className={CELL} style={{ animationDelay: "60ms" }}>
+            <SleepCard sessions={sleep} needsAccess={!google.sleep} problem={problems.sleep} />
           </div>
         )}
+        <div className={CELL} style={{ animationDelay: "120ms" }}>
+          <WaterCard
+            logs={water.rows}
+            loading={water.loading || profileLoading}
+            goal={profile?.water_goal_ml ?? 2500}
+            day={date}
+            onAdded={(row) => water.setRows((rs) => [row, ...rs])}
+            onRemoved={(id) => water.setRows((rs) => rs.filter((r) => r.id !== id))}
+          />
+        </div>
+        <div className={CELL} style={{ animationDelay: "180ms" }}>
+          <WeightCard weights={weights} loading={weightsLoading} onAdd={() => setSheet("weight")} />
+        </div>
       </section>
 
       <ActivitySheet

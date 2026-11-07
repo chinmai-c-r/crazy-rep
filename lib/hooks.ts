@@ -364,7 +364,7 @@ export function useSteps(day: string) {
 }
 
 /**
- * Pulls recent steps, workouts and sleep from Google Health, at most every ten minutes. Does nothing unless the user connected
+ * Pulls recent steps, workouts, burned energy and sleep from Google Health, at most every ten minutes. Does nothing unless the user connected
  * Google Health with the activity permission. Refreshes the step counts when new numbers arrive.
  */
 type GoogleStatus = { configured: boolean; connected: boolean; steps?: boolean; sleep?: boolean; units?: boolean };
@@ -414,7 +414,7 @@ export function useStepSync() {
   const qc = useQueryClient();
   const status = useGoogleStatus();
   const enabled = Boolean(status?.steps || status?.sleep);
-  useQuery({
+  const sync = useQuery({
     queryKey: keys.stepSync,
     enabled,
     staleTime: 10 * 60_000,
@@ -429,9 +429,10 @@ export function useStepSync() {
       });
       if (!res.ok) throw new Error("steps sync failed");
       // Parts that worked are saved even when another failed
+      const { problems = {} } = (await res.json().catch(() => ({}))) as { problems?: Record<string, string> };
       await Promise.all([qc.invalidateQueries({ queryKey: ["steps"] }), qc.invalidateQueries({ queryKey: ["sleep"] }), qc.invalidateQueries({ queryKey: ["log", "activity_logs"] }), invalidateSummary(qc)]);
-      return Date.now();
+      return { at: Date.now(), problems };
     },
   });
-  return Boolean(status?.steps);
+  return { steps: Boolean(status?.steps), problems: sync.data?.problems ?? {}, syncing: sync.isFetching };
 }

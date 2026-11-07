@@ -242,7 +242,7 @@ const dayKey = (d: CivilDate) => `${d.year}-${String(d.month).padStart(2, "0")}-
 /**
  * Reads daily step totals for the last `days` days (today included) and stores them.
  * Days are the user's local days as Google Health reports them. Returns null when not connected or the
- * connection lacks the activity permission, and false if Google Health failed.
+ * connection lacks the activity permission. Throws with Google's message if Google Health failed.
  */
 export async function pullSteps(userId: string, days: number, today: CivilDate) {
   const admin = createAdmin();
@@ -264,7 +264,7 @@ export async function pullSteps(userId: string, days: number, today: CivilDate) 
       pageSize: 90,
       pageToken,
     });
-    if (!ok) return false;
+    if (!ok) throw new Error(json?.error?.message ?? "Google Health request failed");
     for (const p of (json?.rollupDataPoints ?? []) as { civilStartTime?: { date?: CivilDate }; steps?: { countSum?: string | number } }[]) {
       const date = p.civilStartTime?.date;
       const steps = Math.round(Number(p.steps?.countSum ?? 0));
@@ -275,7 +275,7 @@ export async function pullSteps(userId: string, days: number, today: CivilDate) 
 
   if (rows.length) {
     const { error } = await admin.from("step_days").upsert(rows, { onConflict: "user_id,day" });
-    if (error) return false;
+    if (error) throw new Error(error.message);
   }
   return true;
 }
@@ -310,7 +310,7 @@ export async function pullWorkouts(userId: string, days: number) {
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
       console.error("google health api", res.status, JSON.stringify(json));
-      return false;
+      throw new Error(json?.error?.message ?? `Google Health answered ${res.status}`);
     }
     for (const p of json.dataPoints ?? []) {
       const row = activityFromExercise(p.name ?? "", p.exercise, profile?.weight_kg ? Number(profile.weight_kg) : null);
@@ -322,7 +322,7 @@ export async function pullWorkouts(userId: string, days: number) {
 
   if (rows.length) {
     const { error } = await admin.from("activity_logs").upsert(rows, { onConflict: "user_id,google_health_id", ignoreDuplicates: true });
-    if (error) return false;
+    if (error) throw new Error(error.message);
   }
   return true;
 }
@@ -349,7 +349,7 @@ export async function pullSleep(userId: string, days: number) {
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
       console.error("google health api", res.status, JSON.stringify(json));
-      return false;
+      throw new Error(json?.error?.message ?? `Google Health answered ${res.status}`);
     }
     for (const p of json.dataPoints ?? []) {
       const row = sleepFromPoint(p);
@@ -361,7 +361,7 @@ export async function pullSleep(userId: string, days: number) {
 
   if (rows.length) {
     const { error } = await admin.from("sleep_sessions").upsert(rows, { onConflict: "user_id,google_health_id" });
-    if (error) return false;
+    if (error) throw new Error(error.message);
   }
   return true;
 }
@@ -402,7 +402,7 @@ export async function pullDailyBurn(userId: string, days: number, today: CivilDa
       pageSize: 14,
       pageToken,
     });
-    if (!ok) return false;
+    if (!ok) throw new Error(json?.error?.message ?? "Google Health request failed");
     for (const p of (json?.rollupDataPoints ?? []) as { civilStartTime?: { date?: CivilDate }; activeEnergyBurned?: unknown }[]) {
       const date = p.civilStartTime?.date;
       const kcal = firstNumber(p.activeEnergyBurned);
@@ -449,7 +449,7 @@ export async function pullDailyBurn(userId: string, days: number, today: CivilDa
   if (rows.length) {
     // Today's total keeps growing, so existing entries are updated
     const { error } = await admin.from("activity_logs").upsert(rows, { onConflict: "user_id,google_health_id" });
-    if (error) return false;
+    if (error) throw new Error(error.message);
   }
   return true;
 }

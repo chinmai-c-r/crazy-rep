@@ -25,7 +25,13 @@ export async function POST(request: NextRequest) {
 
   const { days, tzOffsetMin, ...today } = parsed.data;
   // Each part stands alone: one failing (a permission, a Google hiccup) must not hide the others
-  const settle = async (name: string, run: () => Promise<boolean | null>) => ({ name, result: await run().catch(() => false) });
+  const settle = async (name: string, run: () => Promise<boolean | null>) => {
+    try {
+      return { name, result: await run(), error: null };
+    } catch (e) {
+      return { name, result: false as const, error: e instanceof Error ? e.message.slice(0, 200) : "failed" };
+    }
+  };
   const workouts = await settle("workouts", () => pullWorkouts(userId, days));
   const others = await Promise.all([
     settle("steps", () => pullSteps(userId, days, today)),
@@ -34,5 +40,9 @@ export async function POST(request: NextRequest) {
     settle("burn", () => pullDailyBurn(userId, days, today, tzOffsetMin)),
   ]);
   const all = [workouts, ...others];
-  return NextResponse.json({ synced: all.some((p) => p.result === true), failed: all.filter((p) => p.result === false).map((p) => p.name) });
+  return NextResponse.json({
+    synced: all.some((p) => p.result === true),
+    // What went wrong, by part, so the app can say why something is empty
+    problems: Object.fromEntries(all.filter((p) => p.error).map((p) => [p.name, p.error])),
+  });
 }

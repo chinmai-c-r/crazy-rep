@@ -25,6 +25,7 @@ export function ActivityCard({
   activities,
   loading,
   steps,
+  fromGoogle,
   onAdd,
   onDeleted,
 }: {
@@ -32,6 +33,8 @@ export function ActivityCard({
   loading?: boolean;
   /** Steps for the day from Google Health, when connected */
   steps?: number | null;
+  /** Activity comes from Google Health: it's shown, not logged or edited here */
+  fromGoogle?: boolean;
   onAdd: () => void;
   onDeleted: (id: string) => void;
 }) {
@@ -59,11 +62,20 @@ export function ActivityCard({
             </span>
           )}
         </div>
-        {steps != null && (
-          <p className="flex items-center gap-2 text-sm">
-            <Footprints className="size-4 text-muted-foreground" aria-hidden />
-            <b>{fmt(steps)}</b> steps <span className="text-muted-foreground">from Google Health</span>
-          </p>
+        {fromGoogle && (
+          <div className="grid gap-1.5">
+            <div className="flex items-end justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Footprints className="size-4 text-chart-3" aria-hidden /> Steps
+              </span>
+              <span className="text-sm text-muted-foreground">
+                <b className="font-heading text-2xl font-normal text-foreground">{steps == null ? "–" : fmt(steps)}</b> / {fmt(STEP_GOAL)}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-foreground/10" role="progressbar" aria-valuenow={steps ?? 0} aria-valuemax={STEP_GOAL} aria-label="Steps today">
+              <div className="h-full rounded-full bg-gradient-to-r from-chart-3 to-chart-2 transition-[width] duration-700" style={{ width: `${Math.min(100, ((steps ?? 0) / STEP_GOAL) * 100)}%` }} />
+            </div>
+          </div>
         )}
         {activities.length > 0 && (
           <ul className="grid gap-2">
@@ -78,16 +90,22 @@ export function ActivityCard({
                   </small>
                 </span>
                 <span className="text-sm font-bold whitespace-nowrap">{fmt(a.calories_burned)} kcal</span>
-                <Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground hover:text-destructive" onClick={() => remove(a)} disabled={!online} aria-label="Remove activity">
-                  <Trash2 />
-                </Button>
+                {!fromGoogle && (
+                  <Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground hover:text-destructive" onClick={() => remove(a)} disabled={!online} aria-label="Remove activity">
+                    <Trash2 />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
-        <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading || !online}>
-          <Plus /> Log activity
-        </Button>
+        {fromGoogle ? (
+          activities.length === 0 && <p className="text-sm text-muted-foreground">No workouts or activity yet today. It syncs from Google Health when you open the app.</p>
+        ) : (
+          <Button variant="outline" className="h-11 rounded-full border-dashed" onClick={onAdd} disabled={loading || !online}>
+            <Plus /> Log activity
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -228,6 +246,8 @@ export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; 
   );
 }
 
+const STEP_GOAL = 10_000;
+
 const STAGES = [
   { key: "deep_min", label: "Deep", color: "bg-chart-4" },
   { key: "light_min", label: "Light", color: "bg-chart-4/45" },
@@ -237,7 +257,7 @@ const STAGES = [
 const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 /** The night's sleep from Google Health: time asleep, a bar of the stages, and the bed and wake times. Naps are listed under it. */
-export function SleepCard({ sessions, needsAccess }: { sessions: SleepSession[]; needsAccess?: boolean }) {
+export function SleepCard({ sessions, needsAccess, problem }: { sessions: SleepSession[]; needsAccess?: boolean; problem?: string }) {
   const night = sessions.filter((s) => !s.nap).sort((a, b) => b.asleep_min - a.asleep_min)[0];
   const naps = sessions.filter((s) => s.nap);
   const total = sessions.reduce((sum, s) => sum + s.asleep_min, 0);
@@ -248,18 +268,22 @@ export function SleepCard({ sessions, needsAccess }: { sessions: SleepSession[];
       <CardContent className="grid gap-3">
         <div className="flex items-center justify-between">
           <SectionTitle>Sleep</SectionTitle>
-          {sessions.length > 0 && (
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Moon className="size-4 text-chart-4" aria-hidden /> {fmtSleep(total)} asleep
-            </span>
-          )}
+          <Moon className="size-4 text-chart-4" aria-hidden />
         </div>
+        {sessions.length > 0 && (
+          <p className="flex items-baseline gap-2">
+            <b className="font-heading text-4xl font-normal">{fmtSleep(total)}</b>
+            <span className="text-sm text-muted-foreground">asleep</span>
+          </p>
+        )}
         {needsAccess ? (
           <p className="text-sm text-muted-foreground">
             Allow sleep access to see your sleep here. <a href="/api/google-health/connect" className="underline underline-offset-4">Reconnect Google Health</a> and tick every box.
           </p>
         ) : !night && naps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No sleep recorded for this day yet. It appears after your watch or phone syncs to Google Health.</p>
+          <p className="text-sm text-muted-foreground">
+            {problem ? `Couldn't read sleep from Google Health: ${problem}` : "No sleep recorded for this day yet. It appears after your watch or phone syncs to Google Health."}
+          </p>
         ) : (
           <>
             {night && (
