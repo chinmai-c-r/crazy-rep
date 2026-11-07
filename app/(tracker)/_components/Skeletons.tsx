@@ -7,7 +7,7 @@ import { flatTile } from "@/lib/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MEAL_TYPES } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { NUTRIENT_ROWS } from "./NutrientGrid";
+import { GRID, NUTRIENT_ROWS, tileSpan } from "./NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "./Page";
 import { MealSectionHeader } from "./MealParts";
 import ScrambleText from "./ScrambleText";
@@ -116,9 +116,9 @@ export function MacrosCardSkeleton() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        <div className={cn("grid gap-2", GRID)}>
           {NUTRIENT_ROWS.map((r, i) => (
-            <div key={r.key} className={cn("relative grid gap-0.5 overflow-hidden rounded-xl bg-muted/60 p-3", flatTile)}>
+            <div key={r.key} className={cn("relative grid gap-0.5 overflow-hidden rounded-xl bg-muted/60 p-3", flatTile, tileSpan(i))}>
               {/* Same pieces as a loaded cell, all moving: the emoji floats, the label shimmers, and the bar has a light running along it */}
               <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 animate-float text-3xl opacity-[0.18] motion-reduce:animate-none" style={{ ["--tilt" as string]: "12deg", animationDelay: `${i * 0.5}s` }}>
                 {r.emoji}

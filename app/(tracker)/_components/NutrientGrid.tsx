@@ -15,10 +15,14 @@ export const NUTRIENT_ROWS: { key: keyof Nutrients; label: string; unit: string;
   { key: "cholesterol_mg", label: "Cholesterol", unit: "mg", daily: 300, emoji: "🥚", limit: true },
 ];
 
+/** Six narrow columns, three tiles per row on a phone: the last two sit centred under the rings instead of leaving a gap. Five across on wider screens. */
+export const GRID = "grid-cols-6 sm:grid-cols-5";
+export const tileSpan = (i: number) => cn("col-span-2 sm:col-span-1", i === 3 && "col-start-2 sm:col-start-auto");
+
 export default function NutrientGrid({ totals, className }: { totals: Nutrients; className?: string }) {
   const reduce = useReducedMotion() ?? false;
   return (
-    <div className={cn("grid grid-cols-3 gap-2 sm:grid-cols-5", className)}>
+    <div className={cn("grid gap-2", className ?? GRID)}>
       {NUTRIENT_ROWS.map((r, i) => {
         const v = Number(totals[r.key]) || 0;
         const pct = Math.round((v / r.daily) * 100);
@@ -29,7 +33,11 @@ export default function NutrientGrid({ totals, className }: { totals: Nutrients;
             initial={reduce ? false : { opacity: 0, y: 14, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 + i * 0.07 }}
-            className={cn("relative grid gap-0.5 overflow-hidden rounded-xl p-3", warn ? "bg-carbs/10 ring-1 ring-carbs/40" : cn("bg-muted/60", flatTile))}
+            className={cn(
+              "relative grid gap-0.5 overflow-hidden rounded-xl p-3",
+              !className && tileSpan(i),
+              warn ? "bg-carbs/10 ring-1 ring-carbs/40" : cn("bg-muted/60", flatTile),
+            )}
           >
             {/* A faint emoji watermark; it takes no space, so the cell keeps its size */}
             <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 rotate-12 text-3xl opacity-[0.12]">
