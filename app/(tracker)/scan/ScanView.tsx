@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { dayLabel, eatenAtFor, localDay, parseDay } from "@/lib/day";
 import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
 import { itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
@@ -31,6 +32,7 @@ import { MEAL_TYPES, type Analysis, type Meal, type MealType } from "@/lib/types
 import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader } from "../_components/Page";
 import AnalyzingScreen from "./AnalyzingScreen";
+import DayChip from "./DayChip";
 import DetailsStage from "./DetailsStage";
 import ResultStage from "./ResultStage";
 
@@ -73,6 +75,8 @@ export default function ScanView() {
   });
   const [saving, setSaving] = useState(false);
   const saved = useRef(false);
+  // The day this meal is for: today unless the link said otherwise (?date=2026-11-06) or it was changed here
+  const [day, setDay] = useState(() => localDay(parseDay(new URLSearchParams(window.location.search).get("date")) ?? new Date()));
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
@@ -82,6 +86,8 @@ export default function ScanView() {
     const t = new URLSearchParams(window.location.search).get("type");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the URL on every visit
     if (MEAL_TYPES.some((m) => m.value === t)) setMealType(t as MealType);
+    const linked = parseDay(new URLSearchParams(window.location.search).get("date"));
+    if (linked) setDay(localDay(linked));
     return () => {
       if (!saved.current) return;
       saved.current = false;
@@ -89,8 +95,24 @@ export default function ScanView() {
       setServings(1);
       setSaving(false);
       setMealType(guessMealType());
+      setDay(localDay(new Date()));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per visit, not per render
+  }, []);
+
+  // A notification tapped while this page is already open: the address changes but the page isn't revisited, so follow it here
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const { pathname, search } = (e as CustomEvent<{ pathname: string; search: string }>).detail;
+      if (pathname !== "/scan") return;
+      const params = new URLSearchParams(search);
+      const t = params.get("type");
+      if (MEAL_TYPES.some((m) => m.value === t)) setMealType(t as MealType);
+      const linked = parseDay(params.get("date"));
+      if (linked) setDay(localDay(linked));
+    };
+    window.addEventListener("crazy-rep:open", onOpen);
+    return () => window.removeEventListener("crazy-rep:open", onOpen);
   }, []);
 
   const totals = useMemo(() => scaleNutrients(sumNutrients(items), servings), [items, servings]);
@@ -161,6 +183,7 @@ export default function ScanView() {
     const uid = userId ?? (await supabase.auth.getUser()).data.user?.id;
     if (!uid) return router.replace("/login?next=/scan");
 
+    const eatenAt = eatenAtFor(day, mealType);
     let path: string | null = null;
     if (blob) {
       const candidate = `${uid}/${crypto.randomUUID()}.jpg`;
@@ -172,6 +195,8 @@ export default function ScanView() {
       .from("meals")
       .insert({
         ...parsed.data,
+        // Today is stamped by the database; an earlier day gets that day at a usual time for the meal
+        ...(eatenAt ? { eaten_at: eatenAt } : {}),
         image_path: path,
         health_score: analysis.health_score,
         confidence: analysis.confidence,
@@ -198,9 +223,11 @@ export default function ScanView() {
     }
     void invalidateSummary(queryClient);
     void invalidateRecentDishes(queryClient);
-    toast.success("Meal logged");
+    const past = day !== localDay(new Date());
+    toast.success(past ? `Meal logged for ${dayLabel(day)}` : "Meal logged");
     saved.current = true;
-    router.push("/dashboard");
+    // Back to the day it was logged for, so the new meal is right there
+    router.push(past ? `/dashboard?date=${day}` : "/dashboard");
   }
 
   function reset() {
@@ -224,6 +251,8 @@ export default function ScanView() {
 
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFile(e.target.files?.[0])} />
       <input ref={galleryRef} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+
+      {stage !== "analyzing" && (online || stage === "result") && <DayChip day={day} onChange={setDay} disabled={saving} />}
 
       {error && (
         <Alert variant="destructive">

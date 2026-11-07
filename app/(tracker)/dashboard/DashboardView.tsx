@@ -2,11 +2,12 @@
 
 import { Camera, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
+import { localDay, parseDay } from "@/lib/day";
 import { useLogRange, useMeals, useProfile, useSignedUrls, useWeights } from "@/lib/hooks";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
@@ -25,7 +26,13 @@ import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton
 const ENTER = "animate-in slide-in-from-bottom-2 fill-mode-both duration-500";
 
 export default function DashboardView() {
-  const [date, setDate] = useState(() => new Date());
+  const [date, setDate] = useState(() => parseDay(new URLSearchParams(window.location.search).get("date")) ?? new Date());
+  // Coming back from logging a meal for an earlier day (?date=2026-11-06): show that day. Runs on every visit, since this page is kept alive.
+  useLayoutEffect(() => {
+    const linked = parseDay(new URLSearchParams(window.location.search).get("date"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the URL on every visit
+    if (linked) setDate(linked);
+  }, []);
   const { start, end } = useMemo(() => dayRange(date), [date]);
   const { profile, loading: profileLoading, reload: reloadProfile } = useProfile();
   const online = useOnline();
@@ -122,7 +129,7 @@ export default function DashboardView() {
                   ))}
                 </ul>
               ) : (
-                <EmptyMeal href={`/scan?type=${t.value}`} icon={t.icon} label={t.label} disabled={!online} />
+                <EmptyMeal href={`/scan?type=${t.value}${isToday ? "" : `&date=${localDay(date)}`}`} icon={t.icon} label={t.label} disabled={!online} />
               )}
             </div>
           );
@@ -167,7 +174,7 @@ export default function DashboardView() {
 
       {online && (
         <Button asChild size="xl" className="fixed right-8 bottom-8 z-40 hidden shadow-[0_10px_40px_rgb(var(--primary-rgb)/0.35)] lg:inline-flex">
-          <Link href="/scan">
+          <Link href={isToday ? "/scan" : `/scan?date=${localDay(date)}`}>
             <Camera /> Log meal
           </Link>
         </Button>
