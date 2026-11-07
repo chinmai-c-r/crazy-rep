@@ -41,6 +41,9 @@ type Details = z.input<typeof mealDetailsSchema>;
 
 const EMPTY: Details = { name: "", portion: "", notes: "" };
 
+/** The dish named in the address (?name=Masala%20dosa), cut to the longest name a meal can have. */
+const linkedName = () => (new URLSearchParams(window.location.search).get("name") ?? "").trim().slice(0, 120);
+
 export default function ScanView() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -57,7 +60,8 @@ export default function ScanView() {
 
   const form = useForm<Details, unknown, z.output<typeof mealDetailsSchema>>({
     resolver: zodResolver(mealDetailsSchema),
-    defaultValues: EMPTY,
+    // ?name= comes from "Log again" in History: the dish is already typed in
+    defaultValues: { ...EMPTY, name: linkedName() },
     mode: "onTouched",
   });
 
@@ -88,6 +92,12 @@ export default function ScanView() {
     if (MEAL_TYPES.some((m) => m.value === t)) setMealType(t as MealType);
     const linked = parseDay(new URLSearchParams(window.location.search).get("date"));
     if (linked) setDay(localDay(linked));
+    // "Log again": put the dish in the name box. If an unfinished meal is still on screen, start clean first.
+    const name = linkedName();
+    if (name && name !== form.getValues("name")) {
+      reset();
+      form.setValue("name", name, { shouldDirty: true });
+    }
     return () => {
       if (!saved.current) return;
       saved.current = false;
