@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useId, useRef, useState } from "react";
 import { fmt } from "@/lib/nutrition";
+import { flatTile } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -130,7 +131,7 @@ function PointPanel({ point, goal }: { point?: CalPoint; goal: number }) {
       </p>
       <div className="grid grid-cols-4 gap-2">
         {cells.map((c) => (
-          <div key={c.label} className="rounded-xl bg-muted/60 px-2.5 py-1.5">
+          <div key={c.label} className={cn("rounded-xl bg-muted/60 px-2.5 py-1.5", flatTile)}>
             <span className="flex items-center gap-1.5 text-[0.65rem] text-muted-foreground">
               <i className={cn("size-1.5 rounded-full", c.dot)} />
               {c.label}

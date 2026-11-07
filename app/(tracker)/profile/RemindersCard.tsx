@@ -283,7 +283,7 @@ function MealRow({
   const { label, icon } = REMINDER_LABELS[meal];
   return (
     // One line on a normal phone: icon, name, time, switch. On a narrow one the time drops under the name instead of squeezing it.
-    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border bg-muted/30 px-3 py-2.5 min-[430px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border bg-muted/30 px-3 py-2.5 min-[430px]:grid-cols-[auto_minmax(0,1fr)_auto_auto] max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:first:border-t-0">
       <span aria-hidden className="text-xl">
         {icon}
       </span>

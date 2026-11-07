@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { fmt } from "@/lib/nutrition";
 import type { Nutrients } from "@/lib/types";
+import { flatTile } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
 /** Daily reference values (FDA) for the secondary nutrients. */
@@ -28,7 +29,7 @@ export default function NutrientGrid({ totals, className }: { totals: Nutrients;
             initial={reduce ? false : { opacity: 0, y: 14, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 + i * 0.07 }}
-            className={cn("relative grid gap-0.5 overflow-hidden rounded-xl p-3", warn ? "bg-carbs/10 ring-1 ring-carbs/40" : "bg-muted/60")}
+            className={cn("relative grid gap-0.5 overflow-hidden rounded-xl p-3", warn ? "bg-carbs/10 ring-1 ring-carbs/40" : cn("bg-muted/60", flatTile))}
           >
             {/* A faint emoji watermark; it takes no space, so the cell keeps its size */}
             <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 rotate-12 text-3xl opacity-[0.12]">

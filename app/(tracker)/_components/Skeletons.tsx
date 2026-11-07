@@ -3,6 +3,7 @@ import { useId } from "react";
 import { CalendarCheck, Dumbbell, Flame, Scale, Target, Trophy, UtensilsCrossed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
+import { flatTile } from "@/lib/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MEAL_TYPES } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -117,7 +118,7 @@ export function MacrosCardSkeleton() {
         </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {NUTRIENT_ROWS.map((r, i) => (
-            <div key={r.key} className="relative grid gap-0.5 overflow-hidden rounded-xl bg-muted/60 p-3">
+            <div key={r.key} className={cn("relative grid gap-0.5 overflow-hidden rounded-xl bg-muted/60 p-3", flatTile)}>
               {/* Same pieces as a loaded cell, all moving: the emoji floats, the label shimmers, and the bar has a light running along it */}
               <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 animate-float text-3xl opacity-[0.18] motion-reduce:animate-none" style={{ ["--tilt" as string]: "12deg", animationDelay: `${i * 0.5}s` }}>
                 {r.emoji}

@@ -53,7 +53,7 @@ export default function AddItem({ onAdd, className }: { onAdd: (items: FoodItem[
 
   return (
     // minmax(0, 1fr): a single auto column would stretch to the input's own width and push the page sideways on phones
-    <form onSubmit={submit} className={cn("grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border border-dashed bg-muted/20 p-3", className)}>
+    <form onSubmit={submit} className={cn("grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border border-dashed bg-muted/20 p-3 max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:p-0 max-sm:pt-4", className)}>
       <label htmlFor="add-item" className="text-sm font-semibold">
         Missing something?
       </label>
