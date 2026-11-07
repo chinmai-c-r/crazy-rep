@@ -1,5 +1,6 @@
 import { scaleNutrients } from "./nutrition";
 import type { Analysis, Nutrients } from "./schemas";
+import { NUTRIENT_KEYS } from "./types";
 
 /** Shared text handling for every food database: tokens, spelling variants, portions and results. */
 
@@ -154,6 +155,53 @@ const normKey = (v?: string) =>
 /** Exact-match key for a meal: normalised name|portion|notes. */
 export function cacheKey(ctx: { name?: string; portion?: string; notes?: string }) {
   return [normKey(ctx.name), normKey(ctx.portion), normKey(ctx.notes)].join("|");
+}
+
+// ─── Each item as its own cache entry ───────────────────────
+
+export type ItemRow = { key: string; name: string; portion: string; grams: number; analysis: Analysis };
+
+const MAX_ITEM_ROWS = 8;
+/** An AI answer it wasn't sure about isn't worth keeping as a shared reference. */
+const MIN_ITEM_CONFIDENCE = 0.5;
+
+/**
+ * The items of an AI answer, each shaped as a one-food analysis so it can be saved in analysis_cache and found later
+ * when someone adds that food by name. Skips answers the AI wasn't confident about, items with no calories or no real
+ * name, and repeats (the same name and portion).
+ */
+export function itemRows(analysis: Analysis): ItemRow[] {
+  if (!analysis.is_food || analysis.confidence < MIN_ITEM_CONFIDENCE) return [];
+  const seen = new Set<string>();
+  const rows: ItemRow[] = [];
+  for (const item of analysis.items) {
+    const name = item.name.trim();
+    const portion = item.portion.trim();
+    if (name.length < 2 || name.length > 80 || !/[a-z]/i.test(name)) continue;
+    const totals = Object.fromEntries(NUTRIENT_KEYS.map((k) => [k, Number(item[k]) || 0])) as Nutrients;
+    if (totals.calories <= 0) continue;
+    const key = cacheKey({ name, portion });
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      key,
+      name,
+      portion,
+      grams: item.grams,
+      analysis: {
+        is_food: true,
+        meal_name: name,
+        items: [{ ...item, name, portion }],
+        totals,
+        health_score: healthScore(totals),
+        // One item taken from a bigger answer is a little less certain than the answer was
+        confidence: Math.min(analysis.confidence, 0.7),
+        insights: insights(totals),
+      },
+    });
+    if (rows.length >= MAX_ITEM_ROWS) break;
+  }
+  return rows;
 }
 
 // ─── Fuzzy matching (for vector search candidates) ──────────
