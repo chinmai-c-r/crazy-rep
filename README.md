@@ -19,7 +19,8 @@ Snap a photo of your meal and get calories, protein, carbs, fat, fiber, sugar, s
 - **Onboarding**: new users answer five quick questions (goal, sex, body numbers, activity, diet) and get a daily plan to confirm. Most steps are one tap and the body numbers start from typical values. Nobody can use the app until it's done (`ProfileGate`).
 - **Tabs ready ahead**: a couple of seconds after the app opens, the other tabs' code and first data (History's default range, Log meal's name suggestions, the coach list and latest chat) load quietly in the background, one request at a time. Skipped offline, on a slow connection or with Data Saver on.
 - **Log for another day**: a "Logging for Today" chip on the Log meal screen opens a date picker. Add buttons on a past day of the dashboard pass that day along, and a meal for an earlier day is saved at a usual time for its type.
-- **Search what you've eaten**: History has a Meals tab. Type a name (even half of it) to find every time you ate a dish, how often, the last time and the average calories, then log it again in one tap. It searches what's inside your meals too ("chutney" finds the dosa meals that had it), and opening a card shows its items. It also finds dishes that mean something similar ("curd" finds "thayir sadam") using vector search over your own dish and item names. With nothing typed it shows what you eat most.
+- **Search what you've eaten**: History has a Search meals tab. Type a name (even half of it) and press Search to find every time you ate a dish, how often, the last time and the average calories, then log it again in one tap. It searches what's inside your meals too ("chutney" finds the dosa meals that had it), and opening a card shows its items. It also finds dishes that mean something similar ("curd" finds "thayir sadam") using vector search over your own dish and item names.
+- **Items teach the cache**: when the AI analyses a meal (text or photo), each item in its answer is also saved as its own `analysis_cache` row with a vector, if it isn't there yet. Adding that food to a meal later is then answered from the database instead of the AI.
 - **Add missed items**: on the results screen (and when editing a logged meal), type an item the way you'd say it ("2 rotis", "1 cup rice", "paneer 100g"). It's looked up like the meal name: saved results, vector search, USDA, then AI.
 - **Meal reminders**: push notifications at breakfast, lunch and dinner (times are set per user in Profile, in their own timezone). Skipped when that meal is already logged. Sent by `pg_cron` calling the app once an hour. Needs one-time setup, see below.
 - **Offline reading**: the app opens without a connection and shows the last data it fetched (today, the last 7 days of history, saved coach chats, the profile). Logging, editing and the coach are paused until the connection returns. Themes still work offline.
@@ -182,6 +183,21 @@ How it works: once an hour `pg_cron` calls `/api/reminders/send` with the secret
    - **Authorized redirect URI**: `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback`
 2. In Supabase, open **Authentication → Sign In / Providers → Google**, enable it and paste the client ID and secret.
 3. Set `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=true` in Vercel and redeploy.
+
+### Verifying the app with Google
+
+Google's OAuth verification needs a public home page, a privacy policy and (best) terms of use, all on a domain you own:
+home page `https://www.crchinmai.com`, privacy `/privacy`, terms `/terms` (both linked from the home page footer).
+"The website of your home page URL is not registered to you" means that domain isn't verified in **Google Search Console** by
+a Google account that owns or edits the Cloud project. To fix it:
+
+1. Open Search Console with the same Google account as the Cloud project, choose **Add property → Domain** and enter `crchinmai.com`.
+2. Add the **TXT** record it shows (`google-site-verification=…`) in the DNS panel where the domain's A and CNAME records live, then press **Verify** (DNS can take a while).
+   No DNS access? Use **URL prefix** with `https://www.crchinmai.com/` and the **HTML tag** method instead: put the code from `content="…"` in the
+   `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` environment variable in Vercel, redeploy, then Verify.
+3. In the Cloud console OAuth consent screen, add `crchinmai.com` under **Authorized domains**, set the privacy and terms links, wait about 24 hours and submit again.
+
+The contact emails shown on both pages live in `lib/contact.ts`.
 
 ## 5b. Optional: LaunchDarkly feature flags
 

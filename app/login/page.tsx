@@ -95,6 +95,10 @@ export default function LoginPage() {
           )}
           <p className="text-center text-xs text-muted-foreground">
             By continuing you agree to our{" "}
+            <Link href="/terms" className="underline underline-offset-4">
+              terms of use
+            </Link>{" "}
+            and{" "}
             <Link href="/privacy" className="underline underline-offset-4">
               privacy policy
             </Link>
