@@ -16,7 +16,7 @@ const RESULTS: Record<string, [kind: "success" | "error", message: string]> = {
   error: ["error", "Could not connect Google Health. Please try again."],
 };
 
-type Status = { configured: boolean; connected: boolean; steps?: boolean };
+type Status = { configured: boolean; connected: boolean; steps?: boolean; sleep?: boolean; units?: boolean };
 
 export default function GoogleHealthCard() {
   const queryClient = useQueryClient();
@@ -44,8 +44,9 @@ export default function GoogleHealthCard() {
     const res = await fetch("/api/google-health", { method: "DELETE" });
     setBusy(false);
     if (!res.ok) return toast.error("Could not disconnect. Please try again.");
-    setStatus({ configured: true, connected: false, steps: false });
+    setStatus({ configured: true, connected: false, steps: false, sleep: false });
     void queryClient.invalidateQueries({ queryKey: ["steps"] });
+    void queryClient.invalidateQueries({ queryKey: ["sleep"] });
     void queryClient.invalidateQueries({ queryKey: ["log", "activity_logs"] });
     toast.success("Google Health disconnected. Meals already synced stay in Google Health.");
   }
@@ -60,13 +61,13 @@ export default function GoogleHealthCard() {
         <p className="text-muted-foreground">
           {status.connected
             ? status.steps
-              ? "Connected. Meals you log here are mirrored to Google Health, and your steps and workouts come back from it."
+              ? "Connected. Meals you log here are mirrored to Google Health, and your steps, workouts and sleep come back from it."
               : "Connected. Meals you log, edit or delete here are mirrored to Google Health."
-            : "Send your logged meals to the Google Health app and bring your steps and workouts back. Open Google Health on your phone and link your Google Account first."}
+            : "Send your logged meals to the Google Health app and bring your steps, workouts and sleep back. Open Google Health on your phone and link your Google Account first."}
         </p>
-        {status.connected && !status.steps && (
+        {status.connected && (!status.steps || !status.sleep || !status.units) && (
           <p className="text-sm text-muted-foreground">
-            Want your steps and workouts too? <a href="/api/google-health/connect" className="underline underline-offset-4">Reconnect</a> and allow activity access.
+            Missing permissions for steps, workouts, sleep or sending meals. <a href="/api/google-health/connect" className="underline underline-offset-4">Reconnect</a> and tick every box on Google&apos;s screen.
           </p>
         )}
         {status.connected && <PastMeals />}

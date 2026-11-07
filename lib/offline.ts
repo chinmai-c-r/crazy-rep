@@ -33,9 +33,9 @@ const SAVE_DELAY_MS = 1_000;
 const PAGE_CACHE = "crazy-rep-pages-v2";
 
 /** Per kind of data: how many of the most recent queries are kept (a day of meals each, so ~3 weeks). */
-const KEEP: Record<string, number> = { meals: 21, log: 42, summary: 8, chat: 12, weights: 4, "meal-search": 8, "dish-history": 12, steps: 14, "google-health-status": 1 };
+const KEEP: Record<string, number> = { meals: 21, log: 42, summary: 8, chat: 12, weights: 4, "meal-search": 8, "dish-history": 12, steps: 14, sleep: 14, "google-health-status": 1 };
 /** Signed photo URLs expire within the hour, so they're never worth saving. */
-const SAVED_KEYS = new Set(["user", "profile", "meals", "log", "weights", "summary", "recent-dishes", "chat-threads", "chat", "meal-search", "dish-history", "steps", "google-health-status"]);
+const SAVED_KEYS = new Set(["user", "profile", "meals", "log", "weights", "summary", "recent-dishes", "chat-threads", "chat", "meal-search", "dish-history", "steps", "sleep", "google-health-status"]);
 
 const storageOf = () => {
   try {

@@ -33,6 +33,7 @@ export const keys = {
   dishHistory: (key: string) => ["dish-history", key] as const,
   steps: (day: string) => ["steps", day] as const,
   stepSync: ["steps-sync"] as const,
+  sleep: (day: string) => ["sleep", day] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
@@ -363,25 +364,56 @@ export function useSteps(day: string) {
 }
 
 /**
- * Pulls recent steps and workouts from Google Health, at most every ten minutes. Does nothing unless the user connected
+ * Pulls recent steps, workouts and sleep from Google Health, at most every ten minutes. Does nothing unless the user connected
  * Google Health with the activity permission. Refreshes the step counts when new numbers arrive.
  */
-/** Whether Google Health is connected with the steps permission (known from the last visit too, so layouts don't jump). */
-export function useStepsEnabled() {
+type GoogleStatus = { configured: boolean; connected: boolean; steps?: boolean; sleep?: boolean; units?: boolean };
+
+/** Which Google Health permissions are granted (also known from the last visit, so layouts don't jump). */
+function useGoogleStatus() {
   const { data } = useQuery({
     queryKey: ["google-health-status"],
-    queryFn: async (): Promise<{ configured: boolean; connected: boolean; steps?: boolean } | null> => {
+    queryFn: async (): Promise<GoogleStatus | null> => {
       const r = await fetch("/api/google-health");
       return r.ok ? r.json() : null;
     },
     staleTime: 10 * 60_000,
   });
-  return Boolean(data?.steps);
+  return data ?? null;
+}
+
+export const useStepsEnabled = () => Boolean(useGoogleStatus()?.steps);
+export const useSleepEnabled = () => Boolean(useGoogleStatus()?.sleep);
+
+export type SleepSession = {
+  google_health_id: string;
+  started_at: string;
+  ended_at: string;
+  nap: boolean;
+  asleep_min: number;
+  in_bed_min: number;
+  awake_min: number;
+  deep_min: number | null;
+  light_min: number | null;
+  rem_min: number | null;
+};
+
+/** Sleep sessions that ended on one local day (YYYY-MM-DD): last night's sleep plus any naps. */
+export function useSleep(day: string) {
+  const { data } = useQuery({
+    queryKey: keys.sleep(day),
+    queryFn: async () => {
+      const { data } = await createClient().from("sleep_sessions").select("*").eq("day", day).order("started_at", { ascending: true });
+      return (data as SleepSession[]) ?? [];
+    },
+  });
+  return data ?? [];
 }
 
 export function useStepSync() {
   const qc = useQueryClient();
-  const enabled = useStepsEnabled();
+  const status = useGoogleStatus();
+  const enabled = Boolean(status?.steps || status?.sleep);
   useQuery({
     queryKey: keys.stepSync,
     enabled,
@@ -396,9 +428,9 @@ export function useStepSync() {
         body: JSON.stringify({ year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(), days: 14 }),
       });
       if (!res.ok) throw new Error("steps sync failed");
-      await Promise.all([qc.invalidateQueries({ queryKey: ["steps"] }), qc.invalidateQueries({ queryKey: ["log", "activity_logs"] }), invalidateSummary(qc)]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["steps"] }), qc.invalidateQueries({ queryKey: ["sleep"] }), qc.invalidateQueries({ queryKey: ["log", "activity_logs"] }), invalidateSummary(qc)]);
       return Date.now();
     },
   });
-  return enabled;
+  return Boolean(status?.steps);
 }

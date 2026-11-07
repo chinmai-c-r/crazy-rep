@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdmin } from "@/lib/supabase/server";
 import { activityFromExercise } from "@/lib/google-activity";
+import { sleepFromPoint } from "@/lib/sleep";
 import type { Meal } from "@/lib/types";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -9,6 +10,9 @@ const API = "https://health.googleapis.com/v4/users/me";
 const NUTRITION = `${API}/dataTypes/nutrition-log/dataPoints`;
 
 export const SCOPE = "https://www.googleapis.com/auth/googlehealth.nutrition.writeonly";
+// Only used to read Google's list of serving units, which every nutrition entry needs. We never read logged meals back.
+export const NUTRITION_READ_SCOPE = "https://www.googleapis.com/auth/googlehealth.nutrition.readonly";
+export const SLEEP_SCOPE = "https://www.googleapis.com/auth/googlehealth.sleep.readonly";
 export const ACTIVITY_SCOPE = "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly";
 
 export const isConfigured = () => Boolean(process.env.GOOGLE_HEALTH_CLIENT_ID && process.env.GOOGLE_HEALTH_CLIENT_SECRET);
@@ -20,7 +24,7 @@ export function authUrl(origin: string, state: string) {
     client_id: process.env.GOOGLE_HEALTH_CLIENT_ID!,
     redirect_uri: redirectUri(origin),
     response_type: "code",
-    scope: `${SCOPE} ${ACTIVITY_SCOPE}`,
+    scope: `${SCOPE} ${NUTRITION_READ_SCOPE} ${ACTIVITY_SCOPE} ${SLEEP_SCOPE}`,
     access_type: "offline",
     // Always ask, so Google returns a refresh token even when the user reconnects
     prompt: "consent",
@@ -123,7 +127,7 @@ const UNIT_PREFERENCE = ["serving", "piece", "portion", "unit", "gram"];
 // "piece", the unit in Google's own nutrition-log example. Used when we're not allowed to list units (that needs the nutrition read scope).
 const FALLBACK_UNIT = "users/me/dataTypes/food-measurement-unit/dataPoints/251";
 let unitName: string | undefined;
-let cannotListUnits = false;
+let cannotListUntil = 0; // retried after a few minutes, since the user may have just reconnected with the read permission
 
 const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && typeof v === "object" ? Object.values(v).flatMap(strings) : []);
 
@@ -133,12 +137,12 @@ const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && ty
  */
 async function servingUnit(token: string) {
   if (unitName) return unitName;
-  if (cannotListUnits) return FALLBACK_UNIT;
+  if (Date.now() < cannotListUntil) return FALLBACK_UNIT;
   const res = await fetch(`${API}/dataTypes/food-measurement-unit/dataPoints?pageSize=1000`, { headers: { Authorization: `Bearer ${token}` } });
   const json = await res.json().catch(() => ({}));
   if (res.status === 403) {
     // Only the write permission was granted: listing units isn't allowed, so use the known one
-    cannotListUnits = true;
+    cannotListUntil = Date.now() + 5 * 60_000;
     return FALLBACK_UNIT;
   }
   if (!res.ok) {
@@ -318,6 +322,45 @@ export async function pullWorkouts(userId: string, days: number) {
 
   if (rows.length) {
     const { error } = await admin.from("activity_logs").upsert(rows, { onConflict: "user_id,google_health_id", ignoreDuplicates: true });
+    if (error) return false;
+  }
+  return true;
+}
+
+/**
+ * Imports sleep sessions that ended in the last `days` days (nights and naps) into sleep_sessions.
+ * Sessions can be refined after the first sync (the watch finishes scoring stages), so existing ones are updated.
+ * Same return values as pullSteps.
+ */
+export async function pullSleep(userId: string, days: number) {
+  const admin = createAdmin();
+  const { data: conn } = await admin.from("google_health_connections").select("scopes").eq("user_id", userId).maybeSingle();
+  if (!conn?.scopes.split(" ").includes(SLEEP_SCOPE)) return null;
+  const token = await accessToken(userId);
+  if (!token) return null;
+
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const rows = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < 6; page++) {
+    const params = new URLSearchParams({ pageSize: "25", filter: `sleep.interval.end_time >= "${since}"` });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`${API}/dataTypes/sleep/dataPoints?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("google health api", res.status, JSON.stringify(json));
+      return false;
+    }
+    for (const p of json.dataPoints ?? []) {
+      const row = sleepFromPoint(p);
+      if (row) rows.push({ ...row, user_id: userId, synced_at: new Date().toISOString() });
+    }
+    pageToken = json.nextPageToken || undefined;
+    if (!pageToken) break;
+  }
+
+  if (rows.length) {
+    const { error } = await admin.from("sleep_sessions").upsert(rows, { onConflict: "user_id,google_health_id" });
     if (error) return false;
   }
   return true;

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ACTIVITY_SCOPE, exchangeCode, SCOPE } from "@/lib/google-health";
+import { ACTIVITY_SCOPE, exchangeCode, NUTRITION_READ_SCOPE, SCOPE, SLEEP_SCOPE } from "@/lib/google-health";
 import { createAdmin, createClient } from "@/lib/supabase/server";
 
 /** Google sends the user back here after they approve (or refuse) access. */
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   // Users can untick scopes on the consent screen; without this one there is nothing to sync
   const granted = tokens.scope?.split(" ") ?? [];
   if (!granted.includes(SCOPE)) return done("denied");
-  // Steps are optional: keep only what was actually granted so the app knows what it may read
-  const scopes = [SCOPE, ACTIVITY_SCOPE].filter((s) => granted.includes(s)).join(" ");
+  // Only the write permission is required. The rest are optional: keep only what was actually granted so the app knows what it may read
+  const scopes = [SCOPE, NUTRITION_READ_SCOPE, ACTIVITY_SCOPE, SLEEP_SCOPE].filter((s) => granted.includes(s)).join(" ");
 
   const { error } = await createAdmin()
     .from("google_health_connections")

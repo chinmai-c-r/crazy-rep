@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
-import { useLogRange, useMeals, useProfile, useSignedUrls, useStepSync, useSteps, useWeights } from "@/lib/hooks";
+import { useLogRange, useMeals, useProfile, useSignedUrls, useSleep, useSleepEnabled, useStepSync, useSteps, useWeights } from "@/lib/hooks";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
-import { ActivityCard, WaterCard, WeightCard } from "../_components/BodyCards";
+import { ActivityCard, SleepCard, WaterCard, WeightCard } from "../_components/BodyCards";
 import { ActivitySheet, WeightSheet } from "../_components/LogSheets";
 import MacroRings from "../_components/MacroRings";
 import { EmptyMeal, MealRow, MealSectionHeader } from "../_components/MealParts";
@@ -40,6 +40,8 @@ export default function DashboardView() {
   const activities = useLogRange<ActivityLog>("activity_logs", "performed_at", start, end);
   const steps = useSteps(localDay(date));
   const showSteps = useStepSync();
+  const showSleep = useSleepEnabled();
+  const sleep = useSleep(localDay(date));
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
@@ -155,6 +157,11 @@ export default function DashboardView() {
           onRemoved={(id) => water.setRows((rs) => rs.filter((r) => r.id !== id))}
         />
         <WeightCard weights={weights} loading={weightsLoading} onAdd={() => setSheet("weight")} />
+        {showSleep && (
+          <div className="lg:col-span-3">
+            <SleepCard sessions={sleep} />
+          </div>
+        )}
       </section>
 
       <ActivitySheet
