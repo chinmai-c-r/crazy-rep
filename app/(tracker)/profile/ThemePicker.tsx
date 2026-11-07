@@ -13,7 +13,7 @@ import { SectionTitle } from "../_components/Page";
 function Preview({ theme }: { theme: (typeof THEMES)[number] }) {
   return (
     <span className="relative block h-14 overflow-hidden rounded-xl ring-1 ring-foreground/10" style={{ background: theme.bg }} aria-hidden>
-      <span className="absolute inset-x-2 top-2 bottom-2 rounded-lg" style={{ background: theme.card }} />
+      <span className="absolute inset-x-2 top-2 bottom-2 rounded-lg" style={{ background: theme.card, boxShadow: theme.card === theme.bg ? "inset 0 0 0 1px rgb(255 255 255 / 0.18)" : undefined }} />
       <span className="absolute top-4 left-4 h-2 w-9 rounded-full" style={{ background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }} />
       <span className="absolute top-8 left-4 h-1.5 w-12 rounded-full opacity-40" style={{ background: theme.from }} />
       <span

@@ -2,7 +2,7 @@
  * Colour themes. The choice lives in localStorage (no account needed) and is applied as data-theme on <html>,
  * where app/globals.css swaps the colour variables. A tiny inline script applies it before first paint.
  */
-export type ThemeId = "neon" | "black" | "graphite" | "slate" | "charcoal" | "carbon" | "steel" | "ash" | "ocean" | "aurora" | "emerald" | "violet" | "cyber" | "rose" | "sunset" | "gold" | "mocha" | "light" | "sky" | "blossom";
+export type ThemeId = "neon" | "black" | "graphite" | "slate" | "charcoal" | "carbon" | "steel" | "ash" | "pitch" | "void" | "ember" | "abyss" | "ocean" | "aurora" | "emerald" | "violet" | "cyber" | "rose" | "sunset" | "gold" | "mocha" | "light" | "sky" | "blossom";
 
 export const THEME_KEY = "crazy-rep-theme";
 export const DEFAULT_THEME: ThemeId = "neon";
@@ -29,6 +29,10 @@ export const THEMES: Theme[] = [
   { id: "carbon", name: "Carbon", tagline: "Near black with red", dark: true, bg: "#050506", card: "#101012", from: "#ff3b47", to: "#ffc857" },
   { id: "steel", name: "Steel", tagline: "Grey with a mint edge", dark: true, bg: "#101315", card: "#1a1e21", from: "#6ee7b7", to: "#67e8f9" },
   { id: "ash", name: "Ash", tagline: "Lighter grey, soft contrast", dark: true, bg: "#1c1c1f", card: "#26262a", from: "#ffffff", to: "#bae6fd" },
+  { id: "pitch", name: "Pitch", tagline: "Pure black, lime glow", dark: true, bg: "#000000", card: "#000000", from: "#c6ff00", to: "#00e5ff" },
+  { id: "void", name: "Void", tagline: "Pure black, pure white", dark: true, bg: "#000000", card: "#000000", from: "#ffffff", to: "#a1a1aa" },
+  { id: "ember", name: "Ember", tagline: "Pure black, ember glow", dark: true, bg: "#000000", card: "#000000", from: "#ff7a45", to: "#fbbf24" },
+  { id: "abyss", name: "Abyss", tagline: "Pure black, electric blue", dark: true, bg: "#000000", card: "#000000", from: "#4da3ff", to: "#5eead4" },
   { id: "ocean", name: "Ocean", tagline: "Deep blue calm", dark: true, bg: "#060b14", card: "#0f1828", from: "#38bdf8", to: "#818cf8" },
   { id: "aurora", name: "Aurora", tagline: "Teal meets violet", dark: true, bg: "#060d12", card: "#0d1a22", from: "#2dd4bf", to: "#a78bfa" },
   { id: "emerald", name: "Emerald", tagline: "Fresh and green", dark: true, bg: "#050f0b", card: "#0d1b15", from: "#34d399", to: "#a3e635" },

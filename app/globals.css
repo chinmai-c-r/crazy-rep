@@ -952,6 +952,170 @@ html[data-theme="ash"] {
     --sidebar-border: rgb(255 255 255 / 10%);
 }
 
+html[data-theme="pitch"] {
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card: #000000;
+    --card-foreground: #f5f5f7;
+    --popover: #000000;
+    --popover-foreground: #f5f5f7;
+    --primary: #c6ff00;
+    --primary-foreground: #050505;
+    --secondary: #0f0f11;
+    --secondary-foreground: #f5f5f7;
+    --muted: #0a0a0c;
+    --muted-foreground: #8d8d97;
+    --accent: #0f0f11;
+    --accent-foreground: #f5f5f7;
+    --destructive: #ff2e93;
+    --ring: #c6ff00;
+    --protein: #c6ff00;
+    --carbs: #ff8a00;
+    --fat: #ff2e93;
+    --chart-1: #c6ff00;
+    --chart-2: #ff8a00;
+    --chart-3: #ff2e93;
+    --chart-4: #00e5ff;
+    --chart-5: #8d8d97;
+    --mid: #4dffb0;
+    --warn: #ffd000;
+    --primary-rgb: 198 255 0;
+    --chart-3-rgb: 255 46 147;
+    --chart-4-rgb: 0 229 255;
+    --fg-rgb: 245 245 247;
+    --sidebar: #000000;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-primary: #c6ff00;
+    --sidebar-primary-foreground: #050505;
+    --sidebar-accent-foreground: #c6ff00;
+    --sidebar-ring: #c6ff00;
+    --border: rgb(255 255 255 / 16%);
+    --sidebar-border: rgb(255 255 255 / 16%);
+}
+
+html[data-theme="void"] {
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card: #000000;
+    --card-foreground: #f5f5f7;
+    --popover: #000000;
+    --popover-foreground: #f5f5f7;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #0f0f11;
+    --secondary-foreground: #f5f5f7;
+    --muted: #0a0a0c;
+    --muted-foreground: #8d8d97;
+    --accent: #0f0f11;
+    --accent-foreground: #f5f5f7;
+    --destructive: #fca5a5;
+    --ring: #ffffff;
+    --protein: #a7f3d0;
+    --carbs: #fed7aa;
+    --fat: #fbcfe8;
+    --chart-1: #a7f3d0;
+    --chart-2: #fed7aa;
+    --chart-3: #fbcfe8;
+    --chart-4: #bae6fd;
+    --chart-5: #8d8d97;
+    --mid: #d4d4d8;
+    --warn: #fde68a;
+    --primary-rgb: 255 255 255;
+    --chart-3-rgb: 251 207 232;
+    --chart-4-rgb: 186 230 253;
+    --fg-rgb: 245 245 247;
+    --sidebar: #000000;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-primary: #ffffff;
+    --sidebar-primary-foreground: #000000;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-ring: #ffffff;
+    --border: rgb(255 255 255 / 16%);
+    --sidebar-border: rgb(255 255 255 / 16%);
+}
+
+html[data-theme="ember"] {
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card: #000000;
+    --card-foreground: #f5f5f7;
+    --popover: #000000;
+    --popover-foreground: #f5f5f7;
+    --primary: #ff7a45;
+    --primary-foreground: #140700;
+    --secondary: #0f0f11;
+    --secondary-foreground: #f5f5f7;
+    --muted: #0a0a0c;
+    --muted-foreground: #8d8d97;
+    --accent: #0f0f11;
+    --accent-foreground: #f5f5f7;
+    --destructive: #ef4444;
+    --ring: #ff7a45;
+    --protein: #ff7a45;
+    --carbs: #fbbf24;
+    --fat: #fb7185;
+    --chart-1: #ff7a45;
+    --chart-2: #fbbf24;
+    --chart-3: #fb7185;
+    --chart-4: #fde68a;
+    --chart-5: #8d8d97;
+    --mid: #ff9a6b;
+    --warn: #fbbf24;
+    --primary-rgb: 255 122 69;
+    --chart-3-rgb: 251 113 133;
+    --chart-4-rgb: 253 230 138;
+    --fg-rgb: 245 245 247;
+    --sidebar: #000000;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-primary: #ff7a45;
+    --sidebar-primary-foreground: #140700;
+    --sidebar-accent-foreground: #ff7a45;
+    --sidebar-ring: #ff7a45;
+    --border: rgb(255 255 255 / 16%);
+    --sidebar-border: rgb(255 255 255 / 16%);
+}
+
+html[data-theme="abyss"] {
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card: #000000;
+    --card-foreground: #f5f5f7;
+    --popover: #000000;
+    --popover-foreground: #f5f5f7;
+    --primary: #4da3ff;
+    --primary-foreground: #00060f;
+    --secondary: #0f0f11;
+    --secondary-foreground: #f5f5f7;
+    --muted: #0a0a0c;
+    --muted-foreground: #8d8d97;
+    --accent: #0f0f11;
+    --accent-foreground: #f5f5f7;
+    --destructive: #fb7185;
+    --ring: #4da3ff;
+    --protein: #4da3ff;
+    --carbs: #fdba74;
+    --fat: #f0abfc;
+    --chart-1: #4da3ff;
+    --chart-2: #fdba74;
+    --chart-3: #f0abfc;
+    --chart-4: #5eead4;
+    --chart-5: #8d8d97;
+    --mid: #7cc0ff;
+    --warn: #fcd34d;
+    --primary-rgb: 77 163 255;
+    --chart-3-rgb: 240 171 252;
+    --chart-4-rgb: 94 234 212;
+    --fg-rgb: 245 245 247;
+    --sidebar: #000000;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-primary: #4da3ff;
+    --sidebar-primary-foreground: #00060f;
+    --sidebar-accent-foreground: #4da3ff;
+    --sidebar-ring: #4da3ff;
+    --border: rgb(255 255 255 / 16%);
+    --sidebar-border: rgb(255 255 255 / 16%);
+}
+
 /* While a theme is being switched, colours glide instead of snapping (set briefly by lib/theme.ts) */
 html[data-theme-switching],
 html[data-theme-switching] * {
