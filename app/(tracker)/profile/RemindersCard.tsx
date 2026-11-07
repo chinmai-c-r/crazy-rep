@@ -191,23 +191,22 @@ function Reminders() {
   return (
     <Card className="rounded-3xl">
       <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="grid gap-0.5">
+        <div className="grid gap-1">
+          <div className="flex items-center justify-between gap-3">
             <SectionTitle>Meal reminders</SectionTitle>
-            <p className="text-sm text-muted-foreground">
-              A nudge at meal times, so logging becomes a habit. Skipped if
-              you&apos;ve already logged that meal.
-            </p>
+            {device?.support === "ok" && !device.blocked && (
+              <Switch
+                checked={on}
+                onChange={toggle}
+                disabled={!online || busy !== null}
+                label="Meal reminders"
+                busy={busy === "toggle"}
+              />
+            )}
           </div>
-          {device?.support === "ok" && !device.blocked && (
-            <Switch
-              checked={on}
-              onChange={toggle}
-              disabled={!online || busy !== null}
-              label="Meal reminders"
-              busy={busy === "toggle"}
-            />
-          )}
+          <p className="text-sm text-muted-foreground">
+            A nudge at meal times, so logging becomes a habit. Skipped if you&apos;ve already logged that meal.
+          </p>
         </div>
 
         {device === null ? null : device.support === "needs-install" ? (
@@ -282,8 +281,8 @@ function MealRow({
 }) {
   const { label, icon } = REMINDER_LABELS[meal];
   return (
-    // One line on a normal phone: icon, name, time, switch. On a narrow one the time drops under the name instead of squeezing it.
-    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border bg-muted/30 px-3 py-2.5 min-[430px]:grid-cols-[auto_minmax(0,1fr)_auto_auto] max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:first:border-t-0">
+    // One line on every phone: icon, name, time, switch. Only a very narrow screen (under 340px) drops the time under the name.
+    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border bg-muted/30 px-3 py-2.5 min-[340px]:grid-cols-[auto_minmax(0,1fr)_auto_auto] max-sm:rounded-none max-sm:border-0 max-sm:border-t max-sm:bg-transparent max-sm:px-0 max-sm:first:border-t-0">
       <span aria-hidden className="text-xl">
         {icon}
       </span>
@@ -296,12 +295,12 @@ function MealRow({
         aria-label={`${label} reminder time`}
         className={cn(
           // Sized to its content so the clock icon sits next to the time instead of at the far edge of a wide box
-          "col-span-2 col-start-2 row-start-2 h-10 w-[8.3rem] justify-self-start rounded-xl border bg-background/60 pr-2 pl-3 text-[0.95rem] tabular-nums outline-none focus-visible:border-primary disabled:opacity-40",
-          "min-[430px]:col-span-1 min-[430px]:col-start-auto min-[430px]:row-start-auto",
+          "col-span-2 col-start-2 row-start-2 h-10 w-[6.6rem] justify-self-start rounded-xl border bg-background/60 px-2.5 text-[0.95rem] tabular-nums outline-none focus-visible:border-primary disabled:opacity-40",
+          "min-[340px]:col-span-1 min-[340px]:col-start-auto min-[340px]:row-start-auto",
           "[&::-webkit-calendar-picker-indicator]:ml-1 [&::-webkit-calendar-picker-indicator]:opacity-70",
         )}
       />
-      <span className="col-start-3 row-start-1 min-[430px]:col-start-auto min-[430px]:row-start-auto">
+      <span className="col-start-3 row-start-1 min-[340px]:col-start-auto min-[340px]:row-start-auto">
         <Switch
           checked={Boolean(time)}
           onChange={(v) => onChange(v ? DEFAULT_REMINDER_TIMES[meal] : null)}

@@ -73,6 +73,46 @@ export function applyTheme(id: ThemeId, { animate = false } = {}) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme.bg);
 }
 
+/** Corner roundness: the base radius in px. Every card, field and button scales from it (globals.css). */
+export const RADIUS_KEY = "crazy-rep-radius";
+export const DEFAULT_RADIUS = 12;
+export const RADII = [
+  { px: 0, name: "Sharp" },
+  { px: 6, name: "Subtle" },
+  { px: 12, name: "Default" },
+  { px: 18, name: "Round" },
+  { px: 24, name: "Rounder" },
+] as const;
+
+export const isRadius = (v: unknown): v is number => RADII.some((r) => r.px === v);
+
+export function storedRadius(): number {
+  try {
+    const v = Number(localStorage.getItem(RADIUS_KEY));
+    return localStorage.getItem(RADIUS_KEY) !== null && isRadius(v) ? v : DEFAULT_RADIUS;
+  } catch {
+    return DEFAULT_RADIUS;
+  }
+}
+
+export function applyRadius(px: number) {
+  document.documentElement.style.setProperty("--radius", `${px}px`);
+}
+
+export function setRadius(px: number) {
+  try {
+    localStorage.setItem(RADIUS_KEY, String(px));
+  } catch {}
+  applyRadius(px);
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/** The radius currently on the page. */
+export const currentRadius = (): number => {
+  const v = Number.parseFloat(document.documentElement.style.getPropertyValue("--radius"));
+  return isRadius(v) ? v : DEFAULT_RADIUS;
+};
+
 const EVENT = "crazy-rep-theme";
 
 export function setTheme(id: ThemeId) {
@@ -85,6 +125,10 @@ export function setTheme(id: ThemeId) {
 
 export function subscribeTheme(onChange: () => void) {
   const onStorage = (e: StorageEvent) => {
+    if (e.key === RADIUS_KEY) {
+      applyRadius(storedRadius());
+      return onChange();
+    }
     if (e.key !== THEME_KEY) return;
     applyTheme(storedTheme()); // another tab changed it
     onChange();
@@ -106,5 +150,5 @@ export const currentTheme = (): ThemeId => {
 /** Runs in <head> before the page paints, so a saved theme never flashes the default first. */
 export function themeInitScript() {
   const table = Object.fromEntries(THEMES.map((t) => [t.id, { d: t.dark, b: t.bg }]));
-  return `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});var m=${JSON.stringify(table)};if(!m[t])t=${JSON.stringify(DEFAULT_THEME)};var r=document.documentElement;r.dataset.theme=t;r.classList.toggle("dark",m[t].d);var c=document.querySelector('meta[name="theme-color"]');if(c)c.setAttribute("content",m[t].b)}catch(e){}})()`;
+  return `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});var m=${JSON.stringify(table)};if(!m[t])t=${JSON.stringify(DEFAULT_THEME)};var r=document.documentElement;r.dataset.theme=t;r.classList.toggle("dark",m[t].d);var c=document.querySelector('meta[name="theme-color"]');if(c)c.setAttribute("content",m[t].b);var q=localStorage.getItem(${JSON.stringify(RADIUS_KEY)});if(q!==null&&${JSON.stringify(RADII.map((r) => String(r.px)))}.indexOf(q)>-1)r.style.setProperty("--radius",q+"px")}catch(e){}})()`;
 }
