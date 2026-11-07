@@ -6,7 +6,11 @@ import { createAdmin, createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 30;
 
-const bodySchema = z.object({ q: z.string().trim().max(80).default("") });
+const bodySchema = z.object({
+  q: z.string().trim().max(80).default(""),
+  /** false: names only, no AI call (used when the person tapped an exact dish or item). */
+  similar: z.boolean().default(true),
+});
 
 /** Dishes embedded in one request, so the first search after logging many new meals stays quick. The rest are done after the answer is sent. */
 const EMBED_NOW = 100;
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
 
   const body = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!body.success) return NextResponse.json({ error: "That search is too long." }, { status: 400 });
-  const { q } = body.data;
+  const { q, similar: wantSimilar } = body.data;
 
   const { data, error } = await supabase.rpc("meal_dishes");
   if (error) {
@@ -100,7 +104,7 @@ export async function POST(request: Request) {
   // Meaning-based matches need the AI key, a few letters to go on, and some dishes to look through
   let similar: Map<string, number> | null = null;
   let semantic: "on" | "off" | "learning" = "off";
-  if (q.length >= MIN_SEMANTIC_LENGTH && dishes.length && process.env.GEMINI_API_KEY) {
+  if (wantSimilar && q.length >= MIN_SEMANTIC_LENGTH && dishes.length && process.env.GEMINI_API_KEY) {
     // Dish names, plus the commonest items of the dishes eaten most recently
     const keys = new Set(dishes.map((d) => d.name_key));
     for (const d of dishes.slice(0, ITEM_DISHES)) for (const item of d.items.slice(0, ITEMS_PER_DISH)) keys.add(item.key);

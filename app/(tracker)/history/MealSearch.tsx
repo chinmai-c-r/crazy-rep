@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, Loader2, Plus, Search, Sparkles, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dayLabel, localDay } from "@/lib/day";
 import { foodEmoji } from "@/lib/food-emoji";
@@ -12,6 +12,7 @@ import { usualMealType, type Dish } from "@/lib/meal-search";
 import { fmt } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { MEAL_TYPES, type MealType } from "@/lib/types";
+import { flatRow, flatTile } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import { OfflineNote } from "../_components/OfflineBanner";
 import { SectionTitle } from "../_components/Page";
@@ -20,23 +21,6 @@ import Typewriter from "../_components/Typewriter";
 const MIN_LENGTH = 2;
 const FALLBACK_IDEAS = ["paneer", "masala dosa", "dal rice", "biryani", "oats", "banana"];
 const MEAL_ICON = Object.fromEntries(MEAL_TYPES.map((t) => [t.value, t.icon])) as Record<MealType, string>;
-
-type Sort = "match" | "most" | "latest";
-const SORTS: { id: Sort; label: string }[] = [
-  { id: "match", label: "Best match" },
-  { id: "most", label: "Most eaten" },
-  { id: "latest", label: "Latest" },
-];
-
-/** Follows a value, a moment late, so searching waits for a pause in typing. */
-function useDebounced<T>(value: T, ms: number) {
-  const [later, setLater] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setLater(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return later;
-}
 
 const when = (iso: string) => dayLabel(localDay(new Date(iso)));
 /** For the middle of a sentence ("last yesterday", "last Thu 5 Nov"): only "Today" and "Yesterday" drop their capital. */
@@ -63,21 +47,48 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-/** Search what you've eaten, by name. Before anything is typed it shows your habits instead of a blank box. */
+/** The words as they're searched: trimmed, one space between words, lower case (so "Curd " and "curd" are the same search). */
+const normalise = (raw: string) => raw.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * Search what you've eaten, by name. Before anything is searched it shows your habits instead of a blank box.
+ * Typing searches nothing: a search happens when you press Search (or Enter), because looking for similar dishes costs an AI call.
+ */
 export default function MealSearch() {
   const online = useOnline();
   const reduce = useReducedMotion() ?? false;
+  const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
-  const [sort, setSort] = useState<Sort>("match");
-  const [type, setType] = useState<MealType | "all">("all");
+  // What was searched for. `similar: false` is for names tapped from a list, which are exact and need no AI.
+  const [asked, setAsked] = useState<{ q: string; similar: boolean } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
 
-  const q = useDebounced(text.trim(), 350);
-  const searching = q.length >= MIN_LENGTH;
+  // Not shown: only used to put the person's own dishes in the example searches
   const overviewQuery = useMealSearch("");
-  const search = useMealSearch(q, searching && online);
+  const search = useMealSearch(asked?.q ?? "", { enabled: Boolean(asked) && online, similar: asked?.similar ?? true });
   const overview = overviewQuery.data?.mode === "overview" ? overviewQuery.data : null;
-  const result = search.data?.mode === "search" && search.data.q === q ? search.data : null;
+  const result = asked && search.data?.mode === "search" && search.data.q === asked.q ? search.data : null;
+
+  const typed = normalise(text);
+  const canSearch = online && typed.length >= MIN_LENGTH;
+  const searching = Boolean(asked) && search.fetching;
+  const edited = Boolean(asked) && typed !== asked?.q; // the box was changed after the last search
+
+  function ask(raw: string, similar = true) {
+    const q = normalise(raw);
+    if (q.length < MIN_LENGTH || !online) return;
+    setText(raw.trim());
+    setAsked({ q, similar });
+    setOpen(null);
+    inputRef.current?.blur(); // puts the phone's keyboard away so the results are in view
+  }
+
+  function clear() {
+    setText("");
+    setAsked(null);
+    setOpen(null);
+    inputRef.current?.focus();
+  }
 
   // Example searches taken from the person's own food
   const ideas = useMemo(() => {
@@ -88,92 +99,99 @@ export default function MealSearch() {
     return [...new Set([...dishes.slice(0, 3), ...inside, ...dishes.slice(3)])];
   }, [overview]);
 
-  const hits = useMemo(() => {
-    if (!result) return [];
-    const list = type === "all" ? result.hits : result.hits.filter((h) => h[type] > 0);
-    if (sort === "most") return [...list].sort((a, b) => b.times - a.times);
-    if (sort === "latest") return [...list].sort((a, b) => b.last_at.localeCompare(a.last_at));
-    return list;
-  }, [result, type, sort]);
-
-  const pending = searching && !result && !search.error;
-  const typing = text.trim() !== q || (searching && search.fetching);
-  const nothingLogged = overview && overview.total.meals === 0;
+  const hits = result?.hits ?? [];
+  const pending = Boolean(asked) && !result && !search.error;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      {/* The search box */}
-      <div className="relative h-14 rounded-2xl border bg-card transition-colors focus-within:border-primary">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <input
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setOpen(null);
-          }}
-          disabled={!online}
-          maxLength={80}
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCapitalize="none"
-          aria-label="Search the dishes you've eaten, or what's in them"
-          placeholder={online ? undefined : "Search needs a connection"}
-          className="size-full rounded-2xl bg-transparent pr-12 pl-12 text-lg outline-none disabled:opacity-60"
-        />
-        {!text && online && <Typewriter reduce={reduce} ideas={ideas} className="pl-12 text-lg" />}
-        <div className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center">
-          {typing && text ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching" />
-          ) : text ? (
-            <button type="button" onClick={() => setText("")} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:text-foreground" aria-label="Clear search">
+      {/* The search box and its button. On a phone the button is full width under the box; it never overlaps the text. */}
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask(text);
+        }}
+        className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto]"
+      >
+        <div className="relative h-14 min-w-0 rounded-2xl border bg-card transition-colors focus-within:border-primary">
+          <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (!e.target.value.trim()) {
+                setAsked(null); // emptied the box: back to the overview
+                setOpen(null);
+              }
+            }}
+            disabled={!online}
+            maxLength={80}
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCapitalize="none"
+            aria-label="Search the dishes you've eaten, or what's in them"
+            placeholder={online ? undefined : "Search needs a connection"}
+            className="size-full rounded-2xl bg-transparent pr-12 pl-12 text-lg outline-none disabled:opacity-60"
+          />
+          {!text && online && <Typewriter reduce={reduce} ideas={ideas} className="pr-12 pl-12 text-lg" />}
+          {text && (
+            <button type="button" onClick={clear} className="absolute top-1/2 right-2 grid size-10 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:text-foreground" aria-label="Clear search">
               <X className="size-4" />
             </button>
-          ) : null}
+          )}
         </div>
-      </div>
+        <button
+          type="submit"
+          disabled={!canSearch || searching}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-7 text-base font-semibold text-primary-foreground transition-opacity disabled:opacity-40 sm:h-14"
+        >
+          {searching ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Search className="size-5" aria-hidden />}
+          {searching ? "Searching…" : "Search"}
+        </button>
+      </form>
 
-      {!online && <OfflineNote>Searching needs a connection. Here are your most eaten dishes, saved on this phone.</OfflineNote>}
-
-      {/* Nothing typed yet: your habits */}
-      {!searching && (
-        <Overview
-          overview={overview}
-          loading={overviewQuery.loading}
-          empty={Boolean(nothingLogged)}
-          onPick={(dish) => {
-            setText(dish.name);
-            setOpen(dish.name_key);
-          }}
-        />
+      {/* One line that says what to do next */}
+      {online && (
+        <p className="-mt-1 text-sm text-muted-foreground" aria-live="polite">
+          {typed.length >= MIN_LENGTH && (!asked || edited) ? (
+            <>
+              Press <b className="text-foreground">Search</b> to look for “{text.trim()}”.
+            </>
+          ) : !asked ? (
+            <>Search a dish, like “masala dosa”, or something in it, like “chutney”.</>
+          ) : null}
+        </p>
       )}
 
-      {/* Typed something */}
-      {searching && (
-        <>
-          {result && result.hits.length > 0 && (
-            <div className="grid gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+      {!online && <OfflineNote>Searching needs a connection. Connect to the internet and try again.</OfflineNote>}
+
+      {/* Searched */}
+      {asked && (
+        <div className={cn("grid grid-cols-[minmax(0,1fr)] gap-3 transition-opacity", edited && "opacity-50")}>
+          {result && hits.length > 0 && (
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  <b className="text-foreground">{hits.length}</b> {hits.length === 1 ? "dish" : "dishes"} for “{q}”
+                  <b className="text-foreground">{hits.length}</b> {hits.length === 1 ? "dish" : "dishes"} for “{asked.q}”
                 </p>
-                {result.hits.some((h) => h.via === "similar") && (
-                  <span className="inline-flex items-center gap-1 text-xs text-primary">
-                    <Sparkles className="size-3" aria-hidden /> includes similar dishes
+                <button type="button" onClick={clear} className="text-sm font-semibold text-primary">
+                  Clear
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tap a dish to see what&apos;s in it and log it again.
+                {hits.some((h) => h.via === "similar") && (
+                  <span className="ml-1 inline-flex items-center gap-1 text-primary">
+                    <Sparkles className="size-3" aria-hidden /> Similar dishes are marked.
                   </span>
                 )}
-              </div>
-              <Chips
-                label="Show only"
-                options={[{ id: "all", label: "Any meal" }, ...MEAL_TYPES.map((t) => ({ id: t.value, label: `${t.icon} ${t.label}` }))]}
-                value={type}
-                onChange={(v) => setType(v as MealType | "all")}
-              />
-              <Chips label="Sort by" options={SORTS} value={sort} onChange={(v) => setSort(v as Sort)} />
+              </p>
             </div>
           )}
 
           {pending && (
-            <ul className="grid gap-2" aria-busy aria-label="Searching">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-2" aria-busy aria-label="Searching">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-[84px] rounded-2xl" />
               ))}
@@ -183,7 +201,7 @@ export default function MealSearch() {
           {search.error && online && <p className="rounded-2xl border border-destructive/40 px-4 py-3 text-sm text-destructive">{search.error}</p>}
 
           {result && hits.length > 0 && (
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               <AnimatePresence mode="popLayout" initial={false}>
                 {hits.map((hit, i) => (
                   <motion.li
@@ -196,15 +214,12 @@ export default function MealSearch() {
                   >
                     <DishCard
                       dish={hit}
-                      query={q}
+                      query={asked.q}
                       similar={hit.via === "similar"}
                       inItem={hit.inItem}
                       open={open === hit.name_key}
                       onToggle={() => setOpen(open === hit.name_key ? null : hit.name_key)}
-                      onSearch={(name) => {
-                        setText(name);
-                        setOpen(null);
-                      }}
+                      onSearch={(name) => ask(name, false)}
                     />
                   </motion.li>
                 ))}
@@ -212,122 +227,24 @@ export default function MealSearch() {
             </ul>
           )}
 
-          {result && result.hits.length > 0 && hits.length === 0 && (
-            <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">None of these were eaten as {MEAL_TYPES.find((t) => t.value === type)?.label.toLowerCase()}. Try “Any meal”.</p>
-          )}
-
-          {result && result.hits.length === 0 && (
-            <div className="grid justify-items-center gap-3 rounded-3xl border border-dashed px-6 py-10 text-center">
+          {result && hits.length === 0 && (
+            <div className="grid justify-items-center grid-cols-[minmax(0,1fr)] gap-3 rounded-3xl border border-dashed px-6 py-10 text-center">
               <span className="grid size-14 place-items-center rounded-2xl bg-muted text-2xl" aria-hidden>
                 🔎
               </span>
-              <div className="grid gap-1">
-                <p className="font-semibold">Nothing like “{q}” yet</p>
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
+                <p className="font-semibold">Nothing like “{asked.q}” yet</p>
                 <p className="text-sm text-muted-foreground">Try a shorter word, or log it now and it will be here next time.</p>
               </div>
-              <Link href={`/scan?name=${encodeURIComponent(q)}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
-                <Plus className="size-4" /> Log “{q}”
+              <Link href={`/scan?name=${encodeURIComponent(asked.q)}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
+                <Plus className="size-4" /> Log “{asked.q}”
               </Link>
             </div>
           )}
 
           {result?.semantic === "learning" && <p className="text-center text-xs text-muted-foreground">Still learning your meals. Similar dishes will show up more as you search.</p>}
-        </>
+        </div>
       )}
-    </div>
-  );
-}
-
-/** A row of small choices (filter or sort). Scrolls sideways on a narrow screen. */
-function Chips({ label, options, value, onChange }: { label: string; options: { id: string; label: string }[]; value: string; onChange: (id: string) => void }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-      {options.map((o) => {
-        const on = o.id === value;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.id)}
-            className={cn("h-8 shrink-0 rounded-full border px-3 text-xs font-semibold whitespace-nowrap transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Before a search: how much you've logged, what you eat most, and what you ate lately. */
-function Overview({ overview, loading, empty, onPick }: { overview: { top: Dish[]; recent: Dish[]; total: { dishes: number; meals: number } } | null; loading: boolean; empty: boolean; onPick: (dish: Dish) => void }) {
-  if (loading && !overview) {
-    return (
-      <div className="grid gap-2" aria-busy>
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-14 rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
-  if (empty || !overview) {
-    return (
-      <div className="grid justify-items-center gap-3 rounded-3xl border border-dashed px-6 py-12 text-center">
-        <span className="text-4xl" aria-hidden>
-          🍽️
-        </span>
-        <div className="grid gap-1">
-          <p className="font-semibold">Your food will be searchable here</p>
-          <p className="text-sm text-muted-foreground">Log a meal and you can find it again by name.</p>
-        </div>
-        <Link href="/scan" className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
-          <Plus className="size-4" /> Log a meal
-        </Link>
-      </div>
-    );
-  }
-
-  const most = Math.max(...overview.top.map((d) => d.times), 1);
-  return (
-    <div className="grid gap-5">
-      <p className="text-sm text-muted-foreground">
-        You&apos;ve logged <b className="text-foreground">{overview.total.meals.toLocaleString()}</b> {overview.total.meals === 1 ? "meal" : "meals"} across <b className="text-foreground">{overview.total.dishes.toLocaleString()}</b>{" "}
-        {overview.total.dishes === 1 ? "dish" : "dishes"}. Search a dish, or something in it, like “chutney”.
-      </p>
-
-      <section className="grid gap-2">
-        <SectionTitle>Eaten most</SectionTitle>
-        <ol className="grid gap-1.5">
-          {overview.top.map((d, i) => (
-            <li key={d.name_key}>
-              <button type="button" onClick={() => onPick(d)} className="relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border bg-card px-3.5 py-3 text-left transition-transform active:scale-[0.99]">
-                {/* The bar behind the row shows how it compares with your top dish */}
-                <span aria-hidden className="absolute inset-y-0 left-0 bg-primary/10" style={{ width: `${(d.times / most) * 100}%` }} />
-                <span className="relative w-5 text-center font-heading text-lg text-muted-foreground">{i + 1}</span>
-                <span className="relative text-xl" aria-hidden>
-                  {foodEmoji(d.name)}
-                </span>
-                <span className="relative min-w-0 flex-1 truncate font-semibold">{d.name}</span>
-                <span className="relative text-sm font-bold whitespace-nowrap text-primary">{d.times}×</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="grid gap-2">
-        <SectionTitle>Eaten lately</SectionTitle>
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-          {overview.recent.map((d) => (
-            <button key={d.name_key} type="button" onClick={() => onPick(d)} className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-card px-3 text-sm whitespace-nowrap">
-              <span aria-hidden>{foodEmoji(d.name)}</span>
-              {d.name}
-            </button>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
@@ -349,7 +266,7 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
         <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-muted/60 text-2xl" aria-hidden>
           {foodEmoji(dish.name)}
         </span>
-        <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-0.5">
           <span className="flex items-center gap-2">
             <b className="truncate">
               <Highlight text={dish.name} query={query} />
@@ -388,7 +305,7 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-            <div className="grid gap-4 border-t px-3.5 pt-3 pb-3.5">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 border-t px-3.5 pt-3 pb-3.5">
               <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>
                   <i className="mr-1 inline-block size-1.5 rounded-full bg-protein" />P {fmt(dish.avg_protein)}g
@@ -404,7 +321,7 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
 
               {/* Everything that has been found inside this dish. Tap one to search for it. */}
               {inside.length > 0 && (
-                <section className="grid gap-2">
+                <section className="grid grid-cols-[minmax(0,1fr)] gap-2">
                   <SectionTitle>What&apos;s in it</SectionTitle>
                   <div className="flex flex-wrap gap-1.5">
                     {inside.map((item) => (
@@ -429,7 +346,7 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
               {/* The last time, item by item */}
               {loading && <Skeleton className="h-24 rounded-xl" />}
               {last && (
-                <section className="grid gap-2">
+                <section className="grid grid-cols-[minmax(0,1fr)] gap-2">
                   <Link href={`/dashboard?date=${localDay(new Date(last.eaten_at))}`} className="flex items-center justify-between gap-2">
                     <SectionTitle>Last time · {when(last.eaten_at)}</SectionTitle>
                     <span className="text-xs font-semibold">
@@ -437,9 +354,9 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
                     </span>
                   </Link>
                   {last.items.length > 0 ? (
-                    <ul className="grid gap-1">
+                    <ul className="grid grid-cols-[minmax(0,1fr)] gap-1">
                       {last.items.map((item, i) => (
-                        <li key={`${item.name}-${i}`} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                        <li key={`${item.name}-${i}`} className={cn("flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm", flatRow)}>
                           <span className="min-w-0 flex-1">
                             <b className="block truncate font-semibold">
                               <Highlight text={item.name} query={query} />
@@ -459,12 +376,12 @@ function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { 
               )}
 
               {earlier.length > 0 && (
-                <section className="grid gap-2">
+                <section className="grid grid-cols-[minmax(0,1fr)] gap-2">
                   <SectionTitle>Other times</SectionTitle>
-                  <ul className="grid gap-1">
+                  <ul className="grid grid-cols-[minmax(0,1fr)] gap-1">
                     {earlier.map((t) => (
-                      <li key={t.id}>
-                        <Link href={`/dashboard?date=${localDay(new Date(t.eaten_at))}`} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                      <li key={t.id} className="max-sm:border-t max-sm:first:border-t-0">
+                        <Link href={`/dashboard?date=${localDay(new Date(t.eaten_at))}`} className={cn("flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm", flatTile)}>
                           <span aria-hidden>{MEAL_ICON[t.meal_type as MealType] ?? "🍽️"}</span>
                           <span className="flex-1">{when(t.eaten_at)}</span>
                           <span className="text-xs text-muted-foreground">{new Date(t.eaten_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
