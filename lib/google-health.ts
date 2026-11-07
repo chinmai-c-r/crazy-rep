@@ -81,7 +81,7 @@ type MealForSync = Pick<
   | "servings"
 > & { google_health_id: string | null };
 
-function nutritionLog(m: MealForSync) {
+function nutritionLog(m: MealForSync, unit: string) {
   const start = new Date(m.eaten_at);
   const end = new Date(start.getTime() + 60_000);
   const grams = (n: number) => ({ grams: Math.round(Number(n) * 1000) / 1000 });
@@ -103,7 +103,7 @@ function nutritionLog(m: MealForSync) {
       totalCarbohydrate: grams(m.carbs_g),
       totalFat: grams(m.fat_g),
       nutrients,
-      serving: { amount: Number(m.servings) },
+      serving: { amount: Number(m.servings), foodMeasurementUnit: unit },
     },
   };
 }
@@ -119,6 +119,32 @@ async function api(token: string, url: string, body: unknown) {
   return { ok: res.ok, json };
 }
 
+const UNIT_PREFERENCE = ["serving", "piece", "portion", "unit", "gram"];
+let unitName: string | undefined;
+
+const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && typeof v === "object" ? Object.values(v).flatMap(strings) : []);
+
+/**
+ * Google Health wants a serving unit on every nutrition entry, and units are its own records ("users/me/dataTypes/food-measurement-unit/dataPoints/251").
+ * The calories and nutrients we send are totals, so the unit is only a label: "serving" fits best, with a few fallbacks.
+ */
+async function servingUnit(token: string) {
+  if (unitName) return unitName;
+  const res = await fetch(`${API}/dataTypes/food-measurement-unit/dataPoints?pageSize=1000`, { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("google health api", res.status, JSON.stringify(json));
+    return null;
+  }
+  const points = (json.dataPoints ?? []) as { name?: string }[];
+  for (const want of UNIT_PREFERENCE) {
+    const hit = points.find((p) => p.name && strings({ ...p, name: undefined }).some((v) => v.toLowerCase() === want));
+    if (hit?.name) return (unitName = hit.name);
+  }
+  console.error("google health: no usable food measurement unit", JSON.stringify(points.slice(0, 5)));
+  return null;
+}
+
 async function removeRemote(token: string, id: string) {
   // Entries from anonymous foods can't be updated and have no single-item delete
   await api(token, `${NUTRITION}:batchDelete`, { names: [`users/me/dataTypes/nutrition-log/dataPoints/${id}`] });
@@ -129,9 +155,12 @@ export async function pushMeal(userId: string, meal: MealForSync, knownToken?: s
   const token = knownToken ?? (await accessToken(userId));
   if (!token) return { connected: false as const };
 
+  const unit = await servingUnit(token);
+  if (!unit) return { connected: true as const, ok: false, id: null };
+
   if (meal.google_health_id) await removeRemote(token, meal.google_health_id);
 
-  const { ok, json } = await api(token, NUTRITION, nutritionLog(meal));
+  const { ok, json } = await api(token, NUTRITION, nutritionLog(meal, unit));
   // The response is a long-running operation wrapper: { done, response: DataPoint }
   const name: string | undefined = json?.response?.name ?? json?.name;
   const id = name?.split("/").pop();
