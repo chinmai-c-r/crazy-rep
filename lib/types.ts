@@ -73,6 +73,8 @@ export type ActivityLog = {
   distance_km: number | null;
   steps: number | null;
   notes: string | null;
+  /** Set on entries imported from Google Health */
+  google_health_id?: string | null;
 };
 
 export type WeightLog = {

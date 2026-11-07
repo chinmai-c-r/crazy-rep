@@ -18,6 +18,9 @@ import type { ActivityLog, WaterLog, WeightLog } from "@/lib/types";
 import { Sparkline } from "./charts";
 import { SectionTitle } from "./Page";
 
+/** The day's movement outside recorded workouts, imported from Google Health as one entry. */
+const daily = (a: ActivityLog) => Boolean(a.google_health_id?.startsWith("daily-active-"));
+
 export function ActivityCard({
   activities,
   loading,
@@ -34,7 +37,7 @@ export function ActivityCard({
 }) {
   const online = useOnline();
   const burned = activities.reduce((s, a) => s + Number(a.calories_burned), 0);
-  const minutes = activities.reduce((s, a) => s + a.duration_min, 0);
+  const minutes = activities.filter((a) => !daily(a)).reduce((s, a) => s + a.duration_min, 0);
 
   async function remove(a: ActivityLog) {
     const { error } = await createClient().from("activity_logs").delete().eq("id", a.id);
@@ -66,11 +69,11 @@ export function ActivityCard({
           <ul className="grid gap-2">
             {activities.map((a) => (
               <li key={a.id} className={cn("flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5", flatRow)}>
-                <span className="text-xl">{activityIcon(a.activity)}</span>
+                <span className="text-xl">{daily(a) ? "🔥" : activityIcon(a.activity)}</span>
                 <span className="grid min-w-0 flex-1">
-                  <b className="truncate text-sm">{activityLabel(a.activity)}</b>
+                  <b className="truncate text-sm">{daily(a) ? "Daily activity" : activityLabel(a.activity)}</b>
                   <small className="text-xs text-muted-foreground capitalize">
-                    {a.duration_min} min · {a.intensity}
+                    {daily(a) ? "From Google Health" : `${a.duration_min} min · ${a.intensity}`}
                     {a.distance_km ? ` · ${a.distance_km} km` : ""}
                   </small>
                 </span>
@@ -234,7 +237,7 @@ const STAGES = [
 const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 /** The night's sleep from Google Health: time asleep, a bar of the stages, and the bed and wake times. Naps are listed under it. */
-export function SleepCard({ sessions }: { sessions: SleepSession[] }) {
+export function SleepCard({ sessions, needsAccess }: { sessions: SleepSession[]; needsAccess?: boolean }) {
   const night = sessions.filter((s) => !s.nap).sort((a, b) => b.asleep_min - a.asleep_min)[0];
   const naps = sessions.filter((s) => s.nap);
   const total = sessions.reduce((sum, s) => sum + s.asleep_min, 0);
@@ -251,7 +254,11 @@ export function SleepCard({ sessions }: { sessions: SleepSession[] }) {
             </span>
           )}
         </div>
-        {!night && naps.length === 0 ? (
+        {needsAccess ? (
+          <p className="text-sm text-muted-foreground">
+            Allow sleep access to see your sleep here. <a href="/api/google-health/connect" className="underline underline-offset-4">Reconnect Google Health</a> and tick every box.
+          </p>
+        ) : !night && naps.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sleep recorded for this day yet. It appears after your watch or phone syncs to Google Health.</p>
         ) : (
           <>

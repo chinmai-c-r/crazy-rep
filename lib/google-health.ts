@@ -365,3 +365,91 @@ export async function pullSleep(userId: string, days: number) {
   }
   return true;
 }
+
+/** The first number inside a rollup value, whatever Google names it (kcalSum, caloriesKcalSum, ...). */
+const firstNumber = (v: unknown): number | null => {
+  if (typeof v === "number" || typeof v === "string") return Number.isFinite(Number(v)) && v !== "" ? Number(v) : null;
+  if (v && typeof v === "object") for (const x of Object.values(v)) {
+    const n = firstNumber(x);
+    if (n !== null) return n;
+  }
+  return null;
+};
+
+/**
+ * Imports the energy burned in each of the last `days` local days. Google's daily active energy (movement and workouts,
+ * not resting metabolism, which the calorie goal already accounts for) becomes one "daily activity" entry per day in
+ * activity_logs, minus what imported workouts already cover, so burned totals everywhere (dashboard, history, coach) follow it.
+ * `tzOffsetMin` is the browser's getTimezoneOffset(), used to place days and workouts in the user's day.
+ */
+export async function pullDailyBurn(userId: string, days: number, today: CivilDate, tzOffsetMin: number) {
+  const admin = createAdmin();
+  const { data: conn } = await admin.from("google_health_connections").select("scopes").eq("user_id", userId).maybeSingle();
+  if (!conn?.scopes.split(" ").includes(ACTIVITY_SCOPE)) return null;
+  const token = await accessToken(userId);
+  if (!token) return null;
+
+  const first = new Date(Date.UTC(today.year, today.month - 1, today.day - (days - 1)));
+  const last = new Date(Date.UTC(today.year, today.month - 1, today.day + 1));
+  const at = (d: Date): CivilDate => ({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() });
+
+  const burned = new Map<string, number>();
+  let pageToken: string | undefined;
+  do {
+    const { ok, json } = await api(token, `${API}/dataTypes/active-energy-burned/dataPoints:dailyRollUp`, {
+      range: { start: civil(at(first)), end: civil(at(last)) },
+      windowSizeDays: 1,
+      pageSize: 14,
+      pageToken,
+    });
+    if (!ok) return false;
+    for (const p of (json?.rollupDataPoints ?? []) as { civilStartTime?: { date?: CivilDate }; activeEnergyBurned?: unknown }[]) {
+      const date = p.civilStartTime?.date;
+      const kcal = firstNumber(p.activeEnergyBurned);
+      if (date && kcal !== null) burned.set(dayKey(date), Math.round(kcal));
+    }
+    pageToken = json?.nextPageToken || undefined;
+  } while (pageToken);
+
+  // Workouts already imported carry their own calories: only the rest of the day's burn goes in the daily entry
+  const localDay = (iso: string) => new Date(Date.parse(iso) - tzOffsetMin * 60_000).toISOString().slice(0, 10);
+  const { data: workouts } = await admin
+    .from("activity_logs")
+    .select("performed_at, calories_burned, google_health_id")
+    .eq("user_id", userId)
+    .not("google_health_id", "is", null)
+    .not("google_health_id", "like", "daily-active-%")
+    .gte("performed_at", new Date(first.getTime() - 86_400_000).toISOString());
+  const covered = new Map<string, number>();
+  for (const w of workouts ?? []) covered.set(localDay(w.performed_at), (covered.get(localDay(w.performed_at)) ?? 0) + Number(w.calories_burned));
+
+  const { data: dismissed } = await admin.from("google_health_dismissed").select("google_health_id").eq("user_id", userId).like("google_health_id", "daily-active-%");
+  const skip = new Set((dismissed ?? []).map((d) => d.google_health_id));
+
+  const rows = [];
+  for (const [day, total] of burned) {
+    const id = `daily-active-${day}`;
+    const rest = Math.min(20000, Math.max(0, total - (covered.get(day) ?? 0)));
+    if (!rest || skip.has(id)) continue;
+    const [y, m, d] = day.split("-").map(Number);
+    rows.push({
+      user_id: userId,
+      google_health_id: id,
+      // Midday on that local day, so it lands on the right day in any timezone
+      performed_at: new Date(Date.UTC(y, m - 1, d, 12) + tzOffsetMin * 60_000).toISOString(),
+      activity: "other",
+      intensity: "light",
+      duration_min: 1,
+      calories_burned: rest,
+      distance_km: null,
+      steps: null,
+      notes: "Google Health: daily activity",
+    });
+  }
+  if (rows.length) {
+    // Today's total keeps growing, so existing entries are updated
+    const { error } = await admin.from("activity_logs").upsert(rows, { onConflict: "user_id,google_health_id" });
+    if (error) return false;
+  }
+  return true;
+}

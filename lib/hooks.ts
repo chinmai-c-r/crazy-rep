@@ -370,7 +370,7 @@ export function useSteps(day: string) {
 type GoogleStatus = { configured: boolean; connected: boolean; steps?: boolean; sleep?: boolean; units?: boolean };
 
 /** Which Google Health permissions are granted (also known from the last visit, so layouts don't jump). */
-function useGoogleStatus() {
+export function useGoogleStatus() {
   const { data } = useQuery({
     queryKey: ["google-health-status"],
     queryFn: async (): Promise<GoogleStatus | null> => {
@@ -425,9 +425,10 @@ export function useStepSync() {
       const res = await fetch("/api/google-health/steps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(), days: 14 }),
+        body: JSON.stringify({ year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(), days: 14, tzOffsetMin: now.getTimezoneOffset() }),
       });
       if (!res.ok) throw new Error("steps sync failed");
+      // Parts that worked are saved even when another failed
       await Promise.all([qc.invalidateQueries({ queryKey: ["steps"] }), qc.invalidateQueries({ queryKey: ["sleep"] }), qc.invalidateQueries({ queryKey: ["log", "activity_logs"] }), invalidateSummary(qc)]);
       return Date.now();
     },

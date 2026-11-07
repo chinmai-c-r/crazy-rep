@@ -56,7 +56,7 @@ export default function PrivacyPage() {
         (<code>https://www.googleapis.com/auth/googlehealth.sleep.readonly</code>): when each sleep session started and ended, how long
         you slept and how long you spent in each stage. We use it only to show your sleep in the app. The fourth reads your activity and fitness data
         (<code>https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly</code>). We use it only to read your
-        daily step totals and your recorded workouts (type, time, duration, calories, distance and steps) and show them in your
+        daily step totals, the energy you burn each day, and your recorded workouts (type, time, duration, calories, distance and steps) and show them in your
         activity log. We store one step count per day one entry per workout and one entry per sleep session, visible only to you, and do not read anything
         else from Google Health, share it, or use it for advertising. If you ask the in-app coach a question, the coach can look at your steps and sleep to answer it; that data is sent to Google&apos;s Gemini AI service only to produce that answer. Disconnecting deletes the stored step counts, sleep sessions and imported workouts. The
         access token is kept on our server, never in your browser. You can disconnect at any time in <b>Profile</b>, which stops all
