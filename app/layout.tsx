@@ -25,6 +25,8 @@ export const metadata: Metadata = {
     "Log meals by name or photo and get instant calories and macros. Track activity, weight and water, and ask an AI coach about your progress.",
   applicationName: "Crazy Rep",
   appleWebApp: { capable: true, title: "Crazy Rep", statusBarStyle: "black-translucent" },
+  // Lets Google Search Console confirm you own the site (set the code from its "HTML tag" method). Not needed if you verify with DNS.
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } } : {}),
 };
 
 export const viewport: Viewport = {

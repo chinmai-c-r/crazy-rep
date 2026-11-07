@@ -27,6 +27,7 @@ export default function Footer() {
         <div>
           <h4>Legal</h4>
           <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms of use</a>
         </div>
       </div>
       <p className="footer__copy">© 2026 Crazy Rep. All rights reserved.</p>

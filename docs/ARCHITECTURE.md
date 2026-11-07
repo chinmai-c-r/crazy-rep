@@ -77,6 +77,10 @@ flowchart LR
     E -- "seed (real data) · nutrition (AI, batched) · embed" --> DB[("analysis_cache")]
 ```
 
+### The cache learns from every AI answer
+
+`lookupTextMeal` and the photo path in `/api/analyze` call `seedItemRows` after an AI answer. Each item in the answer (up to 8, only when the AI was at least half sure, skipping zero-calorie and junk names) is saved as its own `analysis_cache` row shaped as a one-food analysis, unless that name and portion is already there. The rows that were really new are embedded in one batch, so one request covers them all. Later, adding that food by name (`/api/analyze/item`) finds it through the usual exact, vector and USDA steps before the AI. The work runs after the response is sent, and a failure never affects the meal being logged (`lib/item-seed.ts`).
+
 ### Adding an item that wasn't detected
 
 The results screen and the logged-meal sheet have an "Missing something?" box. `POST /api/analyze/item` splits the text into a name and an amount (`splitItemText`, so "2 rotis" becomes `rotis` and `2`) and calls the same `lookupTextMeal` chain as the meal name box: saved result, then vector search, then USDA, then AI. New answers are saved to `analysis_cache` for the next person. The food items it finds are added to the meal, each with the usual quantity stepper; items added to a logged meal can be removed again before saving.
@@ -89,7 +93,7 @@ History has a **Meals** tab (`MealSearch.tsx`, `POST /api/search/meals`).
 - **Sub-items:** each dish is also scored by its items, a little lower than a match on the dish's own name (`ITEM_WEIGHT`), so a dish named for the thing comes first. A card matched through an item says "contains …"; opened, it lists what's in it (tap an item to search for it) and the last meal item by item.
 - **By name:** `lib/meal-search.ts` scores each dish name against what was typed using the same word handling as food lookups (`tokens` in `lib/food-text.ts`: spelling variants, plurals, "dahi" = "curd"). Whole words beat a half-typed word.
 - **By meaning:** each dish name, and the commonest items of the 300 most recently eaten dishes, get a vector in `dish_embeddings` (server-only, keyed by the name, never read by users). The server embeds the query, stores vectors for any names that don't have one yet (up to 100 now, 400 more after the answer is sent), and `match_dish_names()` returns the nearest names among *this person's own* dishes. Matches must clear `SEMANTIC_FLOOR` and sit within `SEMANTIC_BAND` of the best, and are marked "similar". If the AI is unavailable the search quietly continues by name only.
-- The embedding quota is shared with food lookups (one call per search of 3+ letters; searches are debounced).
+- A search runs only when the Search button (or Enter) is pressed, never while typing, because looking for similar dishes costs an embedding call. Repeating the same words within a minute is answered from the app's memory. Tapping a dish or item from a list sends `similar: false`, which skips the AI call (the name is already exact). The embedding quota is shared with food lookups.
 - "Log again" opens Log meal with `?name=` and the usual meal type filled in.
 
 ## Coach chat
