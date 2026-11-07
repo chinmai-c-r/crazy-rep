@@ -150,35 +150,38 @@ export function useLogRange<T>(table: "activity_logs" | "water_logs", column: st
 }
 
 /** Most recent weight entries (newest first). */
+export const weightsQuery = (limit: number) => ({
+  queryKey: keys.weights(limit),
+  queryFn: async () => {
+    const { data } = await createClient().from("weight_logs").select("*").order("logged_on", { ascending: false }).limit(limit);
+    return (data as WeightLog[]) ?? [];
+  },
+});
+
 export function useWeights(limit = 30) {
-  const query = useQuery({
-    queryKey: keys.weights(limit),
-    queryFn: async () => {
-      const { data } = await createClient().from("weight_logs").select("*").order("logged_on", { ascending: false }).limit(limit);
-      return (data as WeightLog[]) ?? [];
-    },
-  });
+  const query = useQuery(weightsQuery(limit));
   const { data, refetch } = query;
   const reload = useCallback(async () => void (await refetch()), [refetch]);
   return { weights: data ?? [], loading: loadingOf(query), reload };
 }
 
 /** Server-side totals per day/week/month in the user's timezone (handles multi-year ranges). */
+export const summaryQuery = (start: string, end: string, bucket: "day" | "week" | "month") => ({
+  queryKey: keys.summary(start, end, bucket),
+  queryFn: async () => {
+    const { data, error } = await createClient().rpc("history_summary", {
+      p_start: start,
+      p_end: end,
+      p_bucket: bucket,
+      p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    if (error) throw error;
+    return ((data as SummaryRow[]) ?? []).map((r) => ({ ...r, ...numeric(r) }));
+  },
+});
+
 export function useSummary(start: string, end: string, bucket: "day" | "week" | "month") {
-  const query = useQuery({
-    queryKey: keys.summary(start, end, bucket),
-    placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("history_summary", {
-        p_start: start,
-        p_end: end,
-        p_bucket: bucket,
-        p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-      if (error) throw error;
-      return ((data as SummaryRow[]) ?? []).map((r) => ({ ...r, ...numeric(r) }));
-    },
-  });
+  const query = useQuery({ ...summaryQuery(start, end, bucket), placeholderData: keepPreviousData });
   return { rows: query.data ?? [], loading: loadingOf(query), unavailable: waiting(query), error: query.error?.message ?? null };
 }
 
@@ -194,53 +197,59 @@ function numeric(r: SummaryRow) {
 const RECENT_DISHES = 20;
 
 /** Names of the most recently logged dishes, newest first, one per name. */
+export const recentDishesQuery = {
+  queryKey: keys.recentDishes,
+  staleTime: 5 * 60_000,
+  queryFn: async () => {
+    const { data } = await createClient().from("meals").select("name").order("eaten_at", { ascending: false }).limit(120);
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const { name } of (data as { name: string }[]) ?? []) {
+      const key = name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(name.trim());
+      if (names.length === RECENT_DISHES) break;
+    }
+    return names;
+  },
+};
+
 export function useRecentDishes() {
-  const query = useQuery({
-    queryKey: keys.recentDishes,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data } = await createClient().from("meals").select("name").order("eaten_at", { ascending: false }).limit(120);
-      const seen = new Set<string>();
-      const names: string[] = [];
-      for (const { name } of (data as { name: string }[]) ?? []) {
-        const key = name.trim().toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        names.push(name.trim());
-        if (names.length === RECENT_DISHES) break;
-      }
-      return names;
-    },
-  });
+  const query = useQuery(recentDishesQuery);
   return { dishes: query.data ?? [], loading: loadingOf(query) };
 }
 
 /** Coach conversations, most recently active first. */
+export const chatThreadsQuery = {
+  queryKey: keys.chatThreads,
+  queryFn: async () => {
+    const { data } = await createClient().from("chat_threads").select("id, title, updated_at").order("updated_at", { ascending: false }).limit(50);
+    return (data as ChatThread[]) ?? [];
+  },
+};
+
 export function useChatThreads() {
-  const query = useQuery({
-    queryKey: keys.chatThreads,
-    queryFn: async () => {
-      const { data } = await createClient().from("chat_threads").select("id, title, updated_at").order("updated_at", { ascending: false }).limit(50);
-      return (data as ChatThread[]) ?? [];
-    },
-  });
+  const query = useQuery(chatThreadsQuery);
   return { threads: query.data, loading: loadingOf(query) };
 }
 
 /** Messages of one conversation, oldest first. Pass null for a conversation that doesn't exist yet. */
+export const chatMessagesQuery = (threadId: string) => ({
+  queryKey: keys.chat(threadId),
+  queryFn: async () => {
+    const { data } = await createClient()
+      .from("chat_messages")
+      .select("id, role, content, created_at")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return ((data as ChatMessage[]) ?? []).reverse();
+  },
+});
+
 export function useChatMessages(threadId: string | null) {
-  const query = useQuery({
-    queryKey: keys.chat(threadId ?? "new"),
-    enabled: threadId !== null,
-    queryFn: async () => {
-      const { data } = await createClient()
-        .from("chat_messages")
-        .select("id, role, content, created_at")
-        .eq("thread_id", threadId!)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      return ((data as ChatMessage[]) ?? []).reverse();
-    },
-  });
+  // threadId is only used when it isn't null (the query is off otherwise)
+  const query = useQuery({ ...chatMessagesQuery(threadId ?? "new"), enabled: threadId !== null });
   return { messages: query.data, loading: threadId !== null && loadingOf(query), unavailable: threadId !== null && waiting(query) };
 }

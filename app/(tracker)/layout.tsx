@@ -4,6 +4,7 @@ import OfflineBanner from "./_components/OfflineBanner";
 import ProfileGate from "./_components/ProfileGate";
 import Providers from "./_components/Providers";
 import ResumeWarmup from "./_components/ResumeWarmup";
+import TabPrefetch from "./_components/TabPrefetch";
 import TrackerNav from "./_components/TrackerNav";
 
 export default function TrackerLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export default function TrackerLayout({ children }: { children: React.ReactNode 
     <Providers>
     <FlagsProvider>
       <ResumeWarmup />
+      <TabPrefetch />
       <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
         <TrackerNav />
         <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
