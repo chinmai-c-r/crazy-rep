@@ -80,7 +80,13 @@ export default function MealSearch() {
   const result = search.data?.mode === "search" && search.data.q === q ? search.data : null;
 
   // Example searches taken from the person's own food
-  const ideas = useMemo(() => (overview?.top.length ? overview.top.slice(0, 6).map((d) => d.name.toLowerCase()) : FALLBACK_IDEAS), [overview]);
+  const ideas = useMemo(() => {
+    if (!overview?.top.length) return FALLBACK_IDEAS;
+    // The dishes eaten most, with a few of the things inside them mixed in (you can search those too)
+    const dishes = overview.top.slice(0, 5).map((d) => d.name.toLowerCase());
+    const inside = overview.top.slice(0, 3).flatMap((d) => d.items.filter((i) => i.key !== d.name_key).slice(0, 1).map((i) => i.name.toLowerCase()));
+    return [...new Set([...dishes.slice(0, 3), ...inside, ...dishes.slice(3)])];
+  }, [overview]);
 
   const hits = useMemo(() => {
     if (!result) return [];
@@ -110,7 +116,7 @@ export default function MealSearch() {
           enterKeyHint="search"
           autoComplete="off"
           autoCapitalize="none"
-          aria-label="Search the meals you've eaten"
+          aria-label="Search the dishes you've eaten, or what's in them"
           placeholder={online ? undefined : "Search needs a connection"}
           className="size-full rounded-2xl bg-transparent pr-12 pl-12 text-lg outline-none disabled:opacity-60"
         />
@@ -188,7 +194,18 @@ export default function MealSearch() {
                     exit={reduce ? undefined : { opacity: 0, scale: 0.98 }}
                     transition={{ duration: 0.22, delay: reduce ? 0 : Math.min(i * 0.025, 0.2) }}
                   >
-                    <DishCard dish={hit} query={q} similar={hit.via === "similar"} open={open === hit.name_key} onToggle={() => setOpen(open === hit.name_key ? null : hit.name_key)} />
+                    <DishCard
+                      dish={hit}
+                      query={q}
+                      similar={hit.via === "similar"}
+                      inItem={hit.inItem}
+                      open={open === hit.name_key}
+                      onToggle={() => setOpen(open === hit.name_key ? null : hit.name_key)}
+                      onSearch={(name) => {
+                        setText(name);
+                        setOpen(null);
+                      }}
+                    />
                   </motion.li>
                 ))}
               </AnimatePresence>
@@ -277,7 +294,7 @@ function Overview({ overview, loading, empty, onPick }: { overview: { top: Dish[
     <div className="grid gap-5">
       <p className="text-sm text-muted-foreground">
         You&apos;ve logged <b className="text-foreground">{overview.total.meals.toLocaleString()}</b> {overview.total.meals === 1 ? "meal" : "meals"} across <b className="text-foreground">{overview.total.dishes.toLocaleString()}</b>{" "}
-        {overview.total.dishes === 1 ? "dish" : "dishes"}. Search any of them by name.
+        {overview.total.dishes === 1 ? "dish" : "dishes"}. Search a dish, or something in it, like “chutney”.
       </p>
 
       <section className="grid gap-2">
@@ -315,11 +332,16 @@ function Overview({ overview, loading, empty, onPick }: { overview: { top: Dish[
   );
 }
 
-/** One dish. Tap it to see the last times you ate it and to log it again. */
-function DishCard({ dish, query, similar, open, onToggle }: { dish: Dish; query: string; similar: boolean; open: boolean; onToggle: () => void }) {
+/** One dish. Tap it to see what's in it, the last time you ate it, and to log it again. */
+function DishCard({ dish, query, similar, inItem, open, onToggle, onSearch }: { dish: Dish; query: string; similar: boolean; inItem?: string; open: boolean; onToggle: () => void; onSearch: (name: string) => void }) {
   const usual = usualMealType(dish);
   const types = MEAL_TYPES.filter((t) => dish[t.value] > 0);
   const { times, loading } = useDishHistory(dish.name_key, open);
+  // What's inside: not the dish's own name again (a one-item meal is just itself)
+  const inside = dish.items.filter((i) => i.key !== dish.name_key);
+  const last = times[0];
+  const earlier = times.slice(1);
+  const matched = inItem?.toLowerCase();
 
   return (
     <div className={cn("overflow-hidden rounded-2xl border bg-card transition-colors", open && "border-primary/50")}>
@@ -338,8 +360,15 @@ function DishCard({ dish, query, similar, open, onToggle }: { dish: Dish; query:
               </span>
             )}
           </span>
+          {/* The match was inside the dish: say what, so it's clear why this dish is here */}
+          {inItem && (
+            <span className="truncate text-xs text-primary">
+              contains <b className="font-semibold"><Highlight text={inItem} query={query} /></b>
+            </span>
+          )}
           <span className="truncate text-xs text-muted-foreground">
             {dish.times}× · last {whenInline(dish.last_at)}
+            {inside.length > 0 && ` · ${inside.length} ${inside.length === 1 ? "item" : "items"}`}
           </span>
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             {types.map((t) => (
@@ -359,7 +388,7 @@ function DishCard({ dish, query, similar, open, onToggle }: { dish: Dish; query:
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-            <div className="grid gap-3 border-t px-3.5 pt-3 pb-3.5">
+            <div className="grid gap-4 border-t px-3.5 pt-3 pb-3.5">
               <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>
                   <i className="mr-1 inline-block size-1.5 rounded-full bg-protein" />P {fmt(dish.avg_protein)}g
@@ -372,19 +401,81 @@ function DishCard({ dish, query, similar, open, onToggle }: { dish: Dish; query:
                 </span>
                 <span>· first logged {whenInline(dish.first_at)}</span>
               </p>
-              <ul className="grid gap-1">
-                {loading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-9 rounded-xl" />)}
-                {times.map((t) => (
-                  <li key={t.id}>
-                    <Link href={`/dashboard?date=${localDay(new Date(t.eaten_at))}`} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                      <span aria-hidden>{MEAL_ICON[t.meal_type as MealType] ?? "🍽️"}</span>
-                      <span className="flex-1">{when(t.eaten_at)}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(t.eaten_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
-                      <b>{fmt(t.calories)} kcal</b>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+
+              {/* Everything that has been found inside this dish. Tap one to search for it. */}
+              {inside.length > 0 && (
+                <section className="grid gap-2">
+                  <SectionTitle>What&apos;s in it</SectionTitle>
+                  <div className="flex flex-wrap gap-1.5">
+                    {inside.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => onSearch(item.name)}
+                        title={`Search “${item.name}”`}
+                        className={cn(
+                          "inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
+                          item.key === matched || item.name.toLowerCase() === matched ? "border-primary bg-primary/15 text-foreground" : "bg-muted/30 text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {item.name}
+                        {item.times > 1 && <span className="text-[0.65rem] opacity-70">×{item.times}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* The last time, item by item */}
+              {loading && <Skeleton className="h-24 rounded-xl" />}
+              {last && (
+                <section className="grid gap-2">
+                  <Link href={`/dashboard?date=${localDay(new Date(last.eaten_at))}`} className="flex items-center justify-between gap-2">
+                    <SectionTitle>Last time · {when(last.eaten_at)}</SectionTitle>
+                    <span className="text-xs font-semibold">
+                      {MEAL_ICON[last.meal_type as MealType] ?? "🍽️"} {fmt(last.calories)} kcal
+                    </span>
+                  </Link>
+                  {last.items.length > 0 ? (
+                    <ul className="grid gap-1">
+                      {last.items.map((item, i) => (
+                        <li key={`${item.name}-${i}`} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                          <span className="min-w-0 flex-1">
+                            <b className="block truncate font-semibold">
+                              <Highlight text={item.name} query={query} />
+                            </b>
+                            {(item.portion || item.grams > 0) && (
+                              <small className="block truncate text-xs text-muted-foreground">{[item.portion, item.grams > 0 ? `${fmt(item.grams)} g` : ""].filter(Boolean).join(" · ")}</small>
+                            )}
+                          </span>
+                          <b className="whitespace-nowrap">{fmt(item.calories)} kcal</b>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No item breakdown was saved for this meal.</p>
+                  )}
+                </section>
+              )}
+
+              {earlier.length > 0 && (
+                <section className="grid gap-2">
+                  <SectionTitle>Other times</SectionTitle>
+                  <ul className="grid gap-1">
+                    {earlier.map((t) => (
+                      <li key={t.id}>
+                        <Link href={`/dashboard?date=${localDay(new Date(t.eaten_at))}`} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                          <span aria-hidden>{MEAL_ICON[t.meal_type as MealType] ?? "🍽️"}</span>
+                          <span className="flex-1">{when(t.eaten_at)}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(t.eaten_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+                          <b>{fmt(t.calories)} kcal</b>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
               <Link href={`/scan?type=${usual}&name=${encodeURIComponent(dish.name)}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                 <Plus className="size-4" /> Log again
               </Link>

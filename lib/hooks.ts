@@ -318,7 +318,9 @@ export function useMealSearch(q: string, enabled = true) {
   return { data: query.data, loading: loadingOf(query), fetching: query.isFetching, error: query.error?.message ?? null, unavailable: waiting(query) };
 }
 
-export type DishTime = { id: string; meal_type: string; calories: number; servings: number; eaten_at: string };
+/** One item found inside a meal (what the AI listed): the dosa, the chutney. */
+export type MealItem = { name: string; portion: string; grams: number; calories: number };
+export type DishTime = { id: string; meal_type: string; calories: number; servings: number; eaten_at: string; items: MealItem[] };
 
 /** The latest times you ate one dish (loads when `enabled`, i.e. when its card is opened). */
 export function useDishHistory(key: string, enabled: boolean) {
@@ -329,7 +331,15 @@ export function useDishHistory(key: string, enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("meal_dish_history", { p_key: key, p_limit: 6 });
       if (error) throw error;
-      return ((data as DishTime[]) ?? []).map((r) => ({ ...r, calories: Number(r.calories), servings: Number(r.servings) }));
+      return ((data as (Omit<DishTime, "items"> & { items: unknown })[]) ?? []).map((r) => ({
+        ...r,
+        calories: Number(r.calories),
+        servings: Number(r.servings),
+        // Older or unusual rows may not have a clean list: keep what looks like an item
+        items: (Array.isArray(r.items) ? (r.items as Record<string, unknown>[]) : [])
+          .filter((i) => i && typeof i.name === "string" && i.name.trim())
+          .map((i) => ({ name: String(i.name), portion: String(i.portion ?? ""), grams: Number(i.grams) || 0, calories: Number(i.calories) || 0 })),
+      }));
     },
   });
   return { times: query.data ?? [], loading: loadingOf(query) };

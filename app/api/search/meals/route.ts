@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { embedTexts, toVector } from "@/lib/embeddings";
-import { overview, rankHits, type Dish } from "@/lib/meal-search";
+import { overview, rankHits, type Dish, type DishItem } from "@/lib/meal-search";
 import { createAdmin, createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 30;
@@ -28,7 +28,12 @@ const toDish = (r: Row): Dish => ({
   lunch: Number(r.lunch),
   dinner: Number(r.dinner),
   snack: Number(r.snack),
+  items: Array.isArray(r.items) ? (r.items as Row[]).map((i): DishItem => ({ key: String(i.key), name: String(i.name), times: Number(i.times) })) : [],
 });
+
+/** Dishes whose items are also matched by meaning, and how many items each (the most recent dishes and their commonest items keep this small). */
+const ITEM_DISHES = 300;
+const ITEMS_PER_DISH = 5;
 
 async function storeEmbeddings(keys: string[]) {
   if (!keys.length) return;
@@ -60,7 +65,7 @@ async function similarDishes(q: string, keys: string[]): Promise<{ similar: Map<
       }
     }
 
-    const { data, error } = await admin.rpc("match_dish_names", { p_embedding: toVector(queryVector), p_keys: keys, p_count: 12 });
+    const { data, error } = await admin.rpc("match_dish_names", { p_embedding: toVector(queryVector), p_keys: keys, p_count: 20 });
     if (error) throw new Error(error.message);
     const similar = new Map((data as { name_key: string; similarity: number }[]).map((m) => [m.name_key, Number(m.similarity)]));
     return { similar, learning: todo.length > EMBED_NOW };
@@ -96,7 +101,10 @@ export async function POST(request: Request) {
   let similar: Map<string, number> | null = null;
   let semantic: "on" | "off" | "learning" = "off";
   if (q.length >= MIN_SEMANTIC_LENGTH && dishes.length && process.env.GEMINI_API_KEY) {
-    const result = await similarDishes(q, dishes.map((d) => d.name_key));
+    // Dish names, plus the commonest items of the dishes eaten most recently
+    const keys = new Set(dishes.map((d) => d.name_key));
+    for (const d of dishes.slice(0, ITEM_DISHES)) for (const item of d.items.slice(0, ITEMS_PER_DISH)) keys.add(item.key);
+    const result = await similarDishes(q, [...keys]);
     similar = result.similar;
     semantic = similar ? (result.learning ? "learning" : "on") : "off";
   }
