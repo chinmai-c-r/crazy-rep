@@ -49,7 +49,7 @@ export default function ThemePicker() {
         <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device.</p>
         <div role="radiogroup" aria-label="Corner roundness" className="grid gap-3">
           <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Corners</span>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 gap-2 min-[400px]:grid-cols-6">
             {RADII.map((r) => (
               <button
                 key={r.px}

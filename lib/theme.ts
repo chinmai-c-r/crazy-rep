@@ -79,6 +79,7 @@ export const DEFAULT_RADIUS = 12;
 export const RADII = [
   { px: 0, name: "Sharp" },
   { px: 6, name: "Subtle" },
+  { px: 8, name: "Soft" },
   { px: 12, name: "Default" },
   { px: 18, name: "Round" },
   { px: 24, name: "Rounder" },
