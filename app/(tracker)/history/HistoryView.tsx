@@ -1,12 +1,13 @@
 "use client";
 
-import { CalendarCheck, Dumbbell, Flame, Scale, Target, Trophy, UtensilsCrossed } from "lucide-react";
+import { CalendarCheck, Dumbbell, Flame, LineChart, Scale, Search, Target, Trophy, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useProfile, useSummary } from "@/lib/hooks";
+import { parseDay } from "@/lib/day";
+import { useFirstLogDay, useProfile, useSummary } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import type { SummaryRow } from "@/lib/types";
@@ -15,6 +16,8 @@ import { CaloriesChart, Donut, MiniBars, WeightLine, type CalPoint } from "../_c
 import { toLocalDate } from "../_components/LogSheets";
 import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
+import { TabBar, type ProfileTab } from "../profile/ProfileTabs";
+import MealSearch from "./MealSearch";
 import {
   BarChartSkeleton,
   DonutSkeleton,
@@ -33,9 +36,25 @@ const RANGES = {
   "30d": { days: 30, bucket: "day" },
   "90d": { days: 90, bucket: "week" },
   "1y": { days: 365, bucket: "week" },
-  "5y": { days: 1826, bucket: "month" },
 } as const satisfies Record<string, { days: number; bucket: Bucket }>;
-type RangeKey = keyof typeof RANGES;
+/** "All" isn't a fixed length: it runs from the first day anything was logged to today. */
+type RangeKey = keyof typeof RANGES | "all";
+const TABS: { key: RangeKey; label: string }[] = [
+  { key: "7d", label: "7d" },
+  { key: "30d", label: "30d" },
+  { key: "90d", label: "90d" },
+  { key: "1y", label: "1y" },
+  { key: "all", label: "All" },
+];
+
+/** The window for "All": from the first logged day (a week at least), in days, weeks or months so the chart stays readable. */
+function allTime(first: string | null): { days: number; bucket: Bucket } {
+  const start = parseDay(first);
+  const now = new Date();
+  const span = start ? Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - start.getTime()) / 86_400_000) + 1 : 30;
+  const days = Math.max(span, 7);
+  return { days, bucket: days <= 60 ? "day" : days <= 400 ? "week" : "month" };
+}
 
 const asDate = (bucket: string) => new Date(`${bucket}T00:00`);
 
@@ -61,12 +80,25 @@ const UNIT = { day: "days", week: "weeks", month: "months" } as const;
 
 const hours = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min}m`);
 
+type Section = "trends" | "meals";
+const VIEWS: ProfileTab[] = [
+  { id: "trends", label: "Trends", icon: LineChart },
+  { id: "meals", label: "Search meals", icon: Search },
+];
+
 export default function HistoryView() {
   const online = useOnline();
+  // Trends (the charts) or Meals (search what you've eaten). The choice lives in the address (?view=meals).
+  const [section, setSection] = useState<Section>(() => (new URLSearchParams(window.location.search).get("view") === "meals" ? "meals" : "trends"));
+  const openView = (next: string) => {
+    setSection(next as Section);
+    window.history.replaceState(null, "", next === "meals" ? "?view=meals" : window.location.pathname);
+  };
   const [picked, setRange] = useState<RangeKey>("30d");
   // Only the last 7 days are kept for offline use, so that's all there is to look at without a connection
   const range: RangeKey = online ? picked : "7d";
-  const { days, bucket } = RANGES[range];
+  const { first: firstLog, loading: firstLoading } = useFirstLogDay();
+  const { days, bucket } = range === "all" ? allTime(firstLog) : RANGES[range];
   const { profile, loading: profileLoading } = useProfile();
   const goal = profile?.calorie_goal ?? 2000;
 
@@ -85,7 +117,7 @@ export default function HistoryView() {
     return { start: toLocalDate(first), end: toLocalDate(today) };
   }, []);
   useSummary(lastWeek.start, lastWeek.end, "day");
-  const pending = loading || profileLoading;
+  const pending = loading || profileLoading || (range === "all" && firstLoading);
   const unit = bucket === "day" ? "" : " (avg per logged day)";
 
   const view = useMemo(() => {
@@ -141,19 +173,32 @@ export default function HistoryView() {
   const firstW = view.weighed[0]?.r.avg_weight_kg;
   const lastW = view.weighed[view.weighed.length - 1]?.r.avg_weight_kg;
 
+  const switcher = <TabBar tabs={VIEWS} active={section} onChange={openView} label="History sections" pillId="history-tab-pill" />;
+  if (section === "meals") {
+    return (
+      <Page>
+        <PageHeader eyebrow="What you've eaten" title="History" />
+        {switcher}
+        <MealSearch />
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <PageHeader eyebrow="Your trends" title="History">
         <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
           <TabsList className="h-11 rounded-full p-1">
-            {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-              <TabsTrigger key={r} value={r} disabled={!online && r !== "7d"} className="rounded-full px-3 sm:px-4">
-                {r}
+            {TABS.map(({ key, label }) => (
+              <TabsTrigger key={key} value={key} disabled={!online && key !== "7d"} className="rounded-full px-3 sm:px-4">
+                {label}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
       </PageHeader>
+
+      {switcher}
 
       {!online && !unavailable && <OfflineNote>Offline: showing your last 7 days. Longer ranges need a connection.</OfflineNote>}
       {unavailable && <OfflineNote>Your last 7 days aren&apos;t saved on this device yet. Connect to the internet and open History once to save them.</OfflineNote>}

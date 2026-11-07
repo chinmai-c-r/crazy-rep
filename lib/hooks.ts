@@ -2,6 +2,8 @@
 
 import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { localDay } from "./day";
+import type { Dish, Hit } from "./meal-search";
 import { createClient } from "./supabase/client";
 import type { ChatMessage, ChatThread, Meal, Profile, SummaryRow, WeightLog } from "./types";
 
@@ -26,12 +28,20 @@ export const keys = {
   chatThreads: ["chat-threads"] as const,
   chat: (threadId: string) => ["chat", threadId] as const,
   reminders: ["reminders"] as const,
+  firstLog: ["first-log"] as const,
+  mealSearch: (q: string) => ["meal-search", q] as const,
+  dishHistory: (key: string) => ["dish-history", key] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
 export const invalidateSummary = (qc: QueryClient) => qc.invalidateQueries({ queryKey: ["summary"] });
 /** Call after meals are added or removed so the name suggestions stay current. */
-export const invalidateRecentDishes = (qc: QueryClient) => qc.invalidateQueries({ queryKey: keys.recentDishes });
+export const invalidateRecentDishes = (qc: QueryClient) => {
+  // Meal search is built from the same meals, so it needs refreshing too
+  void qc.invalidateQueries({ queryKey: ["meal-search"] });
+  void qc.invalidateQueries({ queryKey: ["dish-history"] });
+  return qc.invalidateQueries({ queryKey: keys.recentDishes });
+};
 
 export function useUser() {
   const { data } = useQuery({
@@ -252,4 +262,75 @@ export function useChatMessages(threadId: string | null) {
   // threadId is only used when it isn't null (the query is off otherwise)
   const query = useQuery({ ...chatMessagesQuery(threadId ?? "new"), enabled: threadId !== null });
   return { messages: query.data, loading: threadId !== null && loadingOf(query), unavailable: threadId !== null && waiting(query) };
+}
+
+/** The earliest day anything was logged (a meal, activity, water or weight), or null if nothing was. History's "All" starts here. */
+export const firstLogQuery = {
+  queryKey: keys.firstLog,
+  staleTime: 10 * 60_000,
+  queryFn: async () => {
+    const db = createClient();
+    const first = <T extends string>(table: string, column: T) => db.from(table).select(column).order(column, { ascending: true }).limit(1);
+    const [meals, activity, water, weight] = await Promise.all([
+      first("meals", "eaten_at"),
+      first("activity_logs", "performed_at"),
+      first("water_logs", "logged_at"),
+      first("weight_logs", "logged_on"),
+    ]);
+    const days: string[] = [];
+    // Timestamps become the day they fall on in this person's timezone; weight is already a plain date
+    for (const [res, column, isTimestamp] of [
+      [meals, "eaten_at", true],
+      [activity, "performed_at", true],
+      [water, "logged_at", true],
+      [weight, "logged_on", false],
+    ] as const) {
+      const value = (res.data as unknown as Record<string, string>[] | null)?.[0]?.[column];
+      if (value) days.push(isTimestamp ? localDay(new Date(value)) : value);
+    }
+    return days.sort()[0] ?? null;
+  },
+};
+
+export function useFirstLogDay() {
+  const query = useQuery(firstLogQuery);
+  return { first: query.data ?? null, loading: loadingOf(query) };
+}
+
+export type MealSearchResult =
+  | { mode: "overview"; top: Dish[]; recent: Dish[]; total: { dishes: number; meals: number } }
+  | { mode: "search"; q: string; hits: Hit[]; semantic: "on" | "off" | "learning"; total: { dishes: number; meals: number } };
+
+/** Search what you've eaten by name. An empty query gives the overview (most eaten, most recent). */
+export function useMealSearch(q: string, enabled = true) {
+  const query = useQuery({
+    queryKey: keys.mealSearch(q),
+    enabled,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/search/meals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }), signal });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Search failed");
+      return json as MealSearchResult;
+    },
+  });
+  return { data: query.data, loading: loadingOf(query), fetching: query.isFetching, error: query.error?.message ?? null, unavailable: waiting(query) };
+}
+
+export type DishTime = { id: string; meal_type: string; calories: number; servings: number; eaten_at: string };
+
+/** The latest times you ate one dish (loads when `enabled`, i.e. when its card is opened). */
+export function useDishHistory(key: string, enabled: boolean) {
+  const query = useQuery({
+    queryKey: keys.dishHistory(key),
+    enabled,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("meal_dish_history", { p_key: key, p_limit: 6 });
+      if (error) throw error;
+      return ((data as DishTime[]) ?? []).map((r) => ({ ...r, calories: Number(r.calories), servings: Number(r.servings) }));
+    },
+  });
+  return { times: query.data ?? [], loading: loadingOf(query) };
 }

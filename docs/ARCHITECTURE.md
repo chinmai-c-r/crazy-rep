@@ -81,6 +81,16 @@ flowchart LR
 
 The results screen and the logged-meal sheet have an "Missing something?" box. `POST /api/analyze/item` splits the text into a name and an amount (`splitItemText`, so "2 rotis" becomes `rotis` and `2`) and calls the same `lookupTextMeal` chain as the meal name box: saved result, then vector search, then USDA, then AI. New answers are saved to `analysis_cache` for the next person. The food items it finds are added to the meal, each with the usual quantity stepper; items added to a logged meal can be removed again before saving.
 
+### Searching what you've eaten
+
+History has a **Meals** tab (`MealSearch.tsx`, `POST /api/search/meals`).
+
+- `meal_dishes()` groups the signed-in person's meals into dishes (same name, ignoring case and spacing) with counts, last and first date, average nutrients and how often each meal type. `meal_dish_history()` lists the latest times for one dish. Both run as the user, so row-level security applies.
+- **By name:** `lib/meal-search.ts` scores each dish name against what was typed using the same word handling as food lookups (`tokens` in `lib/food-text.ts`: spelling variants, plurals, "dahi" = "curd"). Whole words beat a half-typed word.
+- **By meaning:** each dish name gets a vector in `dish_embeddings` (server-only, keyed by the name, never read by users). The server embeds the query, stores vectors for any names that don't have one yet (up to 100 now, 400 more after the answer is sent), and `match_dish_names()` returns the nearest names among *this person's own* dishes. Matches must clear `SEMANTIC_FLOOR` and sit within `SEMANTIC_BAND` of the best, and are marked "similar". If the AI is unavailable the search quietly continues by name only.
+- The embedding quota is shared with food lookups (one call per search of 3+ letters; searches are debounced).
+- "Log again" opens Log meal with `?name=` and the usual meal type filled in.
+
 ## Coach chat
 
 The coach answers questions using read-only tools that run **under the user's own login**, so it can only ever see that user's data.
@@ -192,7 +202,7 @@ erDiagram
 
 - `analysis_cache` isn't tied to a user, and only the server can access it.
 - `access_requests` holds emails from the landing page **Request access** form (one row per email). Only the server can read or write it.
-- `history_summary()` adds up meals, activity, water and weight per **day, week or month** in the user's timezone. That's how History covers 5 years quickly.
+- `history_summary()` adds up meals, activity, water and weight per **day, week or month** in the user's timezone. That's how History covers all time quickly: "All" runs from the first day anything was logged (found by `useFirstLogDay`) to today, in day, week or month buckets depending on how long that is.
 - A trigger keeps `profiles.weight_kg` in step with the latest weigh-in.
 - Schema changes live in `supabase/migrations/` and are applied with `npm run db:push` (or automatically by the GitHub Action).
 

@@ -11,7 +11,7 @@ export type ProfileTab = { id: string; label: string; icon: LucideIcon; /** Some
  * A sticky bar of tabs with a pill that glides to the active one.
  * Once it reaches the top of the screen it gets a blurred backdrop and clears the phone's status bar.
  */
-export function TabBar({ tabs, active, onChange }: { tabs: ProfileTab[]; active: string; onChange: (id: string) => void }) {
+export function TabBar({ tabs, active, onChange, label = "Profile sections", pillId = "profile-tab-pill" }: { tabs: ProfileTab[]; active: string; onChange: (id: string) => void; label?: string; pillId?: string }) {
   const bar = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
 
@@ -46,7 +46,7 @@ export function TabBar({ tabs, active, onChange }: { tabs: ProfileTab[]; active:
           stuck && "border-b bg-background/80 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur-xl",
         )}
       >
-        <div role="tablist" aria-label="Profile sections" className="grid grid-flow-col auto-cols-fr gap-1 rounded-2xl border bg-card/70 p-1 backdrop-blur">
+        <div role="tablist" aria-label={label} className="grid grid-flow-col auto-cols-fr gap-1 rounded-2xl border bg-card/70 p-1 backdrop-blur">
           {tabs.map(({ id, label, icon: Icon, alert }) => {
             const on = id === active;
             return (
@@ -62,7 +62,7 @@ export function TabBar({ tabs, active, onChange }: { tabs: ProfileTab[]; active:
               >
                 {on && (
                   <motion.span
-                    layoutId="profile-tab-pill"
+                    layoutId={pillId}
                     className="absolute inset-0 rounded-xl bg-primary/12 ring-1 ring-primary/40 shadow-[0_6px_22px_-10px_rgb(var(--primary-rgb)/0.7)]"
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   />

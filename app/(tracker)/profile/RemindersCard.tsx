@@ -282,32 +282,33 @@ function MealRow({
 }) {
   const { label, icon } = REMINDER_LABELS[meal];
   return (
-    <li className="flex items-center gap-2.5 rounded-2xl border bg-muted/30 px-3 py-2.5">
+    // One line on a normal phone: icon, name, time, switch. On a narrow one the time drops under the name instead of squeezing it.
+    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-2 rounded-2xl border bg-muted/30 px-3 py-2.5 min-[430px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
       <span aria-hidden className="text-xl">
         {icon}
       </span>
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate font-medium",
-          !time && "text-muted-foreground",
-        )}
-      >
-        {label}
-      </span>
+      <span className={cn("min-w-0 truncate font-medium", !time && "text-muted-foreground")}>{label}</span>
       <input
         type="time"
         value={time ?? DEFAULT_REMINDER_TIMES[meal]}
         disabled={disabled || !time}
         onChange={(e) => e.target.value && onChange(e.target.value)}
         aria-label={`${label} reminder time`}
-        className="h-10 w-[8.5rem] shrink-0 rounded-xl border bg-background/60 px-2 text-[0.95rem] tabular-nums outline-none focus-visible:border-primary disabled:opacity-40"
+        className={cn(
+          // Sized to its content so the clock icon sits next to the time instead of at the far edge of a wide box
+          "col-span-2 col-start-2 row-start-2 h-10 w-[8.3rem] justify-self-start rounded-xl border bg-background/60 pr-2 pl-3 text-[0.95rem] tabular-nums outline-none focus-visible:border-primary disabled:opacity-40",
+          "min-[430px]:col-span-1 min-[430px]:col-start-auto min-[430px]:row-start-auto",
+          "[&::-webkit-calendar-picker-indicator]:ml-1 [&::-webkit-calendar-picker-indicator]:opacity-70",
+        )}
       />
-      <Switch
-        checked={Boolean(time)}
-        onChange={(v) => onChange(v ? DEFAULT_REMINDER_TIMES[meal] : null)}
-        disabled={disabled}
-        label={`${label} reminder`}
-      />
+      <span className="col-start-3 row-start-1 min-[430px]:col-start-auto min-[430px]:row-start-auto">
+        <Switch
+          checked={Boolean(time)}
+          onChange={(v) => onChange(v ? DEFAULT_REMINDER_TIMES[meal] : null)}
+          disabled={disabled}
+          label={`${label} reminder`}
+        />
+      </span>
     </li>
   );
 }
