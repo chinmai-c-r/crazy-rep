@@ -1,9 +1,13 @@
+import { LogoMark } from "@/components/LogoMark";
+
 export default function Footer() {
   return (
     <footer className="footer">
       <div className="footer__brand">
         <a href="#top" className="logo">
-          <span className="logo__mark">⚡</span>
+          <span className="logo__mark">
+            <LogoMark />
+          </span>
           CRAZY<span>REP</span>
         </a>
         <p>Snap it. Log it. Know it.</p>

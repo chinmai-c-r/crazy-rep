@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LogoMark } from "@/components/LogoMark";
 import { useEffect, useState } from "react";
 
 const links = [
@@ -23,7 +24,9 @@ export default function Nav() {
   return (
     <header className={`nav ${scrolled ? "nav--solid" : ""}`}>
       <a href="#top" className="logo" aria-label="Crazy Rep home">
-        <span className="logo__mark">⚡</span>
+        <span className="logo__mark">
+          <LogoMark />
+        </span>
         CRAZY<span>REP</span>
       </a>
       <nav className="nav__links" aria-label="Primary">

@@ -1,11 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Check, Loader2, Minus, Plus, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Minus, Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/LogoMark";
 import { DEFAULT_DIET, DIET_OPTIONS } from "@/lib/diet";
 import { useProfile } from "@/lib/hooks";
 import { calculateGoals } from "@/lib/nutrition";
@@ -179,7 +180,7 @@ function Onboarding() {
           </Button>
           <span className="inline-flex items-center gap-2 font-heading text-xl tracking-wide">
             <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <Zap className="size-4 fill-current" />
+              <LogoMark className="size-6" />
             </span>
             CRAZY <span className="-ml-1.5 text-primary">REP</span>
           </span>
