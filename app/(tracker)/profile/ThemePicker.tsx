@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import { currentTheme, DEFAULT_THEME, setTheme, subscribeTheme, THEMES, type ThemeId } from "@/lib/theme";
+import { currentRadius, currentTheme, DEFAULT_RADIUS, DEFAULT_THEME, RADII, setRadius, setTheme, subscribeTheme, THEMES, type ThemeId } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "../_components/Page";
 
@@ -31,6 +31,7 @@ const GROUPS = [
 
 export default function ThemePicker() {
   const active = useSyncExternalStore(subscribeTheme, currentTheme, () => DEFAULT_THEME);
+  const radius = useSyncExternalStore(subscribeTheme, currentRadius, () => DEFAULT_RADIUS);
 
   function pick(id: ThemeId, name: string) {
     if (id === active) return;
@@ -46,6 +47,25 @@ export default function ThemePicker() {
       <CardContent className="grid gap-4">
         <SectionTitle>Appearance</SectionTitle>
         <p className="text-sm text-muted-foreground">Pick a look. It is saved on this device.</p>
+        <div role="radiogroup" aria-label="Corner roundness" className="grid gap-3">
+          <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Corners</span>
+          <div className="grid grid-cols-5 gap-2">
+            {RADII.map((r) => (
+              <button
+                key={r.px}
+                type="button"
+                role="radio"
+                aria-checked={r.px === radius}
+                onClick={() => setRadius(r.px)}
+                className={cn("grid min-w-0 justify-items-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition-colors", r.px === radius ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:border-primary/40")}
+              >
+                {/* A corner drawn at this radius */}
+                <span aria-hidden className="size-8 border-t-2 border-l-2 border-current" style={{ borderTopLeftRadius: Math.min(r.px, 16) }} />
+                <span className="truncate">{r.px === DEFAULT_RADIUS ? "12px" : `${r.px}px`}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         {GROUPS.map((group) => (
           <div key={group.label} role="radiogroup" aria-label={`${group.label} themes`} className="grid gap-3">
             <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{group.label}</span>

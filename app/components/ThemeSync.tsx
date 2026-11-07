@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { applyTheme, storedTheme } from "@/lib/theme";
+import { applyRadius, applyTheme, storedRadius, storedTheme } from "@/lib/theme";
 
 /**
  * The inline script sets the theme before paint; this re-applies it once React is running, which also fixes the
@@ -10,6 +10,7 @@ import { applyTheme, storedTheme } from "@/lib/theme";
 export default function ThemeSync() {
   useEffect(() => {
     applyTheme(storedTheme());
+    applyRadius(storedRadius());
   }, []);
   return null;
 }
