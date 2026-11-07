@@ -29,7 +29,7 @@ export const keys = {
   chat: (threadId: string) => ["chat", threadId] as const,
   reminders: ["reminders"] as const,
   firstLog: ["first-log"] as const,
-  mealSearch: (q: string) => ["meal-search", q] as const,
+  mealSearch: (q: string, similar: boolean) => ["meal-search", q, similar] as const,
   dishHistory: (key: string) => ["dish-history", key] as const,
 };
 
@@ -301,15 +301,18 @@ export type MealSearchResult =
   | { mode: "overview"; top: Dish[]; recent: Dish[]; total: { dishes: number; meals: number } }
   | { mode: "search"; q: string; hits: Hit[]; semantic: "on" | "off" | "learning"; total: { dishes: number; meals: number } };
 
-/** Search what you've eaten by name. An empty query gives the overview (most eaten, most recent). */
-export function useMealSearch(q: string, enabled = true) {
+/**
+ * Search what you've eaten by name. An empty query gives the overview (most eaten, most recent).
+ * `similar: false` skips the meaning-based matching (an AI call): for a name you tapped, which is already exact.
+ */
+export function useMealSearch(q: string, { enabled = true, similar = true }: { enabled?: boolean; similar?: boolean } = {}) {
   const query = useQuery({
-    queryKey: keys.mealSearch(q),
+    queryKey: keys.mealSearch(q, similar),
     enabled,
     staleTime: 60_000,
     placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/search/meals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }), signal });
+      const res = await fetch("/api/search/meals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, similar }), signal });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Search failed");
       return json as MealSearchResult;
