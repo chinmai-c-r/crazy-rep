@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
 import { useLogRange, useMeals, useProfile, useGoogleStatus, useGoogleSyncing, useSignedUrls, useSleepRange, useStepSync, useSteps, useWeights } from "@/lib/hooks";
-import { nightsOf } from "@/lib/sleep";
+import { cn } from "@/lib/utils";
+import { napsOf, nightsOf } from "@/lib/sleep";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
@@ -50,6 +51,7 @@ export default function DashboardView() {
   const fromGoogle = Boolean(google?.steps);
   const sleepDay = localDay(date);
   const sleepNights = useMemo(() => nightsOf(sleepRows), [sleepRows]);
+  const sleepNaps = useMemo(() => napsOf(sleepRows, sleepDay), [sleepRows, sleepDay]);
   const [sleepOpen, setSleepOpen] = useState(false);
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
@@ -95,7 +97,7 @@ export default function DashboardView() {
         </div>
       </PageHeader>
 
-      <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
+      <section className={cn("grid gap-4", google?.connected ? "lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]" : "lg:grid-cols-[320px_1fr]")}>
         {booting ? (
           <RingCardSkeleton />
         ) : (
@@ -104,7 +106,7 @@ export default function DashboardView() {
           {/* With Google Health connected, the sleep summary sits beside the ring; it taps open to the full night */}
           <div className="flex w-full items-center justify-center gap-3 px-4 sm:gap-6">
             <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} compact={Boolean(google?.connected)} />
-            {google?.connected && <SleepPeek nights={sleepNights} day={sleepDay} access={Boolean(google.sleep)} problem={problems.sleep} loading={sleepLoading || syncing} onOpen={() => setSleepOpen(true)} />}
+            {google?.connected && <SleepPeek nights={sleepNights} naps={sleepNaps} day={sleepDay} access={Boolean(google.sleep)} problem={problems.sleep} loading={sleepLoading || syncing} onOpen={() => setSleepOpen(true)} />}
           </div>
           <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} steps={steps} showSteps={showSteps} />
         </Card>
@@ -180,7 +182,7 @@ export default function DashboardView() {
         </div>
       </section>
 
-      <SleepSheet open={sleepOpen} onOpenChange={setSleepOpen} nights={sleepNights} day={sleepDay} />
+      <SleepSheet open={sleepOpen} onOpenChange={setSleepOpen} nights={sleepNights} naps={sleepNaps} day={sleepDay} />
       <ActivitySheet
         open={sheet === "activity"}
         onOpenChange={(o) => setSheet(o ? "activity" : null)}

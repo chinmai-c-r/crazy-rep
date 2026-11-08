@@ -156,6 +156,16 @@ export function sleepScore(n: Pick<Night, "asleep" | "inBed" | "deep" | "rem">) 
 
 export const scoreLabel = (score: number) => (score >= 85 ? "Excellent" : score >= 70 ? "Good" : score >= 50 ? "Fair" : "Poor");
 
+/** A nap: sleep marked as a nap. Listed on its own so it shows even on a day with no night. */
+export type Nap = { start: string; end: string; min: number };
+
+export function napsOf(rows: SleepRow[], day: string): Nap[] {
+  return rows
+    .filter((r) => r.day === day && r.nap)
+    .map((r) => ({ start: r.started_at, end: r.ended_at, min: r.asleep_min }))
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
 /** One Night per day, oldest first. The longest non-nap session is the night; a day with only naps has no night. */
 export function nightsOf(rows: SleepRow[]): Night[] {
   const byDay = new Map<string, SleepRow[]>();

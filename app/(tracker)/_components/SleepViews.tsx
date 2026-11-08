@@ -5,7 +5,7 @@ import { ChevronRight, Moon } from "lucide-react";
 import { useId } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { averageOf, fmtDelta, fmtSleep, scoreLabel, SLEEP_GOAL_MIN, type Night } from "@/lib/sleep";
+import { averageOf, fmtDelta, fmtSleep, scoreLabel, SLEEP_GOAL_MIN, type Nap, type Night } from "@/lib/sleep";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -89,6 +89,7 @@ export function ScoreRing({ score, size = 112 }: { score: number; size?: number 
  */
 export function SleepPeek({
   nights,
+  naps = [],
   day,
   access,
   problem,
@@ -96,6 +97,8 @@ export function SleepPeek({
   onOpen,
 }: {
   nights: Night[];
+  /** The day's naps: shown under the night, or on their own when there was no night */
+  naps?: Nap[];
   day: string;
   access: boolean;
   problem?: string;
@@ -127,6 +130,19 @@ export function SleepPeek({
     );
   }
   if (!night && loading) return <SleepPeekSkeleton />;
+  if (!night && naps.length) {
+    const only = naps.reduce((sum, n) => sum + n.min, 0);
+    return (
+      <button type="button" onClick={onOpen} aria-label="Open sleep details" className="group grid min-w-0 flex-1 content-center gap-2 rounded-2xl p-2 text-left transition-colors hover:bg-foreground/5 active:scale-[0.98] sm:p-3">
+        <span className="flex items-center justify-between gap-1">
+          {head}
+          <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+        </span>
+        <b className="font-heading text-3xl leading-none font-normal whitespace-nowrap sm:text-4xl">{fmtSleep(only)}</b>
+        <span className="text-xs text-muted-foreground">{naps.length === 1 ? "nap" : `${naps.length} naps`} · no night recorded yet</span>
+      </button>
+    );
+  }
   if (!night) {
     return (
       <div className="grid min-w-0 flex-1 content-center gap-1.5">
@@ -137,6 +153,7 @@ export function SleepPeek({
   }
 
   const delta = avg === null ? null : night.asleep - avg;
+  const napMin = naps.reduce((sum, n) => sum + n.min, 0);
   return (
     <button
       type="button"
@@ -148,7 +165,12 @@ export function SleepPeek({
         {head}
         <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
-      <b className="font-heading text-3xl leading-none font-normal sm:text-4xl">{fmtSleep(night.asleep)}</b>
+      <b className="font-heading text-3xl leading-none font-normal whitespace-nowrap sm:text-4xl">{fmtSleep(night.asleep)}</b>
+      {napMin > 0 && (
+        <span className="text-xs font-semibold text-chart-4">
+          + {fmtSleep(napMin)} {naps.length === 1 ? "nap" : "naps"}
+        </span>
+      )}
       {hasStages(night) && <StageBar night={night} />}
       <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
         <span className="rounded-full bg-chart-4/15 px-2 py-0.5 font-semibold whitespace-nowrap text-chart-4">
@@ -162,8 +184,28 @@ export function SleepPeek({
   );
 }
 
+/** Each nap with when it was and how long. */
+function NapList({ naps }: { naps: Nap[] }) {
+  if (!naps.length) return null;
+  return (
+    <section className="grid gap-2">
+      <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{naps.length === 1 ? "Nap" : "Naps"}</h3>
+      <ul className="grid gap-1.5 text-sm">
+        {naps.map((n) => (
+          <li key={n.start} className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">
+              {clock(n.start)} – {clock(n.end)}
+            </span>
+            <b>{fmtSleep(n.min)}</b>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Everything about a night: the score, the stages against your usual, naps and the last week side by side. */
-export function SleepSheet({ open, onOpenChange, nights, day }: { open: boolean; onOpenChange: (open: boolean) => void; nights: Night[]; day: string }) {
+export function SleepSheet({ open, onOpenChange, nights, naps = [], day }: { open: boolean; onOpenChange: (open: boolean) => void; nights: Night[]; naps?: Nap[]; day: string }) {
   const night = nights.find((n) => n.day === day);
   const before = nights.filter((n) => n.day < day).slice(-7);
   const week = night ? [...before, night] : before;
@@ -177,6 +219,12 @@ export function SleepSheet({ open, onOpenChange, nights, day }: { open: boolean;
           <DrawerTitle>Sleep</DrawerTitle>
           <DrawerDescription>{dayLabel(day, { weekday: "long", month: "long", day: "numeric" })}</DrawerDescription>
         </DrawerHeader>
+        {open && !night && naps.length > 0 && (
+          <div className="grid gap-4 px-4 pb-8">
+            <p className="text-sm text-muted-foreground">No night is recorded for this day yet. It shows up after your watch syncs.</p>
+            <NapList naps={naps} />
+          </div>
+        )}
         {open && night && (
           <div className="grid gap-6 overflow-y-auto px-4 pb-8">
             {/* The night in one look */}
@@ -224,7 +272,7 @@ export function SleepSheet({ open, onOpenChange, nights, day }: { open: boolean;
               </section>
             )}
 
-            {night.napMin > 0 && <p className="text-sm text-muted-foreground">Plus {fmtSleep(night.napMin)} of naps that day.</p>}
+            <NapList naps={naps} />
 
             {/* The last week side by side */}
             {week.length > 1 && (
