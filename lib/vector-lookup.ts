@@ -13,7 +13,8 @@ import { createAdmin } from "./supabase/server";
 const MIN_SIMILARITY = 0.7;
 const AMBIGUITY_MARGIN = 0.02;
 
-export type CacheSource = "ai" | "usda" | "indb" | "ifct" | "ai-catalog";
+/** "meal" rows only exist to make your own meals searchable; they are never used as a food's nutrition. */
+export type CacheSource = "ai" | "usda" | "indb" | "ifct" | "ai-catalog" | "meal";
 /** similarity is null for rows found by text search only (they must match a name exactly to be used). */
 type Row = { cache_key: string; name: string; portion: string | null; search_text: string | null; source: CacheSource; serving_g: number | null; analysis: unknown; similarity: number | null };
 export type VectorCandidate = { name: string; source: CacheSource; similarity: number | null; verdict: string };
@@ -104,6 +105,7 @@ async function nearest(name: string, count = 8): Promise<Row[]> {
           .from("analysis_cache")
           .select("cache_key, name, portion, search_text, source, serving_g, analysis")
           .is("notes", null)
+          .neq("source", "meal")
           .or(`name.ilike.%${phrase}%,search_text.ilike.%${phrase}%`)
           .limit(25)
       : Promise.resolve({ data: [], error: null }),

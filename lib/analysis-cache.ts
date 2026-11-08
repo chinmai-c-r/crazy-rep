@@ -17,7 +17,7 @@ export async function getCachedAnalysis(
 ): Promise<{ analysis: Analysis; model: string | null; source: CacheSource | null } | null> {
   try {
     const admin = createAdmin();
-    const { data } = await admin.from("analysis_cache").select("analysis, model, source").eq("cache_key", key).maybeSingle();
+    const { data } = await admin.from("analysis_cache").select("analysis, model, source").eq("cache_key", key).neq("source", "meal").maybeSingle();
     if (!data) return null;
     const parsed = analysisSchema.safeParse(data.analysis);
     if (!parsed.success) return null;

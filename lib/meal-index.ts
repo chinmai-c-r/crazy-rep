@@ -5,6 +5,8 @@ import { embedText, mealToAnalysis } from "./meal-embed";
 type Embed = (texts: string[]) => Promise<number[][]>;
 type ToVector = (v: number[]) => string;
 
+export const MEAL_KEY = "meal:";
+
 export type IndexableMeal = Parameters<typeof mealToAnalysis>[0] & { id: string };
 
 const itemNamesOf = (items: unknown): string[] =>
@@ -33,8 +35,10 @@ export async function embedMissing(admin: SupabaseClient, embed: Embed, toVector
 export async function indexMeals(admin: SupabaseClient, embed: Embed, toVector: ToVector, userId: string, meals: IndexableMeal[]): Promise<number> {
   const byKey = new Map<string, IndexableMeal[]>();
   for (const m of meals) {
-    const key = cacheKey({ name: m.name });
-    if (key.startsWith("|")) continue; // no usable name
+    const plain = cacheKey({ name: m.name });
+    if (plain.startsWith("|")) continue; // no usable name
+    // Their own key space: a meal's row is never mistaken for a food's saved nutrition (keys of foods have no colon)
+    const key = `${MEAL_KEY}${plain}`;
     byKey.set(key, [...(byKey.get(key) ?? []), m]);
   }
   if (!byKey.size) return 0;
@@ -57,7 +61,7 @@ export async function indexMeals(admin: SupabaseClient, embed: Embed, toVector: 
         notes: null,
         analysis,
         model: "meal",
-        source: "ai",
+        source: "meal",
         search_text: m.name,
         embed_text: text,
         serving_g: analysis.items.reduce((s, it) => s + it.grams, 0) || null,
