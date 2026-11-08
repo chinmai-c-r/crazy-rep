@@ -55,10 +55,34 @@ async function refresh(event, url, pages) {
       await pages.delete(pageKey(url));
       return tell(event.resultingClientId, { type: "navigate", url: res.url });
     }
-    if (isHtml(res)) await pages.put(pageKey(url), res.clone());
+    if (isHtml(res)) {
+      await pages.put(pageKey(url), res.clone());
+      await keepFilesOf(await res.text());
+    }
   } catch {
     // offline or the server is slow: the saved copy is still good
   }
+}
+
+/**
+ * A saved page is only useful if its code is saved too. The page that was open when a new version was released is still running the old
+ * code, so the new version's files have never been loaded on this phone; without this, the next open shows the saved page but can't be
+ * used until those files download over the network. So when a fresh copy of a page is kept, its files are kept with it.
+ */
+async function keepFilesOf(html) {
+  const cache = await caches.open(STATIC);
+  const urls = [...new Set(html.match(/\/_next\/static\/[^"'\\\s)<>]+\.(?:js|css)/g) ?? [])].slice(0, 80);
+  await Promise.all(
+    urls.map(async (u) => {
+      try {
+        if (await cache.match(u)) return;
+        const res = await fetch(u);
+        if (res.ok) await cache.put(u, res);
+      } catch {
+        // the page fetches it itself when needed
+      }
+    }),
+  );
 }
 
 const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("slow")), ms));
