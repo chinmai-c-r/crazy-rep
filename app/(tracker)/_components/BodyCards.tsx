@@ -1,15 +1,13 @@
 "use client";
 
-import { Droplet, Footprints, Moon, Plus, Scale, Trash2, Undo2 } from "lucide-react";
+import { Droplet, Footprints, Plus, Scale, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { activityIcon, activityLabel } from "@/lib/activities";
-import type { SleepSession } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
-import { fmtSleep } from "@/lib/sleep";
 import { useOnline } from "@/lib/offline";
 import { createClient } from "@/lib/supabase/client";
 import { flatRow } from "@/lib/ui";
@@ -247,80 +245,3 @@ export function WeightCard({ weights, loading, onAdd }: { weights: WeightLog[]; 
 }
 
 const STEP_GOAL = 10_000;
-
-const STAGES = [
-  { key: "deep_min", label: "Deep", color: "bg-chart-4" },
-  { key: "light_min", label: "Light", color: "bg-chart-4/45" },
-  { key: "rem_min", label: "REM", color: "bg-chart-3" },
-] as const;
-
-const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-
-/** The night's sleep from Google Health: time asleep, a bar of the stages, and the bed and wake times. Naps are listed under it. */
-export function SleepCard({ sessions, needsAccess, problem }: { sessions: SleepSession[]; needsAccess?: boolean; problem?: string }) {
-  const night = sessions.filter((s) => !s.nap).sort((a, b) => b.asleep_min - a.asleep_min)[0];
-  const naps = sessions.filter((s) => s.nap);
-  const total = sessions.reduce((sum, s) => sum + s.asleep_min, 0);
-  const staged = night ? STAGES.reduce((sum, st) => sum + (night[st.key] ?? 0), 0) + night.awake_min : 0;
-
-  return (
-    <Card className="rounded-3xl">
-      <CardContent className="grid gap-3">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Sleep</SectionTitle>
-          <Moon className="size-4 text-chart-4" aria-hidden />
-        </div>
-        {sessions.length > 0 && (
-          <p className="flex items-baseline gap-2">
-            <b className="font-heading text-4xl font-normal">{fmtSleep(total)}</b>
-            <span className="text-sm text-muted-foreground">asleep</span>
-          </p>
-        )}
-        {needsAccess ? (
-          <p className="text-sm text-muted-foreground">
-            Allow sleep access to see your sleep here. <a href="/api/google-health/connect" className="underline underline-offset-4">Reconnect Google Health</a> and tick every box.
-          </p>
-        ) : !night && naps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {problem ? `Couldn't read sleep from Google Health: ${problem}` : "No sleep recorded for this day yet. It appears after your watch or phone syncs to Google Health."}
-          </p>
-        ) : (
-          <>
-            {night && (
-              <div className="grid gap-2">
-                <p className="text-sm text-muted-foreground">
-                  {clock(night.started_at)} – {clock(night.ended_at)} · {fmtSleep(night.in_bed_min)} in bed
-                </p>
-                {staged > 0 && (
-                  <>
-                    <div className="flex h-2.5 overflow-hidden rounded-full bg-foreground/10" role="img" aria-label="Sleep stages">
-                      {STAGES.map((st) => (
-                        <span key={st.key} className={st.color} style={{ width: `${((night[st.key] ?? 0) / staged) * 100}%` }} />
-                      ))}
-                      <span className="bg-chart-2" style={{ width: `${(night.awake_min / staged) * 100}%` }} />
-                    </div>
-                    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {STAGES.map((st) => (
-                        <li key={st.key} className="flex items-center gap-1.5">
-                          <i className={cn("size-2 rounded-full", st.color)} aria-hidden /> {st.label} <b className="text-foreground">{fmtSleep(night[st.key] ?? 0)}</b>
-                        </li>
-                      ))}
-                      <li className="flex items-center gap-1.5">
-                        <i className="size-2 rounded-full bg-chart-2" aria-hidden /> Awake <b className="text-foreground">{fmtSleep(night.awake_min)}</b>
-                      </li>
-                    </ul>
-                  </>
-                )}
-              </div>
-            )}
-            {naps.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {naps.length === 1 ? "Nap" : `${naps.length} naps`}: {naps.map((n) => fmtSleep(n.asleep_min)).join(", ")}
-              </p>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}

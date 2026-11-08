@@ -1,20 +1,22 @@
 "use client";
 
-import { CalendarCheck, Dumbbell, Flame, LineChart, Scale, Search, Target, Trophy, UtensilsCrossed } from "lucide-react";
+import { CalendarCheck, Dumbbell, Flame, LineChart, Moon, Scale, Search, Sparkles, Target, Trophy, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseDay } from "@/lib/day";
-import { useFirstLogDay, useProfile, useSummary } from "@/lib/hooks";
+import { useFirstLogDay, useGoogleStatus, useProfile, useSleepRange, useSummary } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
+import { averageOf, fmtSleep, groupNights, nightsOf } from "@/lib/sleep";
 import { useOnline } from "@/lib/offline";
 import type { SummaryRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CaloriesChart, Donut, MiniBars, WeightLine, type CalPoint } from "../_components/charts";
 import { toLocalDate } from "../_components/LogSheets";
 import { OfflineNote } from "../_components/OfflineBanner";
+import SleepChart from "../_components/SleepChart";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import { TabBar, type ProfileTab } from "../profile/ProfileTabs";
 import MealSearch from "./MealSearch";
@@ -117,6 +119,10 @@ export default function HistoryView() {
     return { start: toLocalDate(first), end: toLocalDate(today) };
   }, []);
   useSummary(lastWeek.start, lastWeek.end, "day");
+  const google = useGoogleStatus();
+  const sleepRows = useSleepRange(start, end, Boolean(google?.sleep) && online);
+  const sleepNights = useMemo(() => groupNights(nightsOf(sleepRows), bucket), [sleepRows, bucket]);
+  const bestNight = sleepNights.reduce<(typeof sleepNights)[number] | null>((best, n) => (!best || n.score > best.score ? n : best), null);
   const pending = loading || profileLoading || (range === "all" && firstLoading);
   const unit = bucket === "day" ? "" : " (avg per logged day)";
 
@@ -269,6 +275,39 @@ export default function HistoryView() {
           {pending ? <BarChartSkeleton /> : <CaloriesChart goal={goal} points={view.points} />}
         </CardContent>
       </Card>
+
+      {google?.connected && (
+        <Card className="rounded-3xl">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4">
+            <SectionTitle>Sleep{unit}</SectionTitle>
+            {!google.sleep ? (
+              <p className="text-sm text-muted-foreground">
+                <a href="/api/google-health/connect" className="underline underline-offset-4">
+                  Reconnect Google Health
+                </a>{" "}
+                and allow sleep to see your trends here.
+              </p>
+            ) : sleepNights.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sleep recorded in this range yet. It appears after your watch syncs to Google Health, and builds up each time you open the app.</p>
+            ) : (
+              <div className="grid animate-in gap-4 duration-500 fade-in">
+                <div className="grid grid-cols-3 gap-3">
+                  <Highlight label="Avg sleep" icon={Moon} accent="cyan" value={fmtSleep(averageOf(sleepNights, (n) => n.asleep) ?? 0)} sub={`${sleepNights.length} ${UNIT[bucket]}`} />
+                  <Highlight label="Avg score" icon={Sparkles} accent="pink" value={String(averageOf(sleepNights, (n) => n.score) ?? "—")} sub="out of 100" />
+                  <Highlight
+                    label="Best night"
+                    icon={Trophy}
+                    accent="lime"
+                    value={bestNight ? String(bestNight.score) : "—"}
+                    sub={bestNight ? periodLabel(bestNight.day, bucket).replace("Week of ", "") : ""}
+                  />
+                </div>
+                <SleepChart nights={sleepNights} bucket={bucket} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {pending ? (
         <HighlightsSkeleton />

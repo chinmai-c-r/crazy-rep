@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
-import { useLogRange, useMeals, useProfile, useGoogleStatus, useSignedUrls, useSleep, useStepSync, useSteps, useWeights } from "@/lib/hooks";
-import { cn } from "@/lib/utils";
+import { useLogRange, useMeals, useProfile, useGoogleStatus, useSignedUrls, useSleepRange, useStepSync, useSteps, useWeights } from "@/lib/hooks";
+import { nightsOf } from "@/lib/sleep";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
 import { OfflineNote } from "../_components/OfflineBanner";
-import { ActivityCard, SleepCard, WaterCard, WeightCard } from "../_components/BodyCards";
+import { ActivityCard, WaterCard, WeightCard } from "../_components/BodyCards";
 import { ActivitySheet, WeightSheet } from "../_components/LogSheets";
 import MacroRings from "../_components/MacroRings";
 import { EmptyMeal, MealRow, MealSectionHeader } from "../_components/MealParts";
@@ -21,6 +21,7 @@ import MealSheet from "../_components/MealSheet";
 import NutrientGrid from "../_components/NutrientGrid";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import Ring, { RingStats } from "../_components/Ring";
+import { SleepPeek, SleepSheet } from "../_components/SleepViews";
 import { GreetingSkeleton, MacrosCardSkeleton, MealRowSkeleton, RingCardSkeleton } from "../_components/Skeletons";
 
 /** Cards rise a little as they replace their skeleton. No fade: fading from transparent would flash blank. */
@@ -44,8 +45,11 @@ export default function DashboardView() {
   const steps = useSteps(localDay(date));
   const { steps: showSteps, problems } = useStepSync();
   const google = useGoogleStatus();
+  const sleepRows = useSleepRange(localDay(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 8)), localDay(date));
   const fromGoogle = Boolean(google?.steps);
-  const sleep = useSleep(localDay(date));
+  const sleepDay = localDay(date);
+  const sleepNights = useMemo(() => nightsOf(sleepRows), [sleepRows]);
+  const [sleepOpen, setSleepOpen] = useState(false);
   const water = useLogRange<WaterLog>("water_logs", "logged_at", start, end);
   const { weights, loading: weightsLoading, reload: reloadWeights } = useWeights(14);
   const [sheet, setSheet] = useState<"activity" | "weight" | null>(null);
@@ -96,7 +100,11 @@ export default function DashboardView() {
         ) : (
         <Card className={`relative items-center justify-center gap-4 rounded-3xl py-8 ${ENTER}`}>
           <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-20 h-64 bg-[radial-gradient(closest-side,rgb(var(--primary-rgb)/0.09),transparent)]" />
-          <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} />
+          {/* With Google Health connected, the sleep summary sits beside the ring; it taps open to the full night */}
+          <div className="flex w-full items-center justify-center gap-3 px-4 sm:gap-6">
+            <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} compact={Boolean(google?.connected)} />
+            {google?.connected && <SleepPeek nights={sleepNights} day={sleepDay} access={Boolean(google.sleep)} problem={problems.sleep} onOpen={() => setSleepOpen(true)} />}
+          </div>
           <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} steps={steps} showSteps={showSteps} />
         </Card>
         )}
@@ -145,7 +153,7 @@ export default function DashboardView() {
       </section>
 
       {/* With Google Health the day's activity and sleep come from it (read-only); without it, activity is logged here */}
-      <section className={cn("grid gap-4", fromGoogle ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
+      <section className="grid gap-4 lg:grid-cols-3">
         <div className={CELL}>
           <ActivityCard
             activities={activities.rows}
@@ -156,12 +164,7 @@ export default function DashboardView() {
             onDeleted={(id) => activities.setRows((rs) => rs.filter((r) => r.id !== id))}
           />
         </div>
-        {google?.connected && (
-          <div className={CELL} style={{ animationDelay: "60ms" }}>
-            <SleepCard sessions={sleep} needsAccess={!google.sleep} problem={problems.sleep} />
-          </div>
-        )}
-        <div className={CELL} style={{ animationDelay: "120ms" }}>
+        <div className={CELL} style={{ animationDelay: "60ms" }}>
           <WaterCard
             logs={water.rows}
             loading={water.loading || profileLoading}
@@ -171,11 +174,12 @@ export default function DashboardView() {
             onRemoved={(id) => water.setRows((rs) => rs.filter((r) => r.id !== id))}
           />
         </div>
-        <div className={CELL} style={{ animationDelay: "180ms" }}>
+        <div className={CELL} style={{ animationDelay: "120ms" }}>
           <WeightCard weights={weights} loading={weightsLoading} onAdd={() => setSheet("weight")} />
         </div>
       </section>
 
+      <SleepSheet open={sleepOpen} onOpenChange={setSleepOpen} nights={sleepNights} day={sleepDay} />
       <ActivitySheet
         open={sheet === "activity"}
         onOpenChange={(o) => setSheet(o ? "activity" : null)}

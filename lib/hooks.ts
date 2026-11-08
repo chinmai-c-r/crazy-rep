@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from "@t
 import { useCallback } from "react";
 import { localDay } from "./day";
 import type { Dish, Hit } from "./meal-search";
+import type { SleepRow } from "./sleep";
 import { createClient } from "./supabase/client";
 import type { ChatMessage, ChatThread, Meal, Profile, SummaryRow, WeightLog } from "./types";
 
@@ -33,7 +34,7 @@ export const keys = {
   dishHistory: (key: string) => ["dish-history", key] as const,
   steps: (day: string) => ["steps", day] as const,
   stepSync: ["steps-sync"] as const,
-  sleep: (day: string) => ["sleep", day] as const,
+  sleepRange: (start: string, end: string) => ["sleep", "range", start, end] as const,
 };
 
 /** Call after any change to meals, activity or weight so history totals refetch. */
@@ -385,30 +386,22 @@ export function useGoogleStatus() {
 export const useStepsEnabled = () => Boolean(useGoogleStatus()?.steps);
 export const useSleepEnabled = () => Boolean(useGoogleStatus()?.sleep);
 
-export type SleepSession = {
-  google_health_id: string;
-  started_at: string;
-  ended_at: string;
-  nap: boolean;
-  asleep_min: number;
-  in_bed_min: number;
-  awake_min: number;
-  deep_min: number | null;
-  light_min: number | null;
-  rem_min: number | null;
-};
+export type SleepSession = SleepRow;
 
-/** Sleep sessions that ended on one local day (YYYY-MM-DD): last night's sleep plus any naps. */
-export function useSleep(day: string) {
+/** Sleep sessions that ended on days between two local dates (YYYY-MM-DD, both included), oldest first. */
+export function useSleepRange(start: string, end: string, enabled = true) {
   const { data } = useQuery({
-    queryKey: keys.sleep(day),
+    queryKey: keys.sleepRange(start, end),
+    enabled,
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await createClient().from("sleep_sessions").select("*").eq("day", day).order("started_at", { ascending: true });
-      return (data as SleepSession[]) ?? [];
+      const { data } = await createClient().from("sleep_sessions").select("*").gte("day", start).lte("day", end).order("started_at", { ascending: true });
+      return (data as SleepRow[]) ?? [];
     },
   });
-  return data ?? [];
+  return data ?? EMPTY_SLEEP;
 }
+const EMPTY_SLEEP: SleepRow[] = [];
 
 export function useStepSync() {
   const qc = useQueryClient();

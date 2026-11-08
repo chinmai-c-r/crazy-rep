@@ -26,7 +26,7 @@ export type CalPoint = {
  * One bar is always selected (the latest by default) and its numbers sit in the panel below, so the chart never has an empty "tap a bar" state.
  */
 /** Which axis labels fit without touching. With 60 bars on a phone, a label is wider than ten bars, so most are skipped. */
-function visibleLabels(labels: string[], width: number) {
+export function visibleLabels(labels: string[], width: number) {
   const slot = width / Math.max(labels.length, 1);
   const labelPx = Math.max(...labels.map((l) => l.length), 1) * 6.2 + 18; // text-[0.65rem] with room around it
   const step = Math.max(1, Math.ceil(labelPx / slot));

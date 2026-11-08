@@ -14,7 +14,7 @@ function subscribe(onChange: () => void) {
   timer ??= setInterval(() => {
     tick++;
     listeners.forEach((l) => l());
-  }, 120);
+  }, 240); // calm enough to read as "loading", not as flicker
   return () => {
     listeners.delete(onChange);
     if (!listeners.size && timer) {

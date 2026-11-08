@@ -34,7 +34,8 @@ const GRADIENTS = {
   over: ["var(--warn)", "var(--chart-2)", "var(--chart-3)"],
 };
 
-export default function Ring({ value, goal }: { value: number; goal: number }) {
+/** `compact` shrinks it on phones so something can sit beside it (the sleep summary). */
+export default function Ring({ value, goal, compact }: { value: number; goal: number; compact?: boolean }) {
   const reduce = useReducedMotion() ?? false;
   const id = useId();
   const pct = goal > 0 ? value / goal : 0;
@@ -56,7 +57,7 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
   };
 
   return (
-    <div className="relative size-48 sm:size-52">
+    <div className={cn("relative", compact ? "size-40 sm:size-52" : "size-48 sm:size-52")}>
       {/* Soft halo behind the ring */}
       <div aria-hidden className={cn("absolute inset-4 rounded-full blur-2xl", over ? "bg-destructive/15" : "bg-primary/10")} />
 
@@ -115,7 +116,7 @@ export default function Ring({ value, goal }: { value: number; goal: number }) {
       </svg>
 
       <div className="absolute inset-0 grid place-content-center text-center">
-        <b className="font-heading text-5xl font-normal">{fmt(Math.round(rolling))}</b>
+        <b className={cn("font-heading font-normal", compact ? "text-4xl sm:text-5xl" : "text-5xl")}>{fmt(Math.round(rolling))}</b>
         <small className="text-xs text-muted-foreground">of {fmt(goal)} kcal</small>
         <span className={cn("mt-1 text-sm font-semibold", over ? "text-destructive" : "text-primary")}>
           {over ? `${fmt(-remaining)} over` : `${fmt(remaining)} left`}

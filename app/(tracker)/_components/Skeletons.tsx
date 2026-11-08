@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldLabel } from "@/components/ui/field";
 import { flatTile } from "@/lib/ui";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useStepsEnabled } from "@/lib/hooks";
+import { useGoogleStatus, useStepsEnabled } from "@/lib/hooks";
 import { MEAL_TYPES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GRID, NUTRIENT_ROWS, tileSpan } from "./NutrientGrid";
@@ -56,24 +56,35 @@ function CometRing({ size, stroke, seconds = 2.4, delay = 0 }: { size: number; s
 
 export function RingCardSkeleton() {
   const showSteps = useStepsEnabled(); // same column count as the real card
+  const beside = Boolean(useGoogleStatus()?.connected); // and the same room for the sleep summary
   return (
     <Card className="relative items-center justify-center gap-4 rounded-3xl py-8">
-      <div className="relative size-48 sm:size-52" aria-hidden>
-        {/* A halo that breathes behind the ring, like the static one on the real card */}
-        <div className="absolute inset-4 animate-pulse rounded-full bg-primary/15 blur-2xl motion-reduce:animate-none" />
-        <CometRing size={120} stroke={10} />
-        {/* The same three lines as the real ring (48px, 16px, 20px), as scrambling text */}
-        <div className="absolute inset-0 grid place-content-center text-center">
-          <b className="font-heading text-5xl font-normal">
-            <ScrambleText pattern="888" seed={1} />
-          </b>
-          <small className="text-xs">
-            <ScrambleText pattern="of 8,888 kcal" seed={2} />
-          </small>
-          <span className="mt-1 text-sm font-semibold">
-            <ScrambleText pattern="8,888 left" seed={3} />
-          </span>
+      <div className="flex w-full items-center justify-center gap-3 px-4 sm:gap-6">
+        <div className={cn("relative shrink-0", beside ? "size-40 sm:size-52" : "size-48 sm:size-52")} aria-hidden>
+          {/* A halo that breathes behind the ring, like the static one on the real card */}
+          <div className="absolute inset-4 animate-pulse rounded-full bg-primary/15 blur-2xl motion-reduce:animate-none" />
+          <CometRing size={120} stroke={10} />
+          {/* The same three lines as the real ring, as scrambling text */}
+          <div className="absolute inset-0 grid place-content-center text-center">
+            <b className={cn("font-heading font-normal", beside ? "text-4xl sm:text-5xl" : "text-5xl")}>
+              <ScrambleText pattern="888" seed={1} />
+            </b>
+            <small className="text-xs">
+              <ScrambleText pattern="of 8,888 kcal" seed={2} />
+            </small>
+            <span className="mt-1 text-sm font-semibold">
+              <ScrambleText pattern="8,888 left" seed={3} />
+            </span>
+          </div>
         </div>
+        {beside && (
+          <div className="grid min-w-0 flex-1 content-center gap-2 p-2" aria-hidden>
+            <Skeleton className="h-3.5 w-14 rounded" />
+            <Skeleton className="h-9 w-24 rounded" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        )}
       </div>
       <RingStats loading showSteps={showSteps} />
     </Card>

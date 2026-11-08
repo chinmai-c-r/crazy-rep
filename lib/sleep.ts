@@ -103,3 +103,126 @@ export function sleepFromPoint(p: SleepPoint) {
 
 /** 435 -> "7h 15m", 45 -> "45m". */
 export const fmtSleep = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ""}` : `${min}m`);
+
+// ─── Nights, scores and comparisons ─────────────────────────
+
+export type SleepRow = {
+  google_health_id: string;
+  day: string;
+  started_at: string;
+  ended_at: string;
+  nap: boolean;
+  asleep_min: number;
+  in_bed_min: number;
+  awake_min: number;
+  deep_min: number | null;
+  light_min: number | null;
+  rem_min: number | null;
+};
+
+/** One night: the main sleep that ended on `day`, with the day's naps added up separately. */
+export type Night = {
+  day: string;
+  start: string;
+  end: string;
+  asleep: number;
+  inBed: number;
+  awake: number;
+  deep: number | null;
+  light: number | null;
+  rem: number | null;
+  napMin: number;
+  score: number;
+};
+
+export const SLEEP_GOAL_MIN = 8 * 60;
+
+const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * Our own 0-100 estimate of how restful a night was (not a medical measure): enough sleep (50 points), time in bed actually
+ * spent asleep (20) and the share in deep and REM sleep (30). Without stage data, the first two are scaled to 100.
+ */
+export function sleepScore(n: Pick<Night, "asleep" | "inBed" | "deep" | "rem">) {
+  const duration = clamp(n.asleep / SLEEP_GOAL_MIN) * 50;
+  const efficiency = n.inBed > 0 ? clamp((n.asleep / n.inBed - 0.75) / (0.92 - 0.75)) * 20 : 0;
+  const hasStages = (n.deep ?? 0) + (n.rem ?? 0) > 0;
+  if (!hasStages) return Math.round(((duration + efficiency) / 70) * 100);
+  const restorative = clamp((((n.deep ?? 0) + (n.rem ?? 0)) / Math.max(n.asleep, 1)) / 0.4) * 30;
+  return Math.round(duration + efficiency + restorative);
+}
+
+export const scoreLabel = (score: number) => (score >= 85 ? "Excellent" : score >= 70 ? "Good" : score >= 50 ? "Fair" : "Poor");
+
+/** One Night per day, oldest first. The longest non-nap session is the night; a day with only naps has no night. */
+export function nightsOf(rows: SleepRow[]): Night[] {
+  const byDay = new Map<string, SleepRow[]>();
+  for (const r of rows) byDay.set(r.day, [...(byDay.get(r.day) ?? []), r]);
+  const out: Night[] = [];
+  for (const [day, list] of byDay) {
+    const main = list.filter((r) => !r.nap).sort((a, b) => b.asleep_min - a.asleep_min)[0];
+    if (!main) continue;
+    const night = {
+      day,
+      start: main.started_at,
+      end: main.ended_at,
+      asleep: main.asleep_min,
+      inBed: main.in_bed_min,
+      awake: main.awake_min,
+      deep: main.deep_min,
+      light: main.light_min,
+      rem: main.rem_min,
+      napMin: list.filter((r) => r.nap).reduce((s, r) => s + r.asleep_min, 0),
+    };
+    out.push({ ...night, score: sleepScore(night) });
+  }
+  return out.sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** Average of a number across nights (ignoring nights without it), or null. */
+export function averageOf(nights: Night[], pick: (n: Night) => number | null) {
+  const xs = nights.map(pick).filter((v): v is number => v !== null);
+  return xs.length ? Math.round(xs.reduce((s, v) => s + v, 0) / xs.length) : null;
+}
+
+/** "+32m" or "−1h 05m": how much more or less than usual. */
+export function fmtDelta(min: number) {
+  const sign = min < 0 ? "−" : "+";
+  const abs = Math.abs(min);
+  return `${sign}${abs >= 60 ? `${Math.floor(abs / 60)}h ${String(abs % 60).padStart(2, "0")}m` : `${abs}m`}`;
+}
+
+/** Nights averaged into weeks (starting Monday) or months, for long ranges where a bar per night is too thin. `day` becomes the period's first day. */
+export function groupNights(nights: Night[], bucket: "day" | "week" | "month"): Night[] {
+  if (bucket === "day") return nights;
+  const keyOf = (day: string) => {
+    if (bucket === "month") return `${day.slice(0, 7)}-01`;
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const groups = new Map<string, Night[]>();
+  for (const n of nights) groups.set(keyOf(n.day), [...(groups.get(keyOf(n.day)) ?? []), n]);
+  return [...groups].map(([day, list]) => {
+    const avg = (pick: (n: Night) => number | null) => averageOf(list, pick);
+    const merged = {
+      day,
+      start: list[0].start,
+      end: list[list.length - 1].end,
+      asleep: avg((n) => n.asleep) ?? 0,
+      inBed: avg((n) => n.inBed) ?? 0,
+      awake: avg((n) => n.awake) ?? 0,
+      deep: avg((n) => n.deep),
+      light: avg((n) => n.light),
+      rem: avg((n) => n.rem),
+      napMin: avg((n) => n.napMin) ?? 0,
+    };
+    return { ...merged, score: sleepScore(merged) };
+  }).sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** Moving average over the last `window` values (fewer at the start). */
+export const movingAverage = (values: number[], window = 7) => values.map((_, i) => {
+  const slice = values.slice(Math.max(0, i - window + 1), i + 1);
+  return slice.reduce((s, v) => s + v, 0) / slice.length;
+});
