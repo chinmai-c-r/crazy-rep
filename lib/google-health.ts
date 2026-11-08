@@ -341,6 +341,7 @@ export async function pullSleep(userId: string, days: number) {
 
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
   const rows = [];
+  let loggedShape = false;
   let pageToken: string | undefined;
   for (let page = 0; page < 6; page++) {
     const params = new URLSearchParams({ pageSize: "25", filter: `sleep.interval.end_time >= "${since}"` });
@@ -353,6 +354,13 @@ export async function pullSleep(userId: string, days: number) {
     }
     for (const p of json.dataPoints ?? []) {
       const row = sleepFromPoint(p);
+      // Stages missing on a session that should have them: log the shape (no times) so the mapping can be fixed
+      if (row && row.deep_min === null && row.light_min === null && row.rem_min === null && p.sleep?.type !== "CLASSIC" && !loggedShape) {
+        loggedShape = true;
+        const { interval: _i, stages, ...rest } = p.sleep ?? {};
+        void _i;
+        console.error("google health: sleep without stages", JSON.stringify({ ...rest, stages: Array.isArray(stages) ? stages.slice(0, 2) : stages }));
+      }
       if (row) rows.push({ ...row, user_id: userId, synced_at: new Date().toISOString() });
     }
     pageToken = json.nextPageToken || undefined;
