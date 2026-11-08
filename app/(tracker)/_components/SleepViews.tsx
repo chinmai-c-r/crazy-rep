@@ -240,7 +240,7 @@ export function SleepSheet({ open, onOpenChange, nights, day }: { open: boolean;
               </section>
             )}
 
-            <p className="text-xs text-muted-foreground">The score is Crazy Rep&apos;s own estimate from how long you slept, how much of your time in bed you were asleep and your deep and REM share. It isn&apos;t a medical measure.</p>
+            <p className="text-xs text-muted-foreground">The score is Crazy Rep&apos;s own estimate. How long you slept sets the ceiling (about 8 hours for 100), and how much of your time in bed you were asleep and your deep and REM share decide how much of it you get. It isn&apos;t a medical measure.</p>
           </div>
         )}
       </DrawerContent>

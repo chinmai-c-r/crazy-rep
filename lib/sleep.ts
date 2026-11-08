@@ -140,16 +140,18 @@ export const SLEEP_GOAL_MIN = 8 * 60;
 const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
 
 /**
- * Our own 0-100 estimate of how restful a night was (not a medical measure): enough sleep (50 points), time in bed actually
- * spent asleep (20) and the share in deep and REM sleep (30). Without stage data, the first two are scaled to 100.
+ * Our own 0-100 estimate of how restful a night was (not a medical measure). How long you slept comes first: it sets a ceiling
+ * (8 hours reaches 100, 7 hours about 84, 6 about 69, 4 about 40), and the quality of the sleep decides how much of that ceiling
+ * you get: time in bed actually spent asleep (40% of quality) and the share in deep and REM sleep (60%). A short night can't score
+ * well however good its stages were. Without stage data, quality is just the first part.
  */
 export function sleepScore(n: Pick<Night, "asleep" | "inBed" | "deep" | "rem">) {
-  const duration = clamp(n.asleep / SLEEP_GOAL_MIN) * 50;
-  const efficiency = n.inBed > 0 ? clamp((n.asleep / n.inBed - 0.75) / (0.92 - 0.75)) * 20 : 0;
+  const length = Math.pow(clamp(n.asleep / SLEEP_GOAL_MIN), 1.3);
+  const efficiency = n.inBed > 0 ? clamp((n.asleep / n.inBed - 0.75) / (0.92 - 0.75)) : 0;
   const hasStages = (n.deep ?? 0) + (n.rem ?? 0) > 0;
-  if (!hasStages) return Math.round(((duration + efficiency) / 70) * 100);
-  const restorative = clamp((((n.deep ?? 0) + (n.rem ?? 0)) / Math.max(n.asleep, 1)) / 0.4) * 30;
-  return Math.round(duration + efficiency + restorative);
+  const restorative = clamp((((n.deep ?? 0) + (n.rem ?? 0)) / Math.max(n.asleep, 1)) / 0.4);
+  const quality = hasStages ? 0.4 * efficiency + 0.6 * restorative : efficiency;
+  return Math.round(100 * length * (0.7 + 0.3 * quality));
 }
 
 export const scoreLabel = (score: number) => (score >= 85 ? "Excellent" : score >= 70 ? "Good" : score >= 50 ? "Fair" : "Poor");
