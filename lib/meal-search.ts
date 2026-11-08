@@ -20,6 +20,8 @@ export type Dish = {
   snack: number;
   /** What was found inside these meals, most common first. */
   items: DishItem[];
+  /** The analysis_cache rows these meals point at (their vectors are what meaning-based search uses). */
+  cache_keys?: string[];
 };
 
 /**

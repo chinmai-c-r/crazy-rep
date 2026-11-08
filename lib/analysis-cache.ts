@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { embedTexts, toVector } from "./embeddings";
 import { seedItems } from "./item-seed";
+import { embedText } from "./meal-embed";
 import type { MealContext } from "./gemini";
 import { analysisSchema, type Analysis } from "./schemas";
 import { createAdmin } from "./supabase/server";
@@ -39,6 +40,8 @@ export async function getCachedAnalysis(
 /** Stores a text-only analysis for reuse, then embeds it after the response so vector search can find it. Never throws. */
 export async function saveCachedAnalysis(key: string, ctx: MealContext, analysis: Analysis, model: string, source: CacheSource) {
   const searchText = [...new Set([ctx.name, analysis.meal_name].filter(Boolean))].join(" · ");
+  // What the vector is made from: the name, what's in it and the notes (the word checks still use searchText alone)
+  const vectorText = embedText(searchText, analysis.items.map((it) => it.name), analysis.insights.join(" "));
   try {
     const admin = createAdmin();
     const { error } = await admin.from("analysis_cache").upsert(
@@ -51,6 +54,7 @@ export async function saveCachedAnalysis(key: string, ctx: MealContext, analysis
         model,
         source,
         search_text: searchText,
+        embed_text: vectorText,
         serving_g: analysis.items.reduce((s, it) => s + it.grams, 0) || null,
       },
       { onConflict: "cache_key", ignoreDuplicates: true },
@@ -58,7 +62,7 @@ export async function saveCachedAnalysis(key: string, ctx: MealContext, analysis
     if (error) return console.warn("analysis cache write failed", error.message);
 
     const embed = async () => {
-      const [vector] = await embedTexts([searchText], "RETRIEVAL_DOCUMENT");
+      const [vector] = await embedTexts([vectorText], "RETRIEVAL_DOCUMENT");
       await admin.from("analysis_cache").update({ embedding: toVector(vector), embedded_at: new Date().toISOString() }).eq("cache_key", key);
     };
     try {

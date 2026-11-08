@@ -470,7 +470,7 @@ async function embedWithQuota(texts: string[]) {
 async function embed() {
   let total = 0;
   for (;;) {
-    const { data, error } = await db.from("analysis_cache").select("cache_key, name, search_text").is("embedding", null).limit(500);
+    const { data, error } = await db.from("analysis_cache").select("cache_key, name, search_text, embed_text").or("embedding.is.null,embedded_at.is.null").limit(500);
     if (error) throw new Error(`Reading rows to embed failed: ${error.message}`);
     if (!data.length) break;
     if (DRY) {
@@ -479,7 +479,7 @@ async function embed() {
     }
     for (let i = 0; i < data.length; i += EMBED_BATCH) {
       const chunk = data.slice(i, i + EMBED_BATCH);
-      const vectors = await embedWithQuota(chunk.map((r) => r.search_text || r.name));
+      const vectors = await embedWithQuota(chunk.map((r) => r.embed_text || r.search_text || r.name));
       const { error: setError } = await db.rpc("set_cache_embeddings", {
         p_rows: chunk.map((r, j) => ({ cache_key: r.cache_key, embedding: toVector(vectors[j]) })),
       });

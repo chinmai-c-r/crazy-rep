@@ -13,6 +13,7 @@ import type { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { dayLabel, eatenAtFor, localDay, parseDay } from "@/lib/day";
+import { indexMeal } from "@/lib/meal-index-client";
 import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
 import { itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
@@ -223,6 +224,7 @@ export default function ScanView() {
     }
     // Google Health mirroring is best effort and slow (token refresh + Google call): don't make the user wait for it
     void syncMeal(meal.id, "upsert");
+    void indexMeal(meal.id);
     // Put the saved row straight into any cached day it belongs to, so the dashboard shows it without a refetch
     const eaten = new Date(meal.eaten_at).getTime();
     for (const [key, rows] of queryClient.getQueriesData<Meal[]>({ queryKey: ["meals"] })) {

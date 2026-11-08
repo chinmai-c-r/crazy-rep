@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { embedTexts, toVector } from "@/lib/embeddings";
+import { embedMissing, indexMeals, type IndexableMeal } from "@/lib/meal-index";
 import { overview, rankHits, type Dish, type DishItem } from "@/lib/meal-search";
 import { createAdmin, createClient } from "@/lib/supabase/server";
 
@@ -12,10 +13,12 @@ const bodySchema = z.object({
   similar: z.boolean().default(true),
 });
 
-/** Dishes embedded in one request, so the first search after logging many new meals stays quick. The rest are done after the answer is sent. */
-const EMBED_NOW = 100;
-const EMBED_LATER = 400;
+/** Meals linked to their dish (and given a vector) in one request, so the first search after logging many meals stays quick. The rest are done after the answer is sent. */
+const INDEX_NOW = 100;
+const INDEX_LATER = 400;
 const MIN_SEMANTIC_LENGTH = 3;
+
+const embedDocs = (texts: string[]) => embedTexts(texts, "RETRIEVAL_DOCUMENT", { retries: 0, timeoutMs: 15_000 });
 
 type Row = Record<string, unknown>;
 const toDish = (r: Row): Dish => ({
@@ -32,47 +35,60 @@ const toDish = (r: Row): Dish => ({
   lunch: Number(r.lunch),
   dinner: Number(r.dinner),
   snack: Number(r.snack),
+  cache_keys: Array.isArray(r.cache_keys) ? (r.cache_keys as string[]) : [],
   items: Array.isArray(r.items) ? (r.items as Row[]).map((i): DishItem => ({ key: String(i.key), name: String(i.name), times: Number(i.times) })) : [],
 });
 
-/** Dishes whose items are also matched by meaning, and how many items each (the most recent dishes and their commonest items keep this small). */
-const ITEM_DISHES = 300;
-const ITEMS_PER_DISH = 5;
+/** Links any of this person's meals that aren't yet linked to a dish (a batch now, the rest in the background). Returns true if some were left for later. */
+async function linkMeals(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<boolean> {
+  const { data } = await supabase.from("meals").select("*").is("cache_key", null).order("eaten_at", { ascending: false }).limit(INDEX_NOW + INDEX_LATER);
+  const todo = (data ?? []) as IndexableMeal[];
+  if (!todo.length) return false;
+  const admin = createAdmin();
+  const run = (batch: IndexableMeal[]) => indexMeals(admin, embedDocs, toVector, userId, batch);
 
-async function storeEmbeddings(keys: string[]) {
-  if (!keys.length) return;
-  const vectors = await embedTexts(keys, "RETRIEVAL_DOCUMENT", { retries: 0, timeoutMs: 15_000 });
-  await createAdmin().rpc("set_dish_embeddings", { p_rows: keys.map((name_key, i) => ({ name_key, embedding: toVector(vectors[i]) })) });
+  await run(todo.slice(0, INDEX_NOW));
+  const later = todo.slice(INDEX_NOW);
+  if (later.length) {
+    try {
+      after(() => run(later).catch((e) => console.warn("meal indexing (background) failed", (e as Error).message)));
+    } catch {
+      // outside a request: skip, the next search picks them up
+    }
+  }
+  return later.length > 0;
 }
 
 /**
- * Which of this person's dishes mean something like the query. Works by name vectors:
- * dishes without a vector get one (a batch now, the rest in the background), then the nearest to the query are picked.
- * Matches only against this person's own dish names. Returns null if anything fails, and the search carries on by name alone.
+ * Which of this person's dishes mean something like the query, using the vectors of the analysis_cache rows their meals point at.
+ * Meals not yet linked are linked first; rows with no vector yet get one. Returns null if anything fails, and the search carries on by name alone.
  */
-async function similarDishes(q: string, keys: string[]): Promise<{ similar: Map<string, number> | null; learning: boolean }> {
+async function similarDishes(q: string, supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<{ similar: Map<string, number> | null; learning: boolean }> {
   try {
+    const learning = await linkMeals(supabase, userId);
+    // Linking changed which keys the dishes have, so read them again
+    const { data: fresh, error: freshError } = await supabase.rpc("meal_dishes");
+    if (freshError) throw new Error(freshError.message);
+    const current = ((fresh as Row[] | null) ?? []).map(toDish);
+    const keys = [...new Set(current.flatMap((d) => d.cache_keys ?? []))];
+    if (!keys.length) return { similar: new Map(), learning };
+
     const admin = createAdmin();
-    const { data: missing } = await admin.rpc("missing_dish_embeddings", { p_keys: keys });
-    const todo = ((missing as { name_key: string }[] | null) ?? []).map((m) => m.name_key);
-    const now = todo.slice(0, EMBED_NOW);
+    // Rows that were linked but never got a vector (an earlier failure) get one now
+    await embedMissing(admin, embedDocs, toVector, keys.slice(0, INDEX_NOW)).catch((e) => console.warn("embedding stragglers failed", (e as Error).message));
 
-    // The query and any new names are embedded together, then stored before matching
-    const [[queryVector]] = await Promise.all([embedTexts([q], "RETRIEVAL_QUERY", { retries: 0, timeoutMs: 6_000 }), storeEmbeddings(now)]);
-
-    const later = todo.slice(EMBED_NOW, EMBED_NOW + EMBED_LATER);
-    if (later.length) {
-      try {
-        after(() => storeEmbeddings(later).catch((e) => console.warn("dish embeddings (background) failed", (e as Error).message)));
-      } catch {
-        // outside a request: skip, the next search picks them up
-      }
-    }
-
-    const { data, error } = await admin.rpc("match_dish_names", { p_embedding: toVector(queryVector), p_keys: keys, p_count: 20 });
+    const [queryVector] = await embedTexts([q], "RETRIEVAL_QUERY", { retries: 0, timeoutMs: 6_000 });
+    const { data, error } = await admin.rpc("match_cache_keys", { p_embedding: toVector(queryVector), p_keys: keys, p_count: 20 });
     if (error) throw new Error(error.message);
-    const similar = new Map((data as { name_key: string; similarity: number }[]).map((m) => [m.name_key, Number(m.similarity)]));
-    return { similar, learning: todo.length > EMBED_NOW };
+    const bySimilarity = new Map((data as { cache_key: string; similarity: number }[]).map((m) => [m.cache_key, Number(m.similarity)]));
+
+    // A dish is as close as its closest row
+    const similar = new Map<string, number>();
+    for (const d of current) {
+      const best = Math.max(-1, ...(d.cache_keys ?? []).map((k) => bySimilarity.get(k) ?? -1));
+      if (best >= 0) similar.set(d.name_key, best);
+    }
+    return { similar, learning };
   } catch (err) {
     console.warn("dish similarity failed", (err as Error).message);
     return { similar: null, learning: false };
@@ -105,10 +121,7 @@ export async function POST(request: Request) {
   let similar: Map<string, number> | null = null;
   let semantic: "on" | "off" | "learning" = "off";
   if (wantSimilar && q.length >= MIN_SEMANTIC_LENGTH && dishes.length && process.env.GEMINI_API_KEY) {
-    // Dish names, plus the commonest items of the dishes eaten most recently
-    const keys = new Set(dishes.map((d) => d.name_key));
-    for (const d of dishes.slice(0, ITEM_DISHES)) for (const item of d.items.slice(0, ITEMS_PER_DISH)) keys.add(item.key);
-    const result = await similarDishes(q, [...keys]);
+    const result = await similarDishes(q, supabase, auth.claims.sub);
     similar = result.similar;
     semantic = similar ? (result.learning ? "learning" : "on") : "off";
   }

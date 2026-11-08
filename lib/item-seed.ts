@@ -30,6 +30,7 @@ export async function seedItems(
         model,
         source: "ai",
         search_text: r.name,
+        embed_text: r.name,
         serving_g: r.grams || null,
       })),
       { onConflict: "cache_key", ignoreDuplicates: true },
