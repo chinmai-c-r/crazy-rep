@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronRight, Moon } from "lucide-react";
 import { useId } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { averageOf, fmtDelta, fmtSleep, scoreLabel, SLEEP_GOAL_MIN, type Night } from "@/lib/sleep";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,18 @@ export function StageBar({ night, className }: { night: Night; className?: strin
       {STAGES.map((st) => (
         <span key={st.key} className={st.bar} style={{ width: `${(minutesIn(night, st.key) / total) * 100}%` }} />
       ))}
+    </div>
+  );
+}
+
+/** The sleep summary while it loads, the same shape as the real one so nothing moves when the numbers arrive. */
+export function SleepPeekSkeleton() {
+  return (
+    <div className="grid min-w-0 flex-1 content-center gap-2 p-2 sm:p-3" aria-hidden>
+      <Skeleton className="h-3.5 w-14 rounded" />
+      <Skeleton className="h-9 w-24 rounded" />
+      <Skeleton className="h-2 w-full rounded-full" />
+      <Skeleton className="h-5 w-24 rounded-full" />
     </div>
   );
 }
@@ -79,12 +92,15 @@ export function SleepPeek({
   day,
   access,
   problem,
+  loading,
   onOpen,
 }: {
   nights: Night[];
   day: string;
   access: boolean;
   problem?: string;
+  /** The data is still on its way: show the placeholder, not "no sleep yet" */
+  loading?: boolean;
   onOpen: () => void;
 }) {
   const night = nights.find((n) => n.day === day);
@@ -110,6 +126,7 @@ export function SleepPeek({
       </div>
     );
   }
+  if (!night && loading) return <SleepPeekSkeleton />;
   if (!night) {
     return (
       <div className="grid min-w-0 flex-1 content-center gap-1.5">

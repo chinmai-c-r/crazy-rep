@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useIsFetching, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { localDay } from "./day";
 import type { Dish, Hit } from "./meal-search";
@@ -390,7 +390,7 @@ export type SleepSession = SleepRow;
 
 /** Sleep sessions that ended on days between two local dates (YYYY-MM-DD, both included), oldest first. */
 export function useSleepRange(start: string, end: string, enabled = true) {
-  const { data } = useQuery({
+  const query = useQuery({
     queryKey: keys.sleepRange(start, end),
     enabled,
     staleTime: 5 * 60_000,
@@ -399,9 +399,13 @@ export function useSleepRange(start: string, end: string, enabled = true) {
       return (data as SleepRow[]) ?? [];
     },
   });
-  return data ?? EMPTY_SLEEP;
+  // "loading" is only for a query that is really fetching: a disabled one has nothing to wait for
+  return { rows: query.data ?? EMPTY_SLEEP, loading: enabled && loadingOf(query) };
 }
 const EMPTY_SLEEP: SleepRow[] = [];
+
+/** True while the Google Health sync is running, so screens that are still empty can show a loader instead of an empty state. */
+export const useGoogleSyncing = () => useIsFetching({ queryKey: keys.stepSync }) > 0;
 
 export function useStepSync() {
   const qc = useQueryClient();

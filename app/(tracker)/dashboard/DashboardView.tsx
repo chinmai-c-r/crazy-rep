@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOnline } from "@/lib/offline";
 import { localDay, parseDay } from "@/lib/day";
-import { useLogRange, useMeals, useProfile, useGoogleStatus, useSignedUrls, useSleepRange, useStepSync, useSteps, useWeights } from "@/lib/hooks";
+import { useLogRange, useMeals, useProfile, useGoogleStatus, useGoogleSyncing, useSignedUrls, useSleepRange, useStepSync, useSteps, useWeights } from "@/lib/hooks";
 import { nightsOf } from "@/lib/sleep";
 import { dayRange, sumNutrients } from "@/lib/nutrition";
 import { MEAL_TYPES, type ActivityLog, type WaterLog } from "@/lib/types";
@@ -45,7 +45,8 @@ export default function DashboardView() {
   const steps = useSteps(localDay(date));
   const { steps: showSteps, problems } = useStepSync();
   const google = useGoogleStatus();
-  const sleepRows = useSleepRange(localDay(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 8)), localDay(date));
+  const syncing = useGoogleSyncing();
+  const { rows: sleepRows, loading: sleepLoading } = useSleepRange(localDay(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 8)), localDay(date));
   const fromGoogle = Boolean(google?.steps);
   const sleepDay = localDay(date);
   const sleepNights = useMemo(() => nightsOf(sleepRows), [sleepRows]);
@@ -103,7 +104,7 @@ export default function DashboardView() {
           {/* With Google Health connected, the sleep summary sits beside the ring; it taps open to the full night */}
           <div className="flex w-full items-center justify-center gap-3 px-4 sm:gap-6">
             <Ring value={totals.calories} goal={profile?.calorie_goal ?? 2000} compact={Boolean(google?.connected)} />
-            {google?.connected && <SleepPeek nights={sleepNights} day={sleepDay} access={Boolean(google.sleep)} problem={problems.sleep} onOpen={() => setSleepOpen(true)} />}
+            {google?.connected && <SleepPeek nights={sleepNights} day={sleepDay} access={Boolean(google.sleep)} problem={problems.sleep} loading={sleepLoading || syncing} onOpen={() => setSleepOpen(true)} />}
           </div>
           <RingStats burned={burned} net={totals.calories - burned} meals={meals.length} steps={steps} showSteps={showSteps} />
         </Card>

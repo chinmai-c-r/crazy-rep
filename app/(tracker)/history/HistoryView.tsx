@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseDay } from "@/lib/day";
-import { useFirstLogDay, useGoogleStatus, useProfile, useSleepRange, useSummary } from "@/lib/hooks";
+import { useFirstLogDay, useGoogleStatus, useGoogleSyncing, useProfile, useSleepRange, useSummary } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
 import { averageOf, fmtSleep, groupNights, nightsOf } from "@/lib/sleep";
 import { useOnline } from "@/lib/offline";
@@ -120,7 +120,8 @@ export default function HistoryView() {
   }, []);
   useSummary(lastWeek.start, lastWeek.end, "day");
   const google = useGoogleStatus();
-  const sleepRows = useSleepRange(start, end, Boolean(google?.sleep) && online);
+  const syncing = useGoogleSyncing();
+  const { rows: sleepRows, loading: sleepLoading } = useSleepRange(start, end, Boolean(google?.sleep) && online);
   const sleepNights = useMemo(() => groupNights(nightsOf(sleepRows), bucket), [sleepRows, bucket]);
   const bestNight = sleepNights.reduce<(typeof sleepNights)[number] | null>((best, n) => (!best || n.score > best.score ? n : best), null);
   const pending = loading || profileLoading || (range === "all" && firstLoading);
@@ -287,6 +288,8 @@ export default function HistoryView() {
                 </a>{" "}
                 and allow sleep to see your trends here.
               </p>
+            ) : sleepLoading || (syncing && sleepNights.length === 0) ? (
+              <BarChartSkeleton />
             ) : sleepNights.length === 0 ? (
               <p className="text-sm text-muted-foreground">No sleep recorded in this range yet. It appears after your watch syncs to Google Health, and builds up each time you open the app.</p>
             ) : (

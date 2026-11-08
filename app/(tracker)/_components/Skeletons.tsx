@@ -14,6 +14,7 @@ import { MealSectionHeader } from "./MealParts";
 import ScrambleText from "./ScrambleText";
 import ShimmerText from "./ShimmerText";
 import { RingStats } from "./Ring";
+import { SleepPeekSkeleton } from "./SleepViews";
 import { Highlight, StatTile, type Accent } from "./StatTile";
 
 /*
@@ -77,14 +78,7 @@ export function RingCardSkeleton() {
             </span>
           </div>
         </div>
-        {beside && (
-          <div className="grid min-w-0 flex-1 content-center gap-2 p-2" aria-hidden>
-            <Skeleton className="h-3.5 w-14 rounded" />
-            <Skeleton className="h-9 w-24 rounded" />
-            <Skeleton className="h-2 w-full rounded-full" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </div>
-        )}
+        {beside && <SleepPeekSkeleton />}
       </div>
       <RingStats loading showSteps={showSteps} />
     </Card>
