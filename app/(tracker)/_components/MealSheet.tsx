@@ -59,8 +59,6 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [entries, setEntries] = useState<ItemEntry[]>(() => toEntries(meal.items ?? [], () => crypto.randomUUID()));
   const items = useMemo(() => entries.map(itemOf), [entries]);
   const itemMeta = useMemo(() => entries.map(quantityOf), [entries]);
-  // Items typed in here (not part of the saved meal): they can be taken out again, and they count as a change
-  const [added, setAdded] = useState<string[]>([]);
   const itemsEdited = entries.some(isEdited) || entries.length !== (meal.items?.length ?? 0);
 
   // Per serving as saved, plus whatever the item changes added or took away (so anything that wasn't an item is kept),
@@ -159,19 +157,14 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
               items={items}
               meta={itemMeta}
               onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))}
-              canRemove={(i) => added.includes(entries[i]?.id)}
-              onRemove={(i) => {
-                const gone = entries[i]?.id;
-                setEntries((xs) => xs.filter((_, j) => j !== i));
-                setAdded((ids) => ids.filter((id) => id !== gone));
-              }}
+              canRemove={() => true}
+              // Any item can be taken out, including ones the meal was saved with; the totals follow and Save keeps the change
+              onRemove={(i) => setEntries((xs) => xs.filter((_, j) => j !== i))}
             />
           )}
           <AddItem
             onAdd={(more) => {
-              const fresh = toEntries(more, () => crypto.randomUUID());
-              setEntries((xs) => [...xs, ...fresh]);
-              setAdded((ids) => [...ids, ...fresh.map((e) => e.id)]);
+              setEntries((xs) => [...xs, ...toEntries(more, () => crypto.randomUUID())]);
             }}
           />
         </section>
