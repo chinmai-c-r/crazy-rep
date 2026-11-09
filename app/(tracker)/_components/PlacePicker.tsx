@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { MapPin, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const PLACE_MAX = 40;
@@ -47,6 +47,7 @@ export default function PlacePicker({ value, onChange, className }: { value: str
   const [recent] = useState(() => (typeof window === "undefined" ? [] : readRecent()));
   const preset = PLACES.find((p) => p.label.toLowerCase() === value.trim().toLowerCase());
   const typing = other && !preset;
+  const input = useRef<HTMLInputElement>(null);
 
   const pill = (on: boolean) =>
     cn(
@@ -89,6 +90,8 @@ export default function PlacePicker({ value, onChange, className }: { value: str
             if (typing && value === "") return setOther(false);
             if (preset) onChange("");
             setOther(true);
+            // Only when Other is tapped: showing a saved custom place must not pop the keyboard
+            if (value === "" || preset) requestAnimationFrame(() => input.current?.focus());
           }}
           className={pill(typing)}
         >
@@ -112,7 +115,7 @@ export default function PlacePicker({ value, onChange, className }: { value: str
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 maxLength={PLACE_MAX}
-                autoFocus
+                ref={input}
                 autoComplete="off"
                 enterKeyHint="done"
                 aria-label="Place name"
