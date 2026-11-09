@@ -86,6 +86,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   async function save() {
     const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType, place });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
+    (document.activeElement as HTMLElement | null)?.blur?.(); // keyboard down now, not after the save
     setBusy(true);
     const { data, error } = await createClient()
       .from("meals")

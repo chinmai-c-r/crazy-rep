@@ -122,6 +122,8 @@ export default function PlacePicker({ value, onChange, className }: { value: str
                   const el = e.currentTarget;
                   setTimeout(() => el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" }), 300);
                 }}
+                // When the keyboard goes down, phones can leave the page scrolled up by its height, which shows as a gap under the drawer
+                onBlur={() => setTimeout(() => window.scrollTo({ top: 0, left: 0 }), 50)}
                 autoComplete="off"
                 enterKeyHint="done"
                 aria-label="Place name"
