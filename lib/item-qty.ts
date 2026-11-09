@@ -66,15 +66,47 @@ export function groupRuns(items: { group?: string }[]): { group?: string; indexe
   return runs;
 }
 
-/** What the AI said about items typed in later, and which entries it was about (so removing them drops their insights too). */
-export type AddedInsights = { ids: string[]; insights: string[] }[];
+/** AI insights, bunched: the meal's own (no label), then one bunch per typed-in dish or item. */
+export type InsightGroup = { label?: string; insights: string[] };
+/** What the AI said about items typed in later, under the dish (or item) it was about. */
+export type AddedInsights = { label: string; insights: string[] }[];
 
-/** The meal's own insights followed by those of the added items still in the meal, without repeats. */
-export function mergeInsights(base: string[], added: AddedInsights, entries: { id: string }[]): string[] {
-  const live = new Set(entries.map((e) => e.id));
-  const all = [...base, ...added.filter((g) => g.ids.some((id) => live.has(id))).flatMap((g) => g.insights)];
-  return all.filter((t, i) => all.indexOf(t) === i);
+/** Saved notes keep the bunch in the line itself: "Paneer gravy › Rich in protein". */
+const SEP = " › ";
+
+/** Saved note lines back into bunches. */
+export function parseInsights(lines: string[]): InsightGroup[] {
+  const groups: InsightGroup[] = [];
+  const add = (label: string | undefined, text: string) => {
+    const g = groups.find((x) => x.label === label) ?? (groups[groups.push({ label, insights: [] }) - 1]);
+    if (!g.insights.includes(text)) g.insights.push(text);
+  };
+  for (const line of lines) {
+    const at = line.indexOf(SEP);
+    if (at > 0) add(line.slice(0, at).trim(), line.slice(at + SEP.length).trim());
+    else add(undefined, line.trim());
+  }
+  // The meal's own come first
+  return groups.filter((g) => g.insights.some(Boolean)).sort((a, b) => Number(Boolean(a.label)) - Number(Boolean(b.label)));
 }
+
+/** The meal's own insights, then a bunch for each added dish or item that is still in the meal, without repeats. */
+export function groupInsights(base: string[], added: AddedInsights, entries: { base: { name: string; group?: string } }[]): InsightGroup[] {
+  const live = (label: string) => entries.some((e) => e.base.group === label || e.base.name === label);
+  const groups = parseInsights(base).filter((g) => !g.label || live(g.label));
+  for (const a of added) {
+    if (!live(a.label)) continue;
+    const g = groups.find((x) => x.label === a.label) ?? (groups[groups.push({ label: a.label, insights: [] }) - 1]);
+    for (const t of a.insights) if (!g.insights.includes(t)) g.insights.push(t);
+  }
+  return groups.filter((g) => g.insights.length);
+}
+
+/** One line per insight, ready to save as the meal's notes. */
+export const insightLines = (groups: InsightGroup[]): string[] => groups.flatMap((g) => g.insights.map((t) => (g.label ? `${g.label}${SEP}${t}` : t)));
+
+/** The label an added item's insights go under: the dish when it came in parts, else the item's name. */
+export const insightLabel = (items: { name: string; group?: string }[]) => items[0]?.group ?? items[0]?.name ?? "Item";
 
 export const fmtQty = (n: number) => String(Math.round(n * 100) / 100);
 

@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { syncMeal } from "@/lib/google-health-client";
-import { isEdited, itemOf, mergeInsights, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
+import { groupInsights, insightLabel, insightLines, isEdited, itemOf, parseInsights, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
 import { fmt, sumNutrients } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { mealWriteSchema } from "@/lib/schemas";
@@ -27,7 +27,8 @@ import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/t
 import { MealTypePicker, Stepper } from "./Controls";
 import PlacePicker, { rememberPlace } from "./PlacePicker";
 import AddItem from "./AddItem";
-import { EditableItemList, Insights } from "./FoodItems";
+import { EditableItemList } from "./FoodItems";
+import InsightGroups from "./InsightGroups";
 import MacroBar from "./MacroBar";
 import NutrientGrid from "./NutrientGrid";
 import { SectionTitle } from "./Page";
@@ -79,8 +80,9 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   }, [meal, items, servings]);
   // The saved insights plus those of items added here that are still in the meal
   const savedInsights = useMemo(() => (meal.notes ?? "").split("\n").filter(Boolean), [meal.notes]);
-  const insights = useMemo(() => mergeInsights(savedInsights, addedInsights, entries), [savedInsights, addedInsights, entries]);
-  const insightsEdited = insights.length !== savedInsights.length;
+  const insightGroups = useMemo(() => groupInsights(savedInsights, addedInsights, entries), [savedInsights, addedInsights, entries]);
+  const insightText = insightLines(insightGroups).join("\n");
+  const insightsEdited = insightText !== insightLines(parseInsights(savedInsights)).join("\n");
   const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || place.trim() !== (meal.place ?? "") || itemsEdited || insightsEdited;
 
   async function save() {
@@ -90,7 +92,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
     setBusy(true);
     const { data, error } = await createClient()
       .from("meals")
-      .update({ ...parsed.data, ...(itemsEdited ? { items } : {}), ...(insightsEdited ? { notes: insights.join("\n") || null } : {}) })
+      .update({ ...parsed.data, ...(itemsEdited ? { items } : {}), ...(insightsEdited ? { notes: insightText || null } : {}) })
       .eq("id", meal.id)
       .select()
       .single();
@@ -187,15 +189,15 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             onAdd={(more, insights) => {
               const added = toEntries(more, () => crypto.randomUUID());
               setEntries((xs) => [...xs, ...added]);
-              if (insights.length) setAddedInsights((xs) => [...xs, { ids: added.map((e) => e.id), insights }]);
+              if (insights.length) setAddedInsights((xs) => [...xs, { label: insightLabel(more), insights }]);
             }}
           />
         </section>
 
-        {insights.length > 0 && (
+        {insightGroups.length > 0 && (
           <section className="grid gap-3">
             <SectionTitle>AI insights</SectionTitle>
-            <Insights insights={insights} />
+            <InsightGroups groups={insightGroups} />
           </section>
         )}
       </div>

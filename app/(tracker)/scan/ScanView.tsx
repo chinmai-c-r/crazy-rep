@@ -16,7 +16,7 @@ import { dayLabel, eatenAtFor, localDay, parseDay } from "@/lib/day";
 import { indexMeal } from "@/lib/meal-index-client";
 import { syncMeal } from "@/lib/google-health-client";
 import { compressImage } from "@/lib/image";
-import { itemOf, mergeInsights, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
+import { groupInsights, insightLabel, insightLines, itemOf, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
 import { useOnline } from "@/lib/offline";
 import { guessMealType, scaleNutrients, sumNutrients } from "@/lib/nutrition";
 import { analyzeResponseSchema, mealDetailsSchema, mealWriteSchema, type AnalysisSource } from "@/lib/schemas";
@@ -73,8 +73,8 @@ export default function ScanView() {
   // Each detected item keeps its original values and the quantity now chosen; the items used below are scaled from those
   const [entries, setEntries] = useState<ItemEntry[]>([]);
   const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
-  // The meal's own insights plus those of typed-in items that are still in the meal
-  const shownAnalysis = useMemo(() => (analysis ? { ...analysis, insights: mergeInsights(analysis.insights, addedInsights, entries) } : null), [analysis, addedInsights, entries]);
+  // The meal's own insights, then a bunch for each typed-in dish or item that is still in the meal
+  const insightGroups = useMemo(() => (analysis ? groupInsights(analysis.insights, addedInsights, entries) : []), [analysis, addedInsights, entries]);
   const items = useMemo(() => entries.map(itemOf), [entries]);
   const itemMeta = useMemo(() => entries.map((e) => ({ id: e.id, ...quantityOf(e) })), [entries]);
   const [servings, setServings] = useState(1);
@@ -218,7 +218,7 @@ export default function ScanView() {
         health_score: analysis.health_score,
         confidence: analysis.confidence,
         items,
-        notes: (shownAnalysis ?? analysis).insights.join("\n") || null,
+        notes: insightLines(insightGroups).join("\n") || null,
       })
       .select()
       .single();
@@ -320,10 +320,11 @@ export default function ScanView() {
         {stage === "analyzing" && <AnalyzingScreen preview={preview} name={form.getValues("name")} onCancel={() => abortRef.current?.abort()} />}
       </AnimatePresence>
 
-      {stage === "result" && analysis && shownAnalysis && (
+      {stage === "result" && analysis && (
         <ResultStage
           form={form}
-          analysis={shownAnalysis}
+          analysis={analysis}
+          insightGroups={insightGroups}
           source={source}
           provider={provider}
           providerLabel={provider !== "ai" ? PROVIDER_LABEL[provider] : undefined}
@@ -336,7 +337,7 @@ export default function ScanView() {
           onAddItems={(more, insights) => {
             const added = toEntries(more, () => crypto.randomUUID());
             setEntries((xs) => [...xs, ...added]);
-            if (insights.length) setAddedInsights((xs) => [...xs, { ids: added.map((e) => e.id), insights }]);
+            if (insights.length) setAddedInsights((xs) => [...xs, { label: insightLabel(more), insights }]);
           }}
           servings={servings}
           onServings={setServings}

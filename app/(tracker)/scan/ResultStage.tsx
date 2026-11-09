@@ -5,7 +5,6 @@ import {
   Camera,
   Check,
   Database,
-  Lightbulb,
   Loader2,
   Minus,
   Plus,
@@ -22,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks";
 import { DIET_OPTIONS, dietConflict, dietOf } from "@/lib/diet";
 import { foodEmoji } from "@/lib/food-emoji";
-import { groupRuns } from "@/lib/item-qty";
+import { groupRuns, type InsightGroup } from "@/lib/item-qty";
 import { fmt } from "@/lib/nutrition";
 import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
 import type { Analysis, FoodItem, MealType, Nutrients } from "@/lib/types";
@@ -30,6 +29,7 @@ import { flatRow } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import { Donut } from "../_components/charts";
 import AddItem from "../_components/AddItem";
+import InsightGroups from "../_components/InsightGroups";
 import ItemGroup from "../_components/ItemGroup";
 import PlacePicker from "../_components/PlacePicker";
 import ItemStepper from "../_components/ItemStepper";
@@ -407,6 +407,8 @@ function ItemCard({
 export type ResultProps = {
   form: Form;
   analysis: Analysis;
+  /** The AI's remarks, bunched by the dish or item they are about. */
+  insightGroups: InsightGroup[];
   source: AnalysisSource;
   provider: Provider;
   providerLabel?: { badge: string; credit: string };
@@ -719,29 +721,10 @@ export default function ResultStage(p: ResultProps) {
 
             <AddItem onAdd={p.onAddItems} onBusyChange={setAdding} />
 
-            {p.analysis.insights.length > 0 && (
+            {p.insightGroups.length > 0 && (
               <>
                 <SectionTitle>AI insights</SectionTitle>
-                <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
-                  {p.analysis.insights.map((n, i) => (
-                    <motion.li
-                      key={n}
-                      initial={reduce ? false : { opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        ease: EASE,
-                        delay: 0.5 + i * 0.12,
-                      }}
-                      className={cn("flex gap-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-transparent p-3 text-sm", flatRow)}
-                    >
-                      <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
-                        <Lightbulb className="size-4" />
-                      </span>
-                      <span className="self-center leading-snug">{n}</span>
-                    </motion.li>
-                  ))}
-                </ul>
+                <InsightGroups groups={p.insightGroups} />
               </>
             )}
             <p className="text-xs text-muted-foreground">
