@@ -54,7 +54,8 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [servings, setServings] = useState(Number(meal.servings));
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
   const [place, setPlace] = useState(meal.place ?? "");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false); // saving
+  const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false); // an item is being looked up
   const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
   const online = useOnline();
@@ -104,16 +105,17 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   }
 
   async function remove() {
-    setBusy(true);
-    // Before the row goes: the Google Health entry id lives on it
+    setDeleting(true);
+    // Before the row goes: the Google Health entry id lives on it (the server only reads it and finishes the Google side afterwards)
     await syncMeal(meal.id, "delete");
     const supabase = createClient();
     const { error } = await supabase.from("meals").delete().eq("id", meal.id);
     if (error) {
-      setBusy(false);
+      setDeleting(false);
       return toast.error(error.message);
     }
-    if (meal.image_path) await supabase.storage.from("meal-images").remove([meal.image_path]);
+    // The photo can go on its own; nobody needs to wait for it
+    if (meal.image_path) void supabase.storage.from("meal-images").remove([meal.image_path]);
     toast.success("Meal deleted");
     onDelete(meal.id);
     onClose();
@@ -199,8 +201,8 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
       <DrawerFooter className="flex-row gap-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="xl" className="flex-1" disabled={busy || !online}>
-              <Trash2 /> Delete
+            <Button variant="destructive" size="xl" className="flex-1" disabled={busy || deleting || !online}>
+              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />} {deleting ? "Deleting…" : "Delete"}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -216,8 +218,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <Button size="xl" className="flex-1" onClick={save} disabled={busy || adding || !dirty || !online}>
-
+        <Button size="xl" className="flex-1" onClick={save} disabled={busy || deleting || adding || !dirty || !online}>
           {busy && <Loader2 className="animate-spin" />}
           Save changes
         </Button>

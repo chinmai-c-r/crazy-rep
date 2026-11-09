@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { deleteMeal, isConfigured, pushMeal } from "@/lib/google-health";
 import { createAdmin, createClient } from "@/lib/supabase/server";
@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
   if (!meal) return NextResponse.json({ error: "Meal not found." }, { status: 404 });
 
   if (parsed.data.action === "delete") {
-    if (meal.google_health_id) await deleteMeal(userId, meal.google_health_id);
+    // The entry id is already in hand, so the Google call (token refresh and all) runs after the answer is sent
+    // and deleting the meal doesn't wait on it
+    const entryId = meal.google_health_id;
+    if (entryId) after(() => deleteMeal(userId, entryId).catch((err) => console.warn("Google Health delete failed", (err as Error).message)));
     return NextResponse.json({ synced: true });
   }
 
