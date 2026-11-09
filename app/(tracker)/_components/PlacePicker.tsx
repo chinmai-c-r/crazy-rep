@@ -51,14 +51,15 @@ export default function PlacePicker({ value, onChange, className }: { value: str
 
   const pill = (on: boolean) =>
     cn(
-      "flex h-8 flex-none items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-[background-color,color,box-shadow] duration-300 active:scale-95",
+      // Phones: four equal tiles, icon over name. Wider screens: one slim line of pills
+      "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[0.7rem] font-semibold transition-[background-color,color,box-shadow] duration-300 active:scale-95 sm:h-8 sm:flex-none sm:flex-row sm:gap-1.5 sm:rounded-full sm:px-3 sm:py-0 sm:text-xs",
       on ? "bg-primary text-primary-foreground shadow-[0_6px_22px_rgb(var(--primary-rgb)/0.35)]" : "text-muted-foreground hover:bg-foreground/5",
     );
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <div role="radiogroup" aria-label="Where did you eat" className="flex gap-1 overflow-x-auto rounded-full border bg-muted/40 p-1 backdrop-blur [scrollbar-width:none]">
-        <span className="flex flex-none items-center pl-2 text-muted-foreground" aria-hidden>
+      <div role="radiogroup" aria-label="Where did you eat" className="grid grid-cols-4 gap-1 rounded-2xl border bg-muted/40 p-1 backdrop-blur sm:flex sm:rounded-full">
+        <span className="hidden flex-none items-center pl-2 text-muted-foreground sm:flex" aria-hidden>
           <MapPin className="size-3.5" />
         </span>
         {PLACES.map((p) => {
@@ -75,7 +76,7 @@ export default function PlacePicker({ value, onChange, className }: { value: str
               }}
               className={pill(on)}
             >
-              <motion.span className="text-base leading-none" animate={on && !reduce ? { scale: [1, 1.3, 1], rotate: [0, -12, 0] } : { scale: 1 }} transition={{ duration: 0.45 }}>
+              <motion.span className="text-xl leading-none sm:text-base" animate={on && !reduce ? { scale: [1, 1.3, 1], rotate: [0, -12, 0] } : { scale: 1 }} transition={{ duration: 0.45 }}>
                 {p.icon}
               </motion.span>
               {p.label}
@@ -95,8 +96,8 @@ export default function PlacePicker({ value, onChange, className }: { value: str
           }}
           className={pill(typing)}
         >
-          <Pencil className="size-3.5" />
-          {typing && value.trim() ? value.trim() : "Other"}
+          <Pencil className="size-5 sm:size-3.5" />
+          Other
         </button>
       </div>
 
@@ -120,7 +121,7 @@ export default function PlacePicker({ value, onChange, className }: { value: str
                 enterKeyHint="done"
                 aria-label="Place name"
                 placeholder="Mom's house, Cafe Coffee Day, Flight…"
-                className="h-11 w-full rounded-xl border bg-background/60 px-3.5 text-base outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary"
+                className="h-12 w-full rounded-xl border bg-background/60 px-3.5 text-base outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary"
               />
               {recent.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">

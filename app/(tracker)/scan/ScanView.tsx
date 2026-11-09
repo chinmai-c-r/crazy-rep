@@ -260,8 +260,9 @@ export default function ScanView() {
     form.reset(EMPTY);
   }
 
+  // The result screen has two columns, so it gets the wide page; the form stays narrow
   return (
-    <Page narrow>
+    <Page narrow={stage !== "result"}>
       <PageHeader title="Log a meal">
         {(stage !== "details" || blob || form.formState.isDirty) && (
           <Button variant="outline" className="rounded-full" onClick={reset} disabled={stage === "analyzing" || saving}>

@@ -59,7 +59,7 @@ export default function ItemGroup({
             {items.slice(0, 3).map((it, i) => (
               <span
                 key={i}
-                className="grid size-10 place-items-center rounded-full border-2 border-card bg-card text-xl shadow-sm"
+                className="grid size-9 place-items-center rounded-full border-2 border-card bg-card text-lg shadow-sm sm:size-10 sm:text-xl"
                 style={{ zIndex: 3 - i }}
               >
                 {foodEmoji(it.name)}
@@ -67,14 +67,11 @@ export default function ItemGroup({
             ))}
           </span>
           <span className="grid min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-2">
-              <b className="truncate">{name}</b>
-              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-px text-[0.65rem] font-semibold text-primary">
-                {items.length} items
-              </span>
-            </span>
+            <b className="truncate">{name}</b>
             <small className="truncate text-xs text-muted-foreground">
-              {open ? `${fmt(grams)}g in total` : items.map((it) => it.name).join(" · ")}
+              <span className="font-semibold text-primary">{items.length} items</span>
+              {" · "}
+              {open ? `${fmt(grams)}g in total` : items.map((it) => it.name).join(", ")}
             </small>
           </span>
           <span className="text-right font-heading text-xl leading-none whitespace-nowrap">
