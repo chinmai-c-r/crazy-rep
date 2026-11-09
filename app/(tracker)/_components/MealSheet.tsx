@@ -42,7 +42,8 @@ type Props = {
 
 export default function MealSheet({ meal, imageUrl, onClose, onChange, onDelete }: Props) {
   return (
-    <Drawer open={!!meal} onOpenChange={(o) => !o && onClose()}>
+    // repositionInputs off: with it on, the drawer shrinks to the space above the keyboard whenever a text box is focused
+    <Drawer open={!!meal} onOpenChange={(o) => !o && onClose()} repositionInputs={false}>
       <DrawerContent className="mx-auto max-h-[92dvh] max-w-2xl">
         {meal && <Body key={meal.id} meal={meal} imageUrl={imageUrl} onClose={onClose} onChange={onChange} onDelete={onDelete} />}
       </DrawerContent>

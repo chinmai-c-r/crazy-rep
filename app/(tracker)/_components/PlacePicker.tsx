@@ -117,6 +117,11 @@ export default function PlacePicker({ value, onChange, className }: { value: str
                 onChange={(e) => onChange(e.target.value)}
                 maxLength={PLACE_MAX}
                 ref={input}
+                // The keyboard now covers the lower part of the drawer instead of squeezing it, so bring the box into view once it's up
+                onFocus={(e) => {
+                  const el = e.currentTarget;
+                  setTimeout(() => el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" }), 300);
+                }}
                 autoComplete="off"
                 enterKeyHint="done"
                 aria-label="Place name"
