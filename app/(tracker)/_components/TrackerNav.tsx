@@ -7,18 +7,18 @@ import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import { useFlag } from "./Flags";
 
-type Tab = { href: string; label: string; icon: LucideIcon; primary?: boolean; desktopOnly?: boolean };
+type Tab = { href: string; label: string; icon: LucideIcon; primary?: boolean; desktopOnly?: boolean; onDemand?: boolean };
 
 const tabs: Tab[] = [
   { href: "/dashboard", label: "Today", icon: Flame },
   { href: "/history", label: "History", icon: LineChart },
   { href: "/scan", label: "Log meal", icon: Camera, primary: true },
-  { href: "/coach", label: "Coach", icon: Bot },
-  { href: "/profile", label: "Profile", icon: UserRound },
+  { href: "/coach", label: "Coach", icon: Bot, onDemand: true },
+  { href: "/profile", label: "Profile", icon: UserRound, onDemand: true },
 ];
 
 /** Only shown to admins (admin-users flag), and only in the desktop sidebar; the page and its API also check on the server. */
-const adminTab: Tab = { href: "/api-test", label: "API test", icon: FlaskConical, primary: false, desktopOnly: true };
+const adminTab: Tab = { href: "/api-test", label: "API test", icon: FlaskConical, primary: false, desktopOnly: true, onDemand: true };
 
 export default function TrackerNav() {
   const pathname = usePathname();
@@ -31,12 +31,13 @@ export default function TrackerNav() {
     >
       <Logo href="/dashboard" className="hidden px-3 lg:inline-flex" />
       <ul className="mx-auto grid max-w-lg grid-cols-5 gap-1 lg:m-0 lg:max-w-none lg:grid-cols-1 lg:gap-1.5">
-        {items.map(({ href, label, icon: Icon, primary, desktopOnly }) => {
+        {items.map(({ href, label, icon: Icon, primary, desktopOnly, onDemand }) => {
           const on = pathname.startsWith(href);
           return (
             <li key={href} className={cn(desktopOnly && "hidden lg:block")}>
               <Link
                 href={href}
+                prefetch={onDemand ? false : undefined}
                 aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-2xl px-1 py-1.5 text-[0.7rem] font-semibold text-muted-foreground transition-colors lg:flex-row lg:gap-3 lg:px-4 lg:py-3 lg:text-sm",

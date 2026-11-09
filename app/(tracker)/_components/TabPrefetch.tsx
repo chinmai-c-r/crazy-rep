@@ -4,19 +4,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { localDay } from "@/lib/day";
-import { chatMessagesQuery, chatThreadsQuery, keys, recentDishesQuery, summaryQuery } from "@/lib/hooks";
+import { recentDishesQuery, summaryQuery } from "@/lib/hooks";
 import { useOnline } from "@/lib/offline";
-import type { ChatThread } from "@/lib/types";
 
-const TABS = ["/dashboard", "/history", "/scan", "/coach", "/profile"];
+/** The tabs used every day. Coach and Profile are rarely opened, so they load on demand instead. */
+const TABS = ["/dashboard", "/history", "/scan"];
 /** The History page opens on this many days (its "30d" tab). Keep it in step with HistoryView. */
 const HISTORY_DAYS = 30;
 const START_AFTER_MS = 2000;
 
 /**
- * Gets the other tabs ready while you're looking at this one, so opening them is instant:
- * their code, and the data they show first (History's default range, the name suggestions for Log meal,
- * the coach's conversation list and your latest chat). Uses the same queries and cache keys as the pages,
+ * Gets the everyday tabs ready while you're looking at this one, so opening them is instant:
+ * their code, and the data they show first (History's default range, the name suggestions for Log meal).
+ * Uses the same queries and cache keys as the pages,
  * so a page that already has fresh data doesn't ask again. Quiet on a slow connection or with Data Saver on.
  */
 export default function TabPrefetch() {
@@ -40,11 +40,6 @@ export default function TabPrefetch() {
       const steps: (() => Promise<unknown>)[] = [
         () => qc.prefetchQuery(summaryQuery(localDay(first), localDay(today), "day")),
         () => qc.prefetchQuery(recentDishesQuery),
-        async () => {
-          await qc.prefetchQuery(chatThreadsQuery);
-          const latest = qc.getQueryData<ChatThread[]>(keys.chatThreads)?.[0];
-          if (latest) await qc.prefetchQuery(chatMessagesQuery(latest.id));
-        },
       ];
       for (const step of steps) {
         if (cancelled) return;
