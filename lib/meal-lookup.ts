@@ -21,9 +21,9 @@ export const providerOf = (source: CacheSource | null | undefined, model?: strin
  *   3. USDA FoodData Central when it has a confident match
  *   4. Gemini (uses AI credits)
  * Results from 3 and 4 are saved back with an embedding, so the cache keeps growing. An AI answer's individual items are saved as
- * their own rows too, so adding "chutney" to a meal later can come from the cache.
+ * their own rows too (unless opts.seedItems is false), so adding "chutney" to a meal later can come from the cache.
  */
-export async function lookupTextMeal(ctx: MealContext): Promise<Result> {
+export async function lookupTextMeal(ctx: MealContext, opts: { seedItems?: boolean } = {}): Promise<Result> {
   const key = cacheKey(ctx);
 
   const exact = await getCachedAnalysis(key);
@@ -42,7 +42,8 @@ export async function lookupTextMeal(ctx: MealContext): Promise<Result> {
   if (analysis.is_food) {
     await saveCachedAnalysis(key, ctx, analysis, model, "ai");
     // Its items are worth keeping on their own too, so adding one later doesn't need the AI
-    await inBackground(() => seedItemRows(analysis, model));
+    // (skipped when one item is being added to a meal: that gets a single row of its own, not one per sub-item)
+    if (opts.seedItems !== false) await inBackground(() => seedItemRows(analysis, model));
   }
   return { analysis, source: "text", provider: "ai" };
 }
