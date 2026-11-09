@@ -415,7 +415,7 @@ export type ResultProps = {
   onStepItem: (index: number, dir: 1 | -1) => void;
   onRemoveItem: (index: number) => void;
   /** Items the person typed in because they weren't detected. */
-  onAddItems: (items: FoodItem[]) => void;
+  onAddItems: (items: FoodItem[], insights: string[]) => void;
   servings: number;
   onServings: (v: number) => void;
   mealType: MealType;
@@ -445,6 +445,7 @@ export default function ResultStage(p: ResultProps) {
   ];
   const kcal = useRolling(p.totals.calories, reduce);
   const goalPct = Math.round((p.totals.calories / goal) * 100);
+  const [adding, setAdding] = useState(false); // an item is being looked up: hold the Log button
   const [burst, setBurst] = useState(!reduce);
   useEffect(() => {
     if (!burst) return;
@@ -694,7 +695,7 @@ export default function ResultStage(p: ResultProps) {
               </AnimatePresence>
             </ul>
 
-            <AddItem onAdd={p.onAddItems} />
+            <AddItem onAdd={p.onAddItems} onBusyChange={setAdding} />
 
             {p.analysis.insights.length > 0 && (
               <>
@@ -753,7 +754,7 @@ export default function ResultStage(p: ResultProps) {
           <Button
             className="relative h-14 flex-[1.5] overflow-hidden rounded-full bg-gradient-to-r from-primary via-mid to-chart-4 text-base font-semibold text-primary-foreground shadow-[0_10px_22px_-8px_rgb(var(--primary-rgb)/0.6),0_4px_10px_-3px_rgb(0_0_0/0.45)] transition-transform active:scale-[0.98]"
             onClick={p.onSave}
-            disabled={p.saving || p.offline}
+            disabled={p.saving || p.offline || adding}
           >
             {!p.saving && !reduce && (
               <span

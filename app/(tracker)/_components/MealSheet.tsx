@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { syncMeal } from "@/lib/google-health-client";
-import { isEdited, itemOf, quantityOf, stepEntry, toEntries, type ItemEntry } from "@/lib/item-qty";
+import { isEdited, itemOf, mergeInsights, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
 import { fmt, sumNutrients } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { mealWriteSchema } from "@/lib/schemas";
@@ -53,6 +53,8 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const [servings, setServings] = useState(Number(meal.servings));
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false); // an item is being looked up
+  const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
   const online = useOnline();
 
   // Each detected item can be raised or lowered. Items are per serving; the saved nutrients include the saved servings.
@@ -70,7 +72,11 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
     for (const k of NUTRIENT_KEYS) out[k] = Math.round(((Number(meal[k]) || 0) / Number(meal.servings) + (now[k] - was[k])) * servings * 10) / 10;
     return out;
   }, [meal, items, servings]);
-  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited;
+  // The saved insights plus those of items added here that are still in the meal
+  const savedInsights = useMemo(() => (meal.notes ?? "").split("\n").filter(Boolean), [meal.notes]);
+  const insights = useMemo(() => mergeInsights(savedInsights, addedInsights, entries), [savedInsights, addedInsights, entries]);
+  const insightsEdited = insights.length !== savedInsights.length;
+  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited || insightsEdited;
 
   async function save() {
     const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType });
@@ -78,7 +84,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
     setBusy(true);
     const { data, error } = await createClient()
       .from("meals")
-      .update({ ...parsed.data, ...(itemsEdited ? { items } : {}) })
+      .update({ ...parsed.data, ...(itemsEdited ? { items } : {}), ...(insightsEdited ? { notes: insights.join("\n") || null } : {}) })
       .eq("id", meal.id)
       .select()
       .single();
@@ -163,16 +169,19 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             />
           )}
           <AddItem
-            onAdd={(more) => {
-              setEntries((xs) => [...xs, ...toEntries(more, () => crypto.randomUUID())]);
+            onBusyChange={setAdding}
+            onAdd={(more, insights) => {
+              const added = toEntries(more, () => crypto.randomUUID());
+              setEntries((xs) => [...xs, ...added]);
+              if (insights.length) setAddedInsights((xs) => [...xs, { ids: added.map((e) => e.id), insights }]);
             }}
           />
         </section>
 
-        {meal.notes && (
+        {insights.length > 0 && (
           <section className="grid gap-3">
             <SectionTitle>AI insights</SectionTitle>
-            <Insights insights={meal.notes.split("\n")} />
+            <Insights insights={insights} />
           </section>
         )}
       </div>
@@ -197,7 +206,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <Button size="xl" className="flex-1" onClick={save} disabled={busy || !dirty || !online}>
+        <Button size="xl" className="flex-1" onClick={save} disabled={busy || adding || !dirty || !online}>
 
           {busy && <Loader2 className="animate-spin" />}
           Save changes

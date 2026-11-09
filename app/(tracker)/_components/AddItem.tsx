@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import Typewriter from "./Typewriter";
  * "Missing something?" Type one item the way you'd say it ("2 rotis", "1 cup rice", "paneer 100g")
  * and it's looked up like the meal name: saved results, then USDA, then AI. Found items are handed to onAdd.
  */
-export default function AddItem({ onAdd, className }: { onAdd: (items: FoodItem[]) => void; className?: string }) {
+export default function AddItem({ onAdd, onBusyChange, className }: { onAdd: (items: FoodItem[], insights: string[]) => void; onBusyChange?: (busy: boolean) => void; className?: string }) {
   const online = useOnline();
   const reduce = useReducedMotion() ?? false;
   const { profile } = useProfile();
@@ -26,28 +26,35 @@ export default function AddItem({ onAdd, className }: { onAdd: (items: FoodItem[
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
+  // Tell the parent while a lookup is running, so it can hold the Log/Save button until the item has landed
+  const setBusyAndNotify = (b: boolean) => {
+    setBusy(b);
+    onBusyChange?.(b);
+  };
+  useEffect(() => () => onBusyChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     const parsed = addItemSchema.safeParse({ text });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Type an item");
 
-    setBusy(true);
+    setBusyAndNotify(true);
     setError(null);
     try {
       const res = await fetch("/api/analyze/item", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
-      const json = (await res.json().catch(() => ({}))) as { items?: unknown[]; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { items?: unknown[]; insights?: unknown[]; error?: string };
       if (!res.ok) throw new Error(json.error || "We couldn't find that item.");
       const items = (json.items ?? []).map((it) => foodItemSchema.parse(it));
       if (!items.length) throw new Error("We couldn't find that item.");
-      onAdd(items);
+      onAdd(items, (json.insights ?? []).filter((t): t is string => typeof t === "string" && t.trim() !== ""));
       setText("");
       toast.success(`Added ${items.map((i) => i.name).join(", ")}`);
       input.current?.focus();
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusyAndNotify(false);
     }
   }
 

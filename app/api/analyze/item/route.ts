@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     if (!analysis.is_food || !analysis.items.length) {
       return NextResponse.json({ error: "That doesn't look like a food or drink. Try something like “2 rotis”." }, { status: 422 });
     }
-    return NextResponse.json({ items: analysis.items, provider, source });
+    return NextResponse.json({ items: analysis.items, insights: analysis.insights, provider, source });
   } catch (err) {
     console.error("add item failed", err);
     const status = (err as { status?: number })?.status;

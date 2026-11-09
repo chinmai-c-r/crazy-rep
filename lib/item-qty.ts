@@ -45,14 +45,25 @@ const whole = (e: { base: FoodItem }) => {
 export const toEntries = (items: FoodItem[], newId: () => string): ItemEntry[] =>
   items.map((base) => ({ id: newId(), base, count: parseQuantity(base.portion)?.n ?? 1 }));
 
-/** The next quantity up or down: whole numbers for things you count, halves up to two and then whole numbers for measures. */
+/** The next quantity up or down: whole numbers for things you count, quarters up to two and then whole numbers for measures. */
 export function stepCount(n: number, dir: 1 | -1, wholeOnly: boolean) {
   if (wholeOnly) return Math.max(1, n + dir);
-  if (dir > 0) return n < 2 ? n + 0.5 : n + 1;
-  return n > 2 ? n - 1 : Math.max(0.5, n - 0.5);
+  // Snapped to the quarter grid, so an amount that came in off it (a third of a cup) lands on the next quarter
+  if (dir > 0) return n < 2 ? Math.min(2, (Math.floor(n * 4 + 1e-9) + 1) / 4) : n + 1;
+  return n > 2 ? n - 1 : Math.max(0.25, (Math.ceil(n * 4 - 1e-9) - 1) / 4);
 }
 
 export const stepEntry = (e: ItemEntry, dir: 1 | -1): ItemEntry => ({ ...e, count: stepCount(e.count, dir, whole(e)) });
+
+/** What the AI said about items typed in later, and which entries it was about (so removing them drops their insights too). */
+export type AddedInsights = { ids: string[]; insights: string[] }[];
+
+/** The meal's own insights followed by those of the added items still in the meal, without repeats. */
+export function mergeInsights(base: string[], added: AddedInsights, entries: { id: string }[]): string[] {
+  const live = new Set(entries.map((e) => e.id));
+  const all = [...base, ...added.filter((g) => g.ids.some((id) => live.has(id))).flatMap((g) => g.insights)];
+  return all.filter((t, i) => all.indexOf(t) === i);
+}
 
 export const fmtQty = (n: number) => String(Math.round(n * 100) / 100);
 
