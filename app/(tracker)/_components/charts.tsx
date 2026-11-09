@@ -165,13 +165,14 @@ function smooth(pts: { x: number; y: number }[]) {
 }
 
 /** Weight over time: a glowing curve over a soft gradient, drawn left to right. `slots` is the number of buckets on the x axis. */
-export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { slot: number })[]; slots: number; kind: "day" | "week" | "month" }) {
+export function WeightLine({ points, slots, kind, target }: { points: (WeightPoint & { slot: number })[]; slots: number; kind: "day" | "week" | "month"; target?: number | null }) {
   const reduce = useReducedMotion() ?? false;
   const id = useId();
   const [hover, setHover] = useState<number | null>(null);
   const W = 1000;
   const H = 200;
-  const ws = points.map((p) => p.value);
+  // The goal line is part of the scale, so it stays in view even when you are still far from it
+  const ws = [...points.map((p) => p.value), ...(target ? [target] : [])];
   const lo = Math.floor(Math.min(...ws) - 1);
   const hi = Math.ceil(Math.max(...ws) + 1);
   const x = (slot: number) => (slots === 1 ? W / 2 : (slot / (slots - 1)) * W);
@@ -202,6 +203,7 @@ export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { s
             {[0.25, 0.5, 0.75].map((g) => (
               <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="var(--foreground)" strokeOpacity="0.07" vectorEffect="non-scaling-stroke" />
             ))}
+            {target ? <line x1="0" x2={W} y1={y(target)} y2={y(target)} stroke="var(--color-primary)" strokeWidth="1.5" strokeDasharray="6 6" strokeOpacity="0.8" vectorEffect="non-scaling-stroke" /> : null}
             {area && <path d={area} fill={`url(#${id}-fill)`} />}
             <path
               d={line}
@@ -230,6 +232,11 @@ export function WeightLine({ points, slots, kind }: { points: (WeightPoint & { s
             aria-label={`${p.title}: ${fmt(p.value, 1)} kg`}
           />
         ))}
+        {target ? (
+          <span className="pointer-events-none absolute right-0 -translate-y-full rounded-full bg-primary/15 px-2 py-0.5 text-[0.7rem] font-semibold text-primary" style={{ top: `${(y(target) / H) * 100}%` }}>
+            Goal {fmt(target, 1)} kg
+          </span>
+        ) : null}
         <span className="pointer-events-none absolute top-0 left-0 text-xs text-muted-foreground">{hi} kg</span>
         <span className="pointer-events-none absolute bottom-0 left-0 text-xs text-muted-foreground">{lo} kg</span>
       </div>

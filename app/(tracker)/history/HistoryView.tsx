@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseDay } from "@/lib/day";
-import { useFirstLogDay, useGoogleStatus, useGoogleSyncing, useProfile, useSleepRange, useSummary } from "@/lib/hooks";
+import { useFirstLogDay, useGoogleStatus, useGoogleSyncing, useProfile, useSleepRange, useStartWeight, useSummary } from "@/lib/hooks";
 import { fmt } from "@/lib/nutrition";
 import { averageOf, fmtSleep, groupNights, nightsOf } from "@/lib/sleep";
 import { useOnline } from "@/lib/offline";
@@ -20,6 +20,7 @@ import SleepChart from "../_components/SleepChart";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import { TabBar, type ProfileTab } from "../profile/ProfileTabs";
 import MealSearch from "./MealSearch";
+import WeightGoalProgress from "./WeightGoalProgress";
 import {
   BarChartSkeleton,
   DonutSkeleton,
@@ -103,6 +104,7 @@ export default function HistoryView() {
   const { days, bucket } = range === "all" ? allTime(firstLog) : RANGES[range];
   const { profile, loading: profileLoading } = useProfile();
   const goal = profile?.calorie_goal ?? 2000;
+  const startWeight = useStartWeight();
 
   const { start, end } = useMemo(() => {
     const today = new Date();
@@ -177,6 +179,22 @@ export default function HistoryView() {
 
   const kcalDelta = view.avgKcal - goal;
   const proteinGoal = profile?.protein_goal_g;
+  // Weight goal: only for someone who is trying to lose or gain and has set a target
+  const weightGoal = profile?.goal === "lose" || profile?.goal === "gain" ? profile.goal : null;
+  const targetKg = weightGoal ? Number(profile?.target_weight_kg) || null : null;
+  const currentKg = Number(profile?.weight_kg) || null;
+  /** Kilos per week over the range on screen, positive when heading toward the goal */
+  const trendRate = (() => {
+    const a = view.weighed[0];
+    const b = view.weighed[view.weighed.length - 1];
+    const from = parseDay(a?.r.bucket);
+    const to = parseDay(b?.r.bucket);
+    if (!a || !b || !from || !to || a === b) return null;
+    const weeks = (to.getTime() - from.getTime()) / (7 * 864e5);
+    if (weeks < 1) return null;
+    const perWeek = (b.r.avg_weight_kg! - a.r.avg_weight_kg!) / weeks;
+    return weightGoal === "lose" ? -perWeek : perWeek;
+  })();
   const firstW = view.weighed[0]?.r.avg_weight_kg;
   const lastW = view.weighed[view.weighed.length - 1]?.r.avg_weight_kg;
 
@@ -265,7 +283,11 @@ export default function HistoryView() {
             accent="pink"
             value={view.weightChange === null ? "—" : `${view.weightChange > 0 ? "+" : ""}${fmt(view.weightChange, 1)}`}
             unit={view.weightChange === null ? "" : "kg"}
-            sub={firstW != null && lastW != null && view.weighed.length > 1 ? `${fmt(firstW, 1)} → ${fmt(lastW, 1)} kg` : "Log two weigh-ins to see change"}
+            sub={
+              firstW != null && lastW != null && view.weighed.length > 1
+                ? `${fmt(firstW, 1)} → ${fmt(lastW, 1)} kg${targetKg ? ` · goal ${fmt(targetKg, 1)}` : ""}`
+                : "Log two weigh-ins to see change"
+            }
           />
         </section>
       )}
@@ -407,11 +429,24 @@ export default function HistoryView() {
                 kind={bucket}
                 slots={rows.length}
                 points={view.weighed.map(({ r, slot }) => ({ key: r.bucket, slot, value: r.avg_weight_kg!, title: periodLabel(r.bucket, bucket) }))}
+                target={targetKg}
               />
             )}
           </CardContent>
         </Card>
       </section>
+
+      {!pending && weightGoal && targetKg && currentKg ? (
+        <WeightGoalProgress goal={weightGoal} startKg={startWeight ?? currentKg} currentKg={currentKg} targetKg={targetKg} plannedRate={profile?.weekly_rate_kg ?? null} trendRate={trendRate} />
+      ) : !pending && weightGoal && !targetKg ? (
+        <p className="rounded-2xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          Set a target weight in{" "}
+          <a href="/profile?tab=targets" className="underline underline-offset-4">
+            Profile
+          </a>{" "}
+          to track your progress here.
+        </p>
+      ) : null}
 
       <section className="grid grid-cols-2 gap-3 lg:gap-4">
         <Card className="rounded-3xl">

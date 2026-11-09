@@ -29,6 +29,7 @@ export const keys = {
   chatThreads: ["chat-threads"] as const,
   chat: (threadId: string) => ["chat", threadId] as const,
   reminders: ["reminders"] as const,
+  startWeight: ["start-weight"] as const,
   firstLog: ["first-log"] as const,
   mealSearch: (q: string, similar: boolean) => ["meal-search", q, similar] as const,
   dishHistory: (key: string) => ["dish-history", key] as const,
@@ -171,6 +172,19 @@ export const weightsQuery = (limit: number) => ({
     return (data as WeightLog[]) ?? [];
   },
 });
+
+/** The very first weigh-in, so progress toward a goal is measured from where you began. */
+export function useStartWeight() {
+  const { data } = useQuery({
+    queryKey: keys.startWeight,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await createClient().from("weight_logs").select("weight_kg").order("logged_on", { ascending: true }).limit(1).maybeSingle();
+      return data ? Number(data.weight_kg) : null;
+    },
+  });
+  return data ?? null;
+}
 
 export function useWeights(limit = 30) {
   const query = useQuery(weightsQuery(limit));
