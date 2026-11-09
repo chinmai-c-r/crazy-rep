@@ -256,7 +256,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
                     <div className="col-span-2 grid grid-cols-3 items-end gap-3">
                       <NumberField control={control} name="age" label="Age" />
                       <NumberField control={control} name="height_cm" label="Height (cm)" decimal />
-                      <NumberField control={control} name="weight_kg" label="Current weight (kg)" decimal />
+                      <NumberField control={control} name="weight_kg" label="Weight (kg)" decimal />
                     </div>
                   </FieldGroup>
                 </CardContent>
