@@ -1,5 +1,6 @@
 import type { ActivityLevel, Goal, Nutrients, Sex } from "./types";
 import { NUTRIENT_KEYS } from "./types";
+import { CALORIE_FLOOR, dailyDelta } from "./weight-plan";
 
 const ACTIVITY: Record<ActivityLevel, number> = {
   sedentary: 1.2,
@@ -30,11 +31,16 @@ export function calculateGoals(input: {
   weight_kg: number;
   activity_level: ActivityLevel;
   goal: Goal;
+  /** Chosen pace in kg per week; sets the calorie gap instead of the fixed default */
+  weekly_rate_kg?: number | null;
 }) {
-  const { sex, age, height_cm, weight_kg, activity_level, goal } = input;
+  const { sex, age, height_cm, weight_kg, activity_level, goal, weekly_rate_kg } = input;
   const bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + (sex === "male" ? 5 : -161);
   const tdee = bmr * ACTIVITY[activity_level];
-  const calories = Math.max(1200, Math.round((tdee + GOAL_DELTA[goal]) / 10) * 10);
+  const paced = goal !== "maintain" && weekly_rate_kg ? dailyDelta(weekly_rate_kg) * (goal === "lose" ? -1 : 1) : null;
+  // With a chosen pace the floor is the safe minimum for their sex; the default plan keeps its old 1,200 floor
+  const floor = paced === null ? 1200 : CALORIE_FLOOR[sex];
+  const calories = Math.max(floor, Math.round((tdee + (paced ?? GOAL_DELTA[goal])) / 10) * 10);
   const protein = Math.round(weight_kg * (goal === "lose" ? 2.2 : 1.8));
   const fat = Math.round((calories * 0.25) / 9);
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));

@@ -7,13 +7,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldError, FieldGroup } from "@/components/ui/field";
 import { fmt } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
+import type { WeightPlan } from "@/lib/weight-plan";
+import WeightPlanSummary from "../_components/WeightPlanSummary";
 import { SectionTitle } from "../_components/Page";
 import NumberField, { type ProfileControl } from "./NumberField";
 
 type Recommended = { bmr: number; tdee: number; calorie_goal: number } | null;
 
 /** Daily targets: a big calorie control, where the macros put those calories, and the rest of the numbers. */
-export default function TargetsSection({ control, calc, onApply }: { control: ProfileControl; calc: Recommended; onApply: () => void }) {
+export default function TargetsSection({
+  control,
+  calc,
+  onApply,
+  weightPlan,
+  target,
+  onSafer,
+}: {
+  control: ProfileControl;
+  calc: Recommended;
+  onApply: () => void;
+  weightPlan: WeightPlan | null;
+  target: number | null;
+  onSafer: (rate: number) => void;
+}) {
   const [kcal, protein, carbs, fat] = useWatch({ control, name: ["calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g"] });
   const goal = Number(kcal) || 0;
 
@@ -42,6 +58,9 @@ export default function TargetsSection({ control, calc, onApply }: { control: Pr
       ) : (
         <p className="rounded-2xl border border-dashed px-4 py-3 text-sm text-muted-foreground">Fill in sex, age, height and weight on the Body tab to get suggested targets.</p>
       )}
+
+      {/* Re-checked against the calories typed here, so an over-aggressive number is flagged as soon as it's entered */}
+      {weightPlan && target && <WeightPlanSummary plan={weightPlan} target={target} onSafer={onSafer} />}
 
       <Card className="rounded-3xl">
         <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-5">

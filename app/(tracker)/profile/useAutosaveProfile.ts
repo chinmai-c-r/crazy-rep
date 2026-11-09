@@ -14,7 +14,7 @@ export type SaveStatus = "idle" | "saving" | "saved" | "invalid" | "error";
 /** Typing waits for a pause; a tap on a toggle or a select saves almost at once. */
 const TYPING_MS = 900;
 const TAP_MS = 250;
-const TYPED_FIELDS = new Set<string>(["display_name", "age", "height_cm", "weight_kg", "calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g", "water_goal_ml"]);
+const TYPED_FIELDS = new Set<string>(["display_name", "age", "height_cm", "weight_kg", "target_weight_kg", "calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g", "water_goal_ml"]);
 
 /**
  * Saves the profile form as it changes, so there is no Save button.
@@ -34,6 +34,7 @@ export function useAutosaveProfile(form: UseFormReturn<ProfileInput, unknown, Pr
   const saveRef = useRef<() => void>(() => {});
   const id = profile.id;
   const hasDiet = "diet" in profile;
+  const hasWeightGoal = "target_weight_kg" in profile;
 
   useEffect(() => {
     const initial = profileSchema.safeParse(form.getValues());
@@ -52,10 +53,11 @@ export function useAutosaveProfile(form: UseFormReturn<ProfileInput, unknown, Pr
       inFlight.current = true;
       setStatus("saving");
       // A profile read before the diet migration ran has no diet column yet; leave it out so saving still works
-      const { diet, ...rest } = parsed.data;
+      const { diet, target_weight_kg, weekly_rate_kg, ...rest } = parsed.data;
       const { data, error } = await createClient()
         .from("profiles")
-        .update({ ...rest, ...(hasDiet ? { diet } : {}), display_name: parsed.data.display_name || null })
+        .update({ ...rest, ...(hasDiet ? { diet } : {}),
+          ...(hasWeightGoal ? { target_weight_kg, weekly_rate_kg } : {}), display_name: parsed.data.display_name || null })
         .eq("id", id)
         .select()
         .single();

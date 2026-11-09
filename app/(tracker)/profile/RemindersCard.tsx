@@ -56,7 +56,7 @@ function Reminders() {
   const [busy, setBusy] = useState<"toggle" | "test" | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const { data: settings = FRESH } = useQuery({
+  const { data: settings = FRESH, isPending: loading } = useQuery({
     queryKey: keys.reminders,
     queryFn: async (): Promise<ReminderSettings> => {
       const { data, error } = await createClient()
@@ -194,13 +194,13 @@ function Reminders() {
         <div className="grid gap-1">
           <div className="flex items-center justify-between gap-3">
             <SectionTitle>Meal reminders</SectionTitle>
-            {device?.support === "ok" && !device.blocked && (
+            {(device === null || (device.support === "ok" && !device.blocked)) && (
               <Switch
                 checked={on}
                 onChange={toggle}
-                disabled={!online || busy !== null}
+                disabled={!online || busy !== null || loading || device === null}
                 label="Meal reminders"
-                busy={busy === "toggle"}
+                busy={busy === "toggle" || loading || device === null}
               />
             )}
           </div>

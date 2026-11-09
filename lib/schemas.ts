@@ -164,6 +164,8 @@ export const profileSchema = z.object({
   weight_kg: optionalNumber(25, 400, "Weight"),
   activity_level: activitySchema,
   goal: goalSchema,
+  target_weight_kg: optionalNumber(25, 400, "Target weight"),
+  weekly_rate_kg: optionalNumber(0.1, 1.5, "Pace"),
   // Vegetarian unless chosen otherwise (a blank or missing value means the default)
   diet: z.preprocess((v) => (v === "" || v === null || v === undefined ? "vegetarian" : v), dietSchema),
   calorie_goal: target(800, 10000, "Calories"),

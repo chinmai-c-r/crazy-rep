@@ -2,8 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { NO_ACCESS_MESSAGE, requestAccessUrl } from "../flags";
 import { boolFlag } from "../flags-server";
+import { isProfileComplete } from "../profile";
 import { SUPABASE_KEY, SUPABASE_URL } from "./env";
 
+/** Holds the id of a user whose profile is complete, so the proxy can skip the profile lookup. */
+const ONBOARDED_COOKIE = "cr_onboarded";
 const PROTECTED = ["/dashboard", "/scan", "/history", "/profile", "/coach", "/api-test", "/onboarding"];
 
 /** Refreshes the auth cookie on every request, gates the tracker routes and applies the sign-in-users flag. */
@@ -53,6 +56,21 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // Signed in but never finished onboarding: send them there before any page renders (no flash of the page, no waiting on the client).
+  // Once a profile is seen complete a cookie remembers it, so later navigations skip the lookup.
+  if (claims && !pathname.startsWith("/api/") && !pathname.startsWith("/onboarding") && PROTECTED.some((p) => pathname.startsWith(p))) {
+    if (request.cookies.get(ONBOARDED_COOKIE)?.value !== claims.sub) {
+      const { data: profile, error } = await supabase.from("profiles").select("sex, age, height_cm, weight_kg").eq("id", claims.sub).maybeSingle();
+      if (!error && (!profile || !isProfileComplete(profile))) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        url.search = "";
+        return withCookies(NextResponse.redirect(url), response);
+      }
+      if (!error) response.cookies.set(ONBOARDED_COOKIE, claims.sub, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+    }
   }
 
   return response;

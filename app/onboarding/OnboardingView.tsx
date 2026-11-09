@@ -12,6 +12,7 @@ import { useProfile } from "@/lib/hooks";
 import { calculateGoals } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { BODY_SUGGESTION, isProfileComplete, macrosFor, waterGoalFor } from "@/lib/profile";
+import { assessPlan, healthyRange, PACES, recommendedRate, suggestedTarget } from "@/lib/weight-plan";
 import { profileSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import type { ActivityLevel, Diet, Goal, Sex } from "@/lib/types";
@@ -19,9 +20,14 @@ import { cn } from "@/lib/utils";
 import ClientOnly from "../(tracker)/_components/ClientOnly";
 import { OfflineNote } from "../(tracker)/_components/OfflineBanner";
 import Providers from "../(tracker)/_components/Providers";
+import WeightPlanSummary from "../(tracker)/_components/WeightPlanSummary";
 
-const STEPS = ["goal", "sex", "body", "activity", "diet", "plan"] as const;
-type Step = (typeof STEPS)[number];
+const ALL_STEPS = ["goal", "sex", "body", "activity", "target", "diet", "plan"] as const;
+type Step = (typeof ALL_STEPS)[number];
+
+/** Tells the proxy this profile is complete so the next page doesn't wait on another lookup. */
+const rememberOnboarded = (userId: string) =>
+  window.cookieStore?.set({ name: "cr_onboarded", value: userId, path: "/", expires: Date.now() + 365 * 864e5, sameSite: "lax" }).catch(() => {});
 
 const GOALS: { id: Goal; emoji: string; label: string; hint: string }[] = [
   { id: "lose", emoji: "🔥", label: "Lose fat", hint: "Eat a little less than you burn" },
@@ -45,14 +51,14 @@ const ACTIVITIES: { id: ActivityLevel; emoji: string; label: string; hint: strin
 const BODY_FIELDS = [
   { key: "age", label: "Age", unit: "years", min: 10, max: 120, step: 1 },
   { key: "height_cm", label: "Height", unit: "cm", min: 80, max: 260, step: 1 },
-  { key: "weight_kg", label: "Weight", unit: "kg", min: 25, max: 400, step: 1 },
+  { key: "weight_kg", label: "Current weight", unit: "kg", min: 25, max: 400, step: 1 },
 ] as const;
 type Body = Record<(typeof BODY_FIELDS)[number]["key"], number | "">;
 
 const PLAN_NOTE: Record<Goal, string> = {
-  lose: "500 kcal under what you burn, about 0.5 kg a week",
+  lose: "That's under what you burn, so you lose weight steadily",
   maintain: "About what you burn each day",
-  gain: "300 kcal over what you burn, with plenty of protein",
+  gain: "That's over what you burn, with plenty of protein to build muscle",
 };
 
 export default function OnboardingView() {
@@ -80,6 +86,8 @@ function Onboarding() {
   const [activity, setActivity] = useState<ActivityLevel | null>(null);
   const [diet, setDiet] = useState<Diet>(DEFAULT_DIET);
   const [calories, setCalories] = useState<number | null>(null);
+  const [target, setTarget] = useState<number | "">("");
+  const [pace, setPace] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const done = useRef(false);
   const advance = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -91,9 +99,18 @@ function Onboarding() {
     if (profile && isProfileComplete(profile) && !done.current) router.replace("/dashboard");
   }, [profile, router]);
 
-  const index = STEPS.indexOf(step);
+  // Warm up the page we land on, so the last tap doesn't also wait for it to load
+  useEffect(() => {
+    if (step === "plan") router.prefetch("/scan");
+  }, [step, router]);
+
+  // Someone who is staying where they are has no target to set
+  const steps = ALL_STEPS.filter((st) => goal !== "maintain" || st !== "target");
+  const index = steps.indexOf(step);
   const go = (to: Step) => {
-    setDir(STEPS.indexOf(to) >= index ? 1 : -1);
+    setDir(steps.indexOf(to) >= index ? 1 : -1);
+    // First time on the target step: start from a sensible number
+    if (to === "target" && target === "" && goal && goal !== "maintain" && weight && height) setTarget(suggestedTarget(goal, weight, height));
     setStep(to);
   };
   /** Picking an option moves on by itself after a beat, so most steps are a single tap. */
@@ -108,17 +125,26 @@ function Onboarding() {
   const weight = Number(body.weight_kg);
   const bodyOk = BODY_FIELDS.every((f) => body[f.key] !== "" && Number(body[f.key]) >= f.min && Number(body[f.key]) <= f.max);
 
+  const wantsTarget = goal === "lose" || goal === "gain";
+  /** The pace chosen, or the one we'd recommend for this body */
+  const rate = wantsTarget ? (pace ?? recommendedRate(goal, weight || 70)) : null;
+  const targetOk = !wantsTarget || (target !== "" && target >= 25 && target <= 400);
+
   const plan =
     sex && goal && activity && bodyOk
       ? (() => {
-          const base = calculateGoals({ sex, age, height_cm: height, weight_kg: weight, activity_level: activity, goal });
+          const base = calculateGoals({ sex, age, height_cm: height, weight_kg: weight, activity_level: activity, goal, weekly_rate_kg: rate });
           const kcal = calories ?? base.calorie_goal;
           return { ...base, calorie_goal: kcal, ...macrosFor(kcal, base.protein_goal_g), water_goal_ml: waterGoalFor(weight) };
         })()
       : null;
+  const weightPlan =
+    plan && sex && goal && wantsTarget && target !== ""
+      ? assessPlan({ goal, sex, height_cm: height, weight_kg: weight, target_kg: target, tdee: plan.tdee, bmr: plan.bmr, calories: plan.calorie_goal, requestedRate: rate })
+      : null;
 
   async function save() {
-    if (!plan || !profile || !sex || !goal || !activity || saving) return;
+    if (!plan || !profile || !sex || !goal || !activity || saving || !targetOk) return;
     const parsed = profileSchema.safeParse({
       display_name: profile.display_name ?? "",
       sex,
@@ -127,6 +153,8 @@ function Onboarding() {
       weight_kg: weight,
       activity_level: activity,
       goal,
+      target_weight_kg: wantsTarget ? target : null,
+      weekly_rate_kg: rate,
       diet,
       calorie_goal: plan.calorie_goal,
       protein_goal_g: plan.protein_goal_g,
@@ -137,13 +165,18 @@ function Onboarding() {
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
 
     setSaving(true);
-    const { diet: chosenDiet, ...rest } = parsed.data;
+    const { diet: chosenDiet, target_weight_kg, weekly_rate_kg, ...rest } = parsed.data;
     const fields: Partial<typeof rest> = { ...rest };
     delete fields.display_name; // the name is already set from signup
     const { data, error } = await createClient()
       .from("profiles")
       // A profile read before the diet migration ran has no diet column; leave it out so saving still works
-      .update({ ...fields, ...("diet" in profile ? { diet: chosenDiet } : {}) })
+      .update({
+        ...fields,
+        ...("diet" in profile ? { diet: chosenDiet } : {}),
+        // Likewise before the weight-goal migration ran
+        ...("target_weight_kg" in profile ? { target_weight_kg, weekly_rate_kg } : {}),
+      })
       .eq("id", profile.id)
       .select()
       .single();
@@ -153,6 +186,7 @@ function Onboarding() {
     }
     done.current = true;
     setProfile(data);
+    await rememberOnboarded(profile.id);
     toast.success("You're all set. Let's log your first meal.");
     router.replace("/scan");
   }
@@ -173,7 +207,7 @@ function Onboarding() {
             variant="ghost"
             size="icon-lg"
             className={cn("-ml-2 size-10 rounded-full", index === 0 && "invisible")}
-            onClick={() => go(STEPS[index - 1])}
+            onClick={() => go(steps[index - 1])}
             aria-label="Back"
           >
             <ArrowLeft />
@@ -185,11 +219,11 @@ function Onboarding() {
             CRAZY <span className="-ml-1.5 text-primary">REP</span>
           </span>
           <span className="w-8 text-right text-xs font-semibold text-muted-foreground tabular-nums">
-            {index + 1}/{STEPS.length}
+            {index + 1}/{steps.length}
           </span>
         </div>
-        <div className="flex gap-1.5" role="progressbar" aria-label="Setup progress" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={index + 1}>
-          {STEPS.map((s, i) => (
+        <div className="flex gap-1.5" role="progressbar" aria-label="Setup progress" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}>
+          {steps.map((s, i) => (
             <span key={s} className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <span className={cn("block h-full rounded-full bg-gradient-to-r from-primary to-chart-4 transition-transform duration-500 origin-left", i <= index ? "scale-x-100" : "scale-x-0")} />
             </span>
@@ -215,7 +249,16 @@ function Onboarding() {
                   <Heading title="What's your goal?" sub="Takes about 30 seconds. We'll set your daily targets for you." />
                   <Options>
                     {GOALS.map((o) => (
-                      <Option key={o.id} {...o} selected={goal === o.id} onSelect={() => pick(() => setGoal(o.id), "sex")} />
+                      <Option key={o.id} {...o} selected={goal === o.id} onSelect={() =>
+                        pick(() => {
+                          // A different goal needs a fresh target and pace
+                          if (goal !== o.id) {
+                            setTarget("");
+                            setPace(null);
+                          }
+                          setGoal(o.id);
+                        }, "sex")
+                      } />
                     ))}
                   </Options>
                 </>
@@ -275,9 +318,45 @@ function Onboarding() {
                   <Heading title="How active are you?" sub="Think of a typical week. Pick the closest." />
                   <Options>
                     {ACTIVITIES.map((o) => (
-                      <Option key={o.id} {...o} compact selected={activity === o.id} onSelect={() => pick(() => setActivity(o.id), "diet")} />
+                      <Option key={o.id} {...o} compact selected={activity === o.id} onSelect={() => pick(() => setActivity(o.id), wantsTarget ? "target" : "diet")} />
                     ))}
                   </Options>
+                </>
+              )}
+
+              {step === "target" && wantsTarget && goal && (
+                <>
+                  <Heading title="Where do you want to get to?" sub="Pick a target weight and how fast. We'll tell you how long it takes, and warn you if it's too much." />
+                  <NumberRow
+                    label="Target weight"
+                    unit={`kg · healthy for your height: ${healthyRange(height).min}–${healthyRange(height).max} kg`}
+                    min={25}
+                    max={400}
+                    step={1}
+                    value={target}
+                    onChange={setTarget}
+                  />
+                  <div className="grid gap-2">
+                    <p className="text-sm font-semibold">How fast?</p>
+                    <Options>
+                      {PACES[goal === "lose" ? "lose" : "gain"].map((p) => (
+                        <Option
+                          key={p.rate}
+                          id={String(p.rate)}
+                          emoji={p.rate === recommendedRate(goal as "lose" | "gain", weight) ? "⭐" : p.rate >= 0.75 ? "⚠️" : "🎯"}
+                          label={`${p.label} · ${p.rate} kg a week`}
+                          hint={p.rate === recommendedRate(goal as "lose" | "gain", weight) ? `Recommended. ${p.hint}` : p.hint}
+                          compact
+                          selected={rate === p.rate}
+                          onSelect={() => setPace(p.rate)}
+                        />
+                      ))}
+                    </Options>
+                  </div>
+                  {weightPlan && target !== "" && <WeightPlanSummary plan={weightPlan} target={target} onSafer={setPace} />}
+                  <Button size="xl" className="mt-auto w-full" disabled={!targetOk} onClick={() => go("diet")}>
+                    Continue
+                  </Button>
                 </>
               )}
 
@@ -335,7 +414,8 @@ function Onboarding() {
                       </div>
                     ))}
                   </div>
-                  <Button size="xl" className="mt-auto w-full" onClick={save} disabled={saving || !online || !profile}>
+                  {weightPlan && target !== "" && <WeightPlanSummary plan={weightPlan} target={target} onSafer={(r) => { setPace(r); setCalories(null); }} />}
+                  <Button size="xl" className="mt-auto w-full" onClick={save} disabled={saving || !online || !profile || !targetOk}>
                     {saving ? <Loader2 className="animate-spin" /> : <Sparkles />}
                     Start tracking
                   </Button>

@@ -56,6 +56,9 @@ export type Profile = {
   goal: Goal;
   /** Missing on a profile read before the diet migration ran; treat as vegetarian (see dietOf). */
   diet?: Diet;
+  /** Missing before the weight-goal migration ran */
+  target_weight_kg?: number | null;
+  weekly_rate_kg?: number | null;
   calorie_goal: number;
   protein_goal_g: number;
   carbs_goal_g: number;
