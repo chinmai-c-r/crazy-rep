@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { foodEmoji } from "@/lib/food-emoji";
 import { fmt } from "@/lib/nutrition";
 import type { FoodItem } from "@/lib/types";
-import { flatRow } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,17 +41,15 @@ export default function ItemGroup({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.92, transition: { duration: 0.25 } }}
       transition={{ type: "spring", stiffness: 300, damping: 26 }}
-      className={cn(
-        "relative min-w-0 overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-muted/30 to-transparent",
-        flatRow,
-      )}
+      // Always a real card, even on phones where plain rows are flat: it's what shows the parts belong together
+      className="relative min-w-0 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-muted/30 to-transparent"
     >
-      <div className="flex items-center gap-1 pr-2 max-sm:pr-0">
+      <div className="flex items-center gap-1 pr-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50 max-sm:px-0"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           {/* Overlapping emoji of what's inside */}
           <span className="flex shrink-0 -space-x-3" aria-hidden>
@@ -106,7 +103,7 @@ export default function ItemGroup({
             className="overflow-hidden"
           >
             {/* The line down the side ties every part back to the dish */}
-            <ul className="relative grid gap-2 pb-3 pl-6 pr-3 max-sm:pr-0 before:absolute before:inset-y-1 before:left-[1.35rem] before:w-px before:rounded-full before:bg-gradient-to-b before:from-primary/50 before:to-transparent">
+            <ul className="relative grid gap-2 pb-3 pl-7 pr-3 before:absolute before:inset-y-1 before:left-[1.1rem] before:w-0.5 before:rounded-full before:bg-gradient-to-b before:from-primary/60 before:to-transparent [&>li]:max-sm:rounded-xl [&>li]:max-sm:border-0 [&>li]:max-sm:bg-muted/60 [&>li]:max-sm:px-3 [&>li]:max-sm:py-3">
               {children}
             </ul>
           </motion.div>
