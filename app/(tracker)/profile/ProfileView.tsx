@@ -29,24 +29,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DEFAULT_DIET, DIET_OPTIONS } from "@/lib/diet";
 import { useProfile, useUser } from "@/lib/hooks";
-import { ACTIVITY_LABELS, calculateGoals, fmt } from "@/lib/nutrition";
+import { ACTIVITY_LABELS, calculateGoals } from "@/lib/nutrition";
 import { clearOfflineData, useOnline } from "@/lib/offline";
 import { disablePush } from "@/lib/push";
-import { activitySchema, goalSchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
+import { activitySchema, profileSchema, sexSchema, type ProfileInput, type ProfileValues } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
-import { assessPlan, healthyRange, PACES, recommendedRate } from "@/lib/weight-plan";
+import type { Goal, Profile } from "@/lib/types";
+import { assessPlan, recommendedRate, suggestedTarget } from "@/lib/weight-plan";
 import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader, SectionTitle } from "../_components/Page";
 import { ProfileSkeleton } from "../_components/Skeletons";
-import WeightPlanSummary from "../_components/WeightPlanSummary";
 import GoogleHealthCard from "./GoogleHealthCard";
-import { GOAL_LABELS, SEX_LABELS } from "./labels";
+import { SEX_LABELS } from "./labels";
 import NumberField from "./NumberField";
 import ProfileHero from "./ProfileHero";
 import { TabBar, TabPanels, type ProfileTab } from "./ProfileTabs";
 import RemindersCard from "./RemindersCard";
 import TargetsSection from "./TargetsSection";
+import WeightGoalCard from "./WeightGoalCard";
 import ThemePicker from "./ThemePicker";
 import { useAutosaveProfile, type SaveStatus } from "./useAutosaveProfile";
 
@@ -173,13 +173,32 @@ function ProfileForm({ initial }: { initial: Profile }) {
     toast.success("Suggested targets applied");
   }
 
-  /** Switches to a gentler pace and refills the daily targets for it, like the suggestion button does */
-  function saferPace(next: number) {
-    setValue("weekly_rate_kg", String(next), { shouldDirty: true, shouldValidate: true });
+  /** Refills calories and macros for a goal and pace, so the plan and the daily targets never disagree */
+  function refill(nextGoal: Goal, nextRate: number | null) {
     if (!body.success || !body.data.sex || !body.data.age || !body.data.height_cm || !body.data.weight_kg) return;
-    const safer = calculateGoals({ sex: body.data.sex, age: body.data.age, height_cm: body.data.height_cm, weight_kg: body.data.weight_kg, activity_level: activity as ProfileValues["activity_level"], goal: goal as ProfileValues["goal"], weekly_rate_kg: next });
-    for (const k of ["calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g"] as const) setValue(k, safer[k], { shouldDirty: true, shouldValidate: true });
-    toast.success("Safer pace applied");
+    const next = calculateGoals({ sex: body.data.sex, age: body.data.age, height_cm: body.data.height_cm, weight_kg: body.data.weight_kg, activity_level: activity as ProfileValues["activity_level"], goal: nextGoal, weekly_rate_kg: nextRate });
+    for (const k of ["calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g"] as const) setValue(k, next[k], { shouldDirty: true, shouldValidate: true });
+  }
+
+  /** A new pace (or a safer one) updates the daily targets to match */
+  function changePace(next: number) {
+    setValue("weekly_rate_kg", String(next), { shouldDirty: true, shouldValidate: true });
+    refill(goal, next);
+    toast.success("Daily targets updated for this pace");
+  }
+
+  /** A new goal brings a fitting pace and target, and the daily targets follow */
+  function changeGoal(next: Goal) {
+    setValue("goal", next, { shouldDirty: true, shouldValidate: true });
+    const w = Number(weight) || 0;
+    const h = Number(height) || 0;
+    const nextRate = next === "maintain" ? null : recommendedRate(next, w || 70);
+    setValue("weekly_rate_kg", nextRate === null ? "" : String(nextRate), { shouldDirty: true, shouldValidate: true });
+    // Keep a target that still points the right way; otherwise suggest one
+    const wrongSide = !target || (next === "lose" && target >= w - 0.5) || (next === "gain" && target <= w + 0.5);
+    if (next !== "maintain" && w && h && wrongSide) setValue("target_weight_kg", String(suggestedTarget(next, w, h)), { shouldDirty: true, shouldValidate: true });
+    refill(next, nextRate);
+    toast.success("Daily targets updated for your new goal");
   }
 
   async function signOut() {
@@ -234,7 +253,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
                         </Field>
                       )}
                     />
-                    <div className="col-span-2 grid grid-cols-3 gap-3">
+                    <div className="col-span-2 grid grid-cols-3 items-end gap-3">
                       <NumberField control={control} name="age" label="Age" />
                       <NumberField control={control} name="height_cm" label="Height (cm)" decimal />
                       <NumberField control={control} name="weight_kg" label="Current weight (kg)" decimal />
@@ -245,7 +264,7 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
               <Card className="rounded-3xl">
                 <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-5">
-                  <SectionTitle>Activity and goal</SectionTitle>
+                  <SectionTitle>Activity</SectionTitle>
                   <Controller
                     control={control}
                     name="activity_level"
@@ -267,72 +286,6 @@ function ProfileForm({ initial }: { initial: Profile }) {
                       </Field>
                     )}
                   />
-                  <Controller
-                    control={control}
-                    name="goal"
-                    render={({ field }) => (
-                      <Field>
-                        <FieldLabel>Goal</FieldLabel>
-                        <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={(v) => v && field.onChange(v)} className="w-full">
-                          {goalSchema.options.map((g) => (
-                            <ToggleGroupItem key={g} value={g} className="h-11 flex-1 px-1 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                              {GOAL_LABELS[g]}
-                            </ToggleGroupItem>
-                          ))}
-                        </ToggleGroup>
-                      </Field>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-              <Card className="rounded-3xl">
-                <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-5">
-                  <SectionTitle>Weight goal</SectionTitle>
-                  {!losingOrGaining ? (
-                    <p className="text-sm text-muted-foreground">You&apos;re set to maintain your weight. Choose Lose fat or Build muscle above to set a target and see how long it takes.</p>
-                  ) : (
-                    <>
-                      <div className="grid gap-1">
-                        <NumberField control={control} name="target_weight_kg" label="Target weight (kg)" decimal />
-                        {body.success && body.data.height_cm && (
-                          <p className="text-xs text-muted-foreground">
-                            Healthy for your height: {healthyRange(body.data.height_cm).min}–{healthyRange(body.data.height_cm).max} kg
-                          </p>
-                        )}
-                      </div>
-                      <Controller
-                        control={control}
-                        name="weekly_rate_kg"
-                        render={({ field }) => (
-                          <Field>
-                            <FieldLabel>How fast?</FieldLabel>
-                            <ToggleGroup type="single" variant="outline" value={String(rate)} onValueChange={(v) => v && field.onChange(v)} className="w-full flex-wrap">
-                              {PACES[goal as "lose" | "gain"].map((p) => (
-                                <ToggleGroupItem key={p.rate} value={String(p.rate)} className="h-auto min-w-24 flex-1 flex-col gap-0 px-1 py-2 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                                  <span>{p.label}</span>
-                                  <small className="text-[0.7rem] opacity-75">{p.rate} kg/wk</small>
-                                </ToggleGroupItem>
-                              ))}
-                            </ToggleGroup>
-                            <p className="text-xs text-muted-foreground">{PACES[goal as "lose" | "gain"].find((p) => p.rate === rate)?.hint}</p>
-                          </Field>
-                        )}
-                      />
-                      {!target && <p className="text-sm text-muted-foreground">Set a target weight to see how many months it takes.</p>}
-                      {weightPlan && target && <WeightPlanSummary plan={weightPlan} target={target} onSafer={saferPace} />}
-                      {calc && Math.abs(calc.calorie_goal - (Number(calorieGoal) || 0)) >= 10 && (
-                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-gradient-to-r from-primary/10 to-transparent px-4 py-3">
-                          <p className="min-w-0 text-sm">
-                            <span className="block font-semibold">Suggested: {fmt(calc.calorie_goal)} kcal a day</span>
-                            <span className="text-xs text-muted-foreground">For this pace. You&apos;re at {fmt(Number(calorieGoal) || 0)} now.</span>
-                          </p>
-                          <Button type="button" size="sm" className="shrink-0 rounded-full" onClick={applyTargets}>
-                            Use
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
                 </CardContent>
               </Card>
               <Card className="rounded-3xl">
@@ -368,7 +321,8 @@ function ProfileForm({ initial }: { initial: Profile }) {
 
           {tab === "targets" && (
             <fieldset disabled={!online} className="grid min-w-0 gap-5 disabled:opacity-70">
-              <TargetsSection control={control} calc={calc} onApply={applyTargets} weightPlan={weightPlan} target={target} onSafer={saferPace} />
+              <WeightGoalCard control={control} goal={goal as Goal} rate={rate} heightCm={body.success ? body.data.height_cm : null} onGoal={changeGoal} onPace={changePace} />
+              <TargetsSection control={control} calc={calc} onApply={applyTargets} weightPlan={weightPlan} target={target} onSafer={changePace} />
             </fieldset>
           )}
 
