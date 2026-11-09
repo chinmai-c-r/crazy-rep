@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
 import { MealTypePicker, Stepper } from "./Controls";
+import PlacePicker, { rememberPlace } from "./PlacePicker";
 import AddItem from "./AddItem";
 import { EditableItemList, Insights } from "./FoodItems";
 import MacroBar from "./MacroBar";
@@ -52,6 +53,7 @@ export default function MealSheet({ meal, imageUrl, onClose, onChange, onDelete 
 function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: Meal }) {
   const [servings, setServings] = useState(Number(meal.servings));
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
+  const [place, setPlace] = useState(meal.place ?? "");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false); // an item is being looked up
   const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
@@ -59,6 +61,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
 
   // Each detected item can be raised or lowered. Items are per serving; the saved nutrients include the saved servings.
   const [entries, setEntries] = useState<ItemEntry[]>(() => toEntries(meal.items ?? [], () => crypto.randomUUID()));
+  const savedIds = useRef(new Set(entries.map((e) => e.id))); // dishes already in the meal start folded; ones added now start open
   const items = useMemo(() => entries.map(itemOf), [entries]);
   const itemMeta = useMemo(() => entries.map(quantityOf), [entries]);
   const itemsEdited = entries.some(isEdited) || entries.length !== (meal.items?.length ?? 0);
@@ -76,10 +79,10 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
   const savedInsights = useMemo(() => (meal.notes ?? "").split("\n").filter(Boolean), [meal.notes]);
   const insights = useMemo(() => mergeInsights(savedInsights, addedInsights, entries), [savedInsights, addedInsights, entries]);
   const insightsEdited = insights.length !== savedInsights.length;
-  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited || insightsEdited;
+  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || place.trim() !== (meal.place ?? "") || itemsEdited || insightsEdited;
 
   async function save() {
-    const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType });
+    const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType, place });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
     setBusy(true);
     const { data, error } = await createClient()
@@ -92,6 +95,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
       setBusy(false);
       return toast.error(error.message);
     }
+    rememberPlace(place);
     await syncMeal(meal.id, "upsert");
     setBusy(false);
     toast.success("Meal updated");
@@ -126,6 +130,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
           <DrawerTitle className="font-heading text-3xl font-normal tracking-wide">{meal.name}</DrawerTitle>
           <DrawerDescription className="flex flex-wrap items-center gap-2">
             {new Date(meal.eaten_at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}
+            {meal.place ? <Badge variant="secondary">📍 {meal.place}</Badge> : null}
             {meal.health_score ? <Badge variant="secondary">Health score {meal.health_score}/10</Badge> : null}
             {meal.source === "usda" ? <Badge variant="secondary">USDA FoodData Central</Badge> : null}
             {meal.source === "text" || meal.source === "cache" ? <Badge variant="secondary">Estimated from name</Badge> : null}
@@ -146,6 +151,10 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
           </fieldset>
         </div>
 
+        <fieldset disabled={!online} className="contents">
+          <PlacePicker value={place} onChange={setPlace} />
+        </fieldset>
+
         <div className="grid gap-3">
           <MacroBar label="Protein" value={shown.protein_g} macro="protein" />
           <MacroBar label="Carbs" value={shown.carbs_g} macro="carbs" />
@@ -160,6 +169,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
           {items.length > 0 && (
             <EditableItemList
               disabled={!online}
+              openGroup={(i) => !savedIds.current.has(entries[i]?.id)}
               items={items}
               meta={itemMeta}
               onStep={(i, dir) => setEntries((xs) => xs.map((e, j) => (j === i ? stepEntry(e, dir) : e)))}

@@ -94,6 +94,8 @@ export const foodItemSchema = nutrientsSchema.extend({
   name: z.string().trim().min(1).catch("Item"),
   portion: z.string().trim().catch(""),
   grams: amount,
+  /** The typed-in dish this item came with ("Paneer gravy"), when one add brought several items. */
+  group: z.string().trim().max(60).optional().catch(undefined),
 });
 
 const zeroNutrients = nutrientsSchema.parse({});
@@ -128,6 +130,13 @@ export const mealWriteSchema = z.object({
   name: mealName,
   meal_type: mealTypeSchema,
   source: analysisSourceSchema.optional(),
+  /** Where it was eaten ("Home", "Office", or any name); blank means not said. */
+  place: z
+    .string()
+    .trim()
+    .max(40, "Keep the place under 40 characters")
+    .optional()
+    .transform((v) => v || null),
   servings: z.number().min(0.25).max(20),
   calories: stored,
   protein_g: stored,

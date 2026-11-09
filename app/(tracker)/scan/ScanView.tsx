@@ -30,6 +30,7 @@ const PROVIDER_LABEL: Record<Exclude<Provider, "ai">, { badge: string; credit: s
 import { invalidateRecentDishes, invalidateSummary, useUser } from "@/lib/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { MEAL_TYPES, type Analysis, type Meal, type MealType } from "@/lib/types";
+import { rememberPlace } from "../_components/PlacePicker";
 import { OfflineNote } from "../_components/OfflineBanner";
 import { Page, PageHeader } from "../_components/Page";
 import AnalyzingScreen from "./AnalyzingScreen";
@@ -81,6 +82,7 @@ export default function ScanView() {
     const t = new URLSearchParams(window.location.search).get("type");
     return MEAL_TYPES.some((m) => m.value === t) ? (t as MealType) : guessMealType();
   });
+  const [place, setPlace] = useState("");
   const [saving, setSaving] = useState(false);
   const saved = useRef(false);
   // The day this meal is for: today unless the link said otherwise (?date=2026-11-06) or it was changed here
@@ -189,7 +191,7 @@ export default function ScanView() {
     if (!analysis) return;
     if (!(await form.trigger("name"))) return;
 
-    const parsed = mealWriteSchema.safeParse({ ...totals, name: form.getValues("name"), meal_type: mealType, servings, source });
+    const parsed = mealWriteSchema.safeParse({ ...totals, name: form.getValues("name"), meal_type: mealType, place, servings, source });
     if (!parsed.success) return toast.error(parsed.error.issues[0]?.message);
 
     setSaving(true);
@@ -227,6 +229,7 @@ export default function ScanView() {
       return toast.error(error.message);
     }
     // Google Health mirroring is best effort and slow (token refresh + Google call): don't make the user wait for it
+    rememberPlace(place);
     void syncMeal(meal.id, "upsert");
     void indexMeal(meal.id);
     // Put the saved row straight into any cached day it belongs to, so the dashboard shows it without a refetch
@@ -252,6 +255,7 @@ export default function ScanView() {
     setAnalysis(null);
     setEntries([]);
     setAddedInsights([]);
+    setPlace("");
     setError(null);
     form.reset(EMPTY);
   }
@@ -299,6 +303,8 @@ export default function ScanView() {
           form={form}
           mealType={mealType}
           onMealType={setMealType}
+          place={place}
+          onPlace={setPlace}
           blob={blob}
           onSubmit={analyze}
           preview={preview}
@@ -335,6 +341,8 @@ export default function ScanView() {
           onServings={setServings}
           mealType={mealType}
           onMealType={setMealType}
+          place={place}
+          onPlace={setPlace}
           saving={saving}
           offline={!online}
           onSave={save}

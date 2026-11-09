@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks";
 import { DIET_OPTIONS, dietConflict, dietOf } from "@/lib/diet";
 import { foodEmoji } from "@/lib/food-emoji";
+import { groupRuns } from "@/lib/item-qty";
 import { fmt } from "@/lib/nutrition";
 import type { AnalysisSource, mealDetailsSchema } from "@/lib/schemas";
 import type { Analysis, FoodItem, MealType, Nutrients } from "@/lib/types";
@@ -29,6 +30,8 @@ import { flatRow } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import { Donut } from "../_components/charts";
 import AddItem from "../_components/AddItem";
+import ItemGroup from "../_components/ItemGroup";
+import PlacePicker from "../_components/PlacePicker";
 import ItemStepper from "../_components/ItemStepper";
 import NutrientGrid from "../_components/NutrientGrid";
 import { SectionTitle } from "../_components/Page";
@@ -420,6 +423,8 @@ export type ResultProps = {
   onServings: (v: number) => void;
   mealType: MealType;
   onMealType: (v: MealType) => void;
+  place: string;
+  onPlace: (v: string) => void;
   saving: boolean;
   /** No connection: the meal can't be saved until it's back. */
   offline?: boolean;
@@ -596,6 +601,7 @@ export default function ResultStage(p: ResultProps) {
             maxLength={120}
           />
           <MealTypeRow value={p.mealType} onChange={p.onMealType} />
+          <PlacePicker value={p.place} onChange={p.onPlace} />
           <ServingsStepper value={p.servings} onChange={p.onServings} />
         </div>
       </motion.section>
@@ -673,25 +679,41 @@ export default function ResultStage(p: ResultProps) {
             </SectionTitle>
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               <AnimatePresence mode="popLayout" initial>
-                {p.items.map((it, i) => (
-                  <ItemCard
-                    key={p.itemMeta[i]?.id ?? `${it.name}-${i}`}
-                    qty={p.itemMeta[i] ?? { label: "1", canDown: false }}
-                    onStep={(dir) => p.onStepItem(i, dir)}
-                    item={it}
-                    index={i}
-                    share={it.calories / itemTotal}
-                    last={p.items.length === 1}
-                    flag={
-                      dietConflict(diet, it.name)
-                        ? diet === "vegan"
-                          ? "Not vegan"
-                          : "Not veg"
-                        : undefined
-                    }
-                    onRemove={() => p.onRemoveItem(i)}
-                  />
-                ))}
+                {groupRuns(p.items).map((run) => {
+                  const card = (i: number) => {
+                    const it = p.items[i];
+                    return (
+                      <ItemCard
+                        key={p.itemMeta[i]?.id ?? `${it.name}-${i}`}
+                        qty={p.itemMeta[i] ?? { label: "1", canDown: false }}
+                        onStep={(dir) => p.onStepItem(i, dir)}
+                        item={it}
+                        index={i}
+                        share={it.calories / itemTotal}
+                        last={p.items.length === 1}
+                        flag={dietConflict(diet, it.name) ? (diet === "vegan" ? "Not vegan" : "Not veg") : undefined}
+                        onRemove={() => p.onRemoveItem(i)}
+                      />
+                    );
+                  };
+                  if (!run.group || run.indexes.length < 2) return run.indexes.map(card);
+                  return (
+                    <ItemGroup
+                      key={`group-${p.itemMeta[run.indexes[0]]?.id ?? run.indexes[0]}`}
+                      name={run.group}
+                      items={run.indexes.map((i) => p.items[i])}
+                      defaultOpen
+                      removeDisabled={run.indexes.length === p.items.length}
+                      // Last one first, so the earlier positions don't shift while they go
+                      onRemove={() => {
+                        buzz();
+                        [...run.indexes].reverse().forEach((i) => p.onRemoveItem(i));
+                      }}
+                    >
+                      {run.indexes.map(card)}
+                    </ItemGroup>
+                  );
+                })}
               </AnimatePresence>
             </ul>
 

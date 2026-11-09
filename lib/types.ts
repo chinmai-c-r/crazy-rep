@@ -37,6 +37,8 @@ export type Meal = Nutrients & {
   confidence: number | null;
   items: FoodItem[];
   notes: string | null;
+  /** Where it was eaten; null when not said (and for meals from before this existed). */
+  place?: string | null;
   created_at: string;
 };
 

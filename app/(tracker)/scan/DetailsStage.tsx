@@ -14,6 +14,7 @@ import { mealDetailsSchema } from "@/lib/schemas";
 import { MEAL_TYPES, type MealType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "../_components/Page";
+import PlacePicker from "../_components/PlacePicker";
 import RecentDishes from "../_components/RecentDishes";
 import Typewriter from "../_components/Typewriter";
 
@@ -311,10 +312,12 @@ export default function DetailsStage({
   form,
   mealType,
   onMealType,
+  place,
+  onPlace,
   blob,
   onSubmit,
   ...photo
-}: { form: Form; mealType: MealType; onMealType: (v: MealType) => void; blob: Blob | null; onSubmit: React.FormEventHandler<HTMLFormElement> } & PhotoProps) {
+}: { form: Form; mealType: MealType; onMealType: (v: MealType) => void; place: string; onPlace: (v: string) => void; blob: Blob | null; onSubmit: React.FormEventHandler<HTMLFormElement> } & PhotoProps) {
   const reduce = useReducedMotion() ?? false;
   const name = useWatch({ control: form.control, name: "name" }) ?? "";
   const ready = mealDetailsSchema.shape.name.safeParse(name).success;
@@ -333,6 +336,9 @@ export default function DetailsStage({
       <Atmosphere reduce={reduce} />
       <motion.div variants={item}>
         <MealTypeRow value={mealType} onChange={onMealType} />
+      </motion.div>
+      <motion.div variants={item}>
+        <PlacePicker value={place} onChange={onPlace} />
       </motion.div>
       <motion.div variants={item}>
         <NameHero form={form} reduce={reduce} />

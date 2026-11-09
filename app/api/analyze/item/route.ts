@@ -29,7 +29,10 @@ export async function POST(request: Request) {
     if (!analysis.is_food || !analysis.items.length) {
       return NextResponse.json({ error: "That doesn't look like a food or drink. Try something like “2 rotis”." }, { status: 422 });
     }
-    return NextResponse.json({ items: analysis.items, insights: analysis.insights, provider, source });
+    // One typed item that came back as several parts is kept together under what was typed
+    const group = analysis.items.length > 1 ? ctx.data.name.trim().replace(/^./, (c) => c.toUpperCase()) : undefined;
+    const items = group ? analysis.items.map((it) => ({ ...it, group })) : analysis.items;
+    return NextResponse.json({ items, insights: analysis.insights, provider, source });
   } catch (err) {
     console.error("add item failed", err);
     const status = (err as { status?: number })?.status;

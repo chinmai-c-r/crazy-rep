@@ -55,6 +55,17 @@ export function stepCount(n: number, dir: 1 | -1, wholeOnly: boolean) {
 
 export const stepEntry = (e: ItemEntry, dir: 1 | -1): ItemEntry => ({ ...e, count: stepCount(e.count, dir, whole(e)) });
 
+/** Runs of neighbouring items that belong to the same typed-in dish; an item with no group is a run of its own. */
+export function groupRuns(items: { group?: string }[]): { group?: string; indexes: number[] }[] {
+  const runs: { group?: string; indexes: number[] }[] = [];
+  items.forEach((it, i) => {
+    const last = runs[runs.length - 1];
+    if (it.group && last?.group === it.group) last.indexes.push(i);
+    else runs.push({ group: it.group, indexes: [i] });
+  });
+  return runs;
+}
+
 /** What the AI said about items typed in later, and which entries it was about (so removing them drops their insights too). */
 export type AddedInsights = { ids: string[]; insights: string[] }[];
 
