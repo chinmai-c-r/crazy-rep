@@ -28,20 +28,37 @@ export async function embedMissing(admin: SupabaseClient, embed: Embed, toVector
 
 /**
  * Links meals to the analysis_cache row for their dish, so that one vector (name, items and notes) serves both the log-a-meal
- * lookup and searching what you've eaten. A dish that isn't in the cache yet is added, shaped from the meal itself.
+ * lookup and searching what you've eaten. A meal that is just the dish as looked up uses the dish's own row; one with extra items,
+ * or a dish that isn't in the cache yet, gets a row of its own, shaped from the meal itself.
  * A row that has no item or note text yet gets it from the first meal that points at it, and is embedded again.
  * Returns how many meals were linked. Linking happens first, so a failed embedding only delays search (the next call retries).
  */
 export async function indexMeals(admin: SupabaseClient, embed: Embed, toVector: ToVector, userId: string, meals: IndexableMeal[]): Promise<number> {
-  const byKey = new Map<string, IndexableMeal[]>();
-  for (const m of meals) {
+  const named = meals.flatMap((m) => {
     const plain = cacheKey({ name: m.name });
-    if (plain.startsWith("|")) continue; // no usable name
-    // Their own key space: a meal's row is never mistaken for a food's saved nutrition (keys of foods have no colon)
-    const key = `${MEAL_KEY}${plain}`;
+    return plain.startsWith("|") ? [] : [{ m, plain }]; // no usable name: skip
+  });
+  if (!named.length) return 0;
+
+  // A meal that is just the dish as it was looked up (same name, nothing added) points at that dish's own row, so logging it
+  // adds no row at all. Only a meal with extra items gets a row of its own, in its own key space ("meal:") so it is never
+  // mistaken for a food's saved nutrition (keys of foods have no colon).
+  const plainKeys = [...new Set(named.map((n) => n.plain))];
+  const { data: dishes, error: dishError } = await admin.from("analysis_cache").select("cache_key, source, analysis").in("cache_key", plainKeys);
+  if (dishError) throw new Error(dishError.message);
+  const dishItems = new Map(
+    ((dishes ?? []) as { cache_key: string; source: string; analysis: unknown }[])
+      .filter((r) => r.source !== "meal")
+      .map((r) => [r.cache_key, new Set(itemNamesOf((r.analysis as { items?: unknown } | null)?.items).map((n) => n.trim().toLowerCase()))]),
+  );
+
+  const byKey = new Map<string, IndexableMeal[]>();
+  for (const { m, plain } of named) {
+    const parts = dishItems.get(plain);
+    const plainDish = parts !== undefined && itemNamesOf(m.items).every((n) => parts.has(n.trim().toLowerCase()));
+    const key = plainDish ? plain : `${MEAL_KEY}${plain}`;
     byKey.set(key, [...(byKey.get(key) ?? []), m]);
   }
-  if (!byKey.size) return 0;
   const keys = [...byKey.keys()];
 
   const { data: existing, error } = await admin.from("analysis_cache").select("cache_key, embed_text").in("cache_key", keys);

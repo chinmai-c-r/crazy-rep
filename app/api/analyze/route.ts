@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { dietOf, DEFAULT_DIET, fitInsights } from "@/lib/diet";
-import { inBackground, seedItemRows } from "@/lib/analysis-cache";
 import { analyzeMeal } from "@/lib/gemini";
 import { lookupTextMeal } from "@/lib/meal-lookup";
 import { analyzeFieldsSchema } from "@/lib/schemas";
@@ -59,9 +58,7 @@ export async function POST(request: Request) {
       const data = Buffer.from(await file.arrayBuffer()).toString("base64");
       const diet = await dietPromise;
       // Photo analyses are never cached or shared, so the model can be told the diet and write tips for it
-      const { analysis, model } = await analyzeMeal({ data, mimeType: file.type }, { ...ctx, diet });
-      // The photo itself is never cached, but the foods in it are worth keeping for later "add item" lookups
-      if (analysis.is_food) await inBackground(() => seedItemRows(analysis, model));
+      const { analysis } = await analyzeMeal({ data, mimeType: file.type }, { ...ctx, diet });
       return NextResponse.json({ analysis: { ...analysis, insights: fitInsights(diet, analysis.insights, analysis.totals) }, source: "photo", provider: "ai" });
     }
 

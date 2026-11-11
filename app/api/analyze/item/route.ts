@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   if (!ctx.success) return NextResponse.json({ error: ctx.error.issues[0]?.message ?? "Invalid item." }, { status: 400 });
 
   try {
-    const { analysis, provider, source } = await lookupTextMeal(ctx.data, { seedItems: false }); // one row (and one embedding) for the item typed, none for its sub-items
+    const { analysis, provider, source } = await lookupTextMeal(ctx.data);
     if (!analysis.is_food || !analysis.items.length) {
       return NextResponse.json({ error: "That doesn't look like a food or drink. Try something like “2 rotis”." }, { status: 422 });
     }

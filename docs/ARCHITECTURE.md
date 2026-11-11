@@ -79,7 +79,7 @@ flowchart LR
 
 ### The cache learns from every AI answer
 
-`lookupTextMeal` and the photo path in `/api/analyze` call `seedItemRows` after an AI answer. Each item in the answer (up to 8, only when the AI was at least half sure, skipping zero-calorie and junk names) is saved as its own `analysis_cache` row shaped as a one-food analysis, unless that name and portion is already there. The rows that were really new are embedded in one batch, so one request covers them all. Later, adding that food by name (`/api/analyze/item`) finds it through the usual exact, vector and USDA steps before the AI. The work runs after the response is sent, and a failure never affects the meal being logged (`lib/item-seed.ts`).
+`lookupTextMeal` saves each answer it gets from USDA or the AI under what was typed, with a vector, so the next person gets it from the cache. Only that one row is written: the items inside an answer are not saved as rows of their own. Adding a food by name (`/api/analyze/item`) runs the same chain and saves one row for the text typed.
 
 ### Adding an item that wasn't detected
 

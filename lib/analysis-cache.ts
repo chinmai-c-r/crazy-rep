@@ -1,7 +1,6 @@
 import "server-only";
 import { after } from "next/server";
 import { embedTexts, toVector } from "./embeddings";
-import { seedItems } from "./item-seed";
 import { embedText } from "./meal-embed";
 import type { MealContext } from "./gemini";
 import { analysisSchema, type Analysis } from "./schemas";
@@ -72,25 +71,5 @@ export async function saveCachedAnalysis(key: string, ctx: MealContext, analysis
     }
   } catch (err) {
     console.warn("analysis cache write failed", err);
-  }
-}
-
-/** Runs work after the response is sent, so it doesn't slow the answer down (inline when there's no request, such as scripts). */
-export async function inBackground(task: () => Promise<unknown>) {
-  const run = () => task().catch((err) => console.warn("background task failed", (err as Error).message));
-  try {
-    after(run);
-  } catch {
-    await run();
-  }
-}
-
-/** After an AI answer: keep each of its items as its own cache row too (see seedItems). Never throws. */
-export async function seedItemRows(analysis: Analysis, model: string) {
-  try {
-    const added = await seedItems(createAdmin(), (texts) => embedTexts(texts, "RETRIEVAL_DOCUMENT", { retries: 1, timeoutMs: 20_000 }), toVector, analysis, model);
-    if (added) console.info(`analysis cache: saved ${added} item${added === 1 ? "" : "s"} from an AI answer`);
-  } catch (err) {
-    console.warn("saving items to the analysis cache failed", (err as Error).message);
   }
 }
