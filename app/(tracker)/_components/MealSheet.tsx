@@ -101,7 +101,9 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
       return toast.error(error.message);
     }
     rememberPlace(place);
-    await syncMeal(meal.id, "upsert");
+    // Google Health only holds the meal type, servings and nutrients, so a change to the place or the insights doesn't need it.
+    // When it does, it runs in the background: the answer is slow (token refresh + Google) and nothing here depends on it.
+    if (servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited) void syncMeal(meal.id, "upsert");
     setBusy(false);
     toast.success("Meal updated");
     onChange(data as Meal);
