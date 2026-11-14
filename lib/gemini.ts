@@ -40,9 +40,15 @@ export function isRetryable(err: unknown) {
   return name === "TimeoutError" || name === "AbortError" || err instanceof SyntaxError || Boolean(status && RETRYABLE.has(status));
 }
 
-/** Gemini 3+ takes a thinking level; 2.x takes a token budget. Less thinking means a faster answer. */
-export const thinkingFor = (model: string, level: ThinkingLevel = ThinkingLevel.LOW) =>
-  /^gemini-2\./.test(model) ? { thinkingBudget: level === ThinkingLevel.MINIMAL ? 0 : 1024 } : { thinkingLevel: level };
+/**
+ * Gemini 3+ takes a thinking level; 2.x takes a token budget. Less thinking means a faster answer.
+ * Only the Flash Lite models accept MINIMAL (full Flash models answer 400, which is not retried), so they get it and the rest get LOW.
+ */
+export const thinkingFor = (model: string, level: ThinkingLevel = ThinkingLevel.LOW) => {
+  const minimal = level === ThinkingLevel.MINIMAL;
+  if (/^gemini-2\./.test(model)) return { thinkingBudget: minimal ? 0 : 1024 };
+  return { thinkingLevel: minimal && !/lite/.test(model) ? ThinkingLevel.LOW : level };
+};
 
 export function getAI() {
   ai ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
