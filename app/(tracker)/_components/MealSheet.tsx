@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -25,8 +25,8 @@ import { fmt, sumNutrients } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
-import { MEAL_TYPES, NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
-import { MealTypePicker, Stepper } from "./Controls";
+import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
+import { MealTypesPicker, Stepper } from "./Controls";
 import PlacePicker, { rememberPlace } from "./PlacePicker";
 import AddItem from "./AddItem";
 import { EditableItemList } from "./FoodItems";
@@ -58,13 +58,14 @@ export default function MealSheet({ meal, imageUrl, onClose, onChange, onDelete,
 
 function Body({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props & { meal: Meal }) {
   const [servings, setServings] = useState(Number(meal.servings));
-  const [mealType, setMealType] = useState<MealType>(meal.meal_type);
+  // Every meal of the day this is logged under. The first one the meal already has stays on it; any more get their own copy on Save.
+  const [mealTypes, setMealTypes] = useState<MealType[]>([meal.meal_type]);
+  const mealType = mealTypes.includes(meal.meal_type) ? meal.meal_type : mealTypes[0];
+  const extraTypes = mealTypes.filter((t) => t !== mealType);
   const [place, setPlace] = useState(meal.place ?? "");
   const [busy, setBusy] = useState(false); // saving
   const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false); // an item is being looked up
-  const [copying, setCopying] = useState<MealType | null>(null); // being logged again as this meal
-  const [copied, setCopied] = useState<MealType[]>([]);
   const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
   const online = useOnline();
 
@@ -89,7 +90,7 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props & { 
   const insightGroups = useMemo(() => groupInsights(savedInsights, addedInsights, entries), [savedInsights, addedInsights, entries]);
   const insightText = insightLines(insightGroups).join("\n");
   const insightsEdited = insightText !== insightLines(parseInsights(savedInsights)).join("\n");
-  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || place.trim() !== (meal.place ?? "") || itemsEdited || insightsEdited;
+  const dirty = servings !== Number(meal.servings) || mealType !== meal.meal_type || extraTypes.length > 0 || place.trim() !== (meal.place ?? "") || itemsEdited || insightsEdited;
 
   async function save() {
     const parsed = mealWriteSchema.safeParse({ ...shown, name: meal.name, servings, meal_type: mealType, place });
@@ -107,44 +108,34 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props & { 
       return toast.error(error.message);
     }
     rememberPlace(place);
+    // The other meals picked get a copy of this one: same dish, items and tips, no photo (it stays with the original)
+    if (extraTypes.length) {
+      const day = localDay(new Date(data.eaten_at));
+      const copies = extraTypes.map((t) => ({
+        ...parsed.data,
+        meal_type: t,
+        eaten_at: eatenAtFor(day, t) ?? new Date().toISOString(),
+        source: data.source,
+        health_score: data.health_score,
+        confidence: data.confidence,
+        items: data.items,
+        notes: data.notes,
+      }));
+      const { data: made, error: copyError } = await createClient().from("meals").insert(copies).select();
+      if (copyError) toast.error(`Saved, but couldn't log the other meals: ${copyError.message}`);
+      for (const m of (made ?? []) as Meal[]) {
+        onAdd(m);
+        void syncMeal(m.id, "upsert");
+        void indexMeal(m.id);
+      }
+    }
     // Google Health only holds the meal type, servings and nutrients, so a change to the place or the insights doesn't need it.
     // When it does, it runs in the background: the answer is slow (token refresh + Google) and nothing here depends on it.
     if (servings !== Number(meal.servings) || mealType !== meal.meal_type || itemsEdited) void syncMeal(meal.id, "upsert");
     setBusy(false);
-    toast.success("Meal updated");
+    toast.success(extraTypes.length ? `Logged for ${mealTypes.length} meals` : "Meal updated");
     onChange(data as Meal);
     onClose();
-  }
-
-  /** Logs the saved meal again as another meal of the same day: same dish, items, servings and tips, no photo. */
-  async function copyTo(type: MealType) {
-    setCopying(type);
-    const day = localDay(new Date(meal.eaten_at));
-    const eatenAt = eatenAtFor(day, type);
-    // Only the meal's own content: not its id, photo or Google Health entry, which belong to the original
-    const content = {
-      name: meal.name,
-      servings: meal.servings,
-      source: meal.source,
-      place: meal.place ?? null,
-      health_score: meal.health_score,
-      confidence: meal.confidence,
-      items: meal.items,
-      notes: meal.notes,
-      ...Object.fromEntries(NUTRIENT_KEYS.map((k) => [k, meal[k]])),
-    };
-    const { data, error } = await createClient()
-      .from("meals")
-      .insert({ ...content, meal_type: type, eaten_at: eatenAt ?? new Date().toISOString() })
-      .select()
-      .single();
-    setCopying(null);
-    if (error) return toast.error(error.message);
-    setCopied((xs) => [...xs, type]);
-    toast.success(`Logged for ${MEAL_TYPES.find((t) => t.value === type)?.label.toLowerCase()}`);
-    onAdd(data as Meal);
-    void syncMeal(data.id, "upsert");
-    void indexMeal(data.id);
   }
 
   async function remove() {
@@ -189,32 +180,12 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props & { 
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <fieldset disabled={!online} className="contents">
-            <MealTypePicker value={mealType} onChange={setMealType} />
+            <MealTypesPicker value={mealTypes} onChange={setMealTypes} />
           </fieldset>
           <fieldset disabled={!online} className="contents">
             <Stepper value={servings} onChange={setServings} />
           </fieldset>
         </div>
-
-        <section className="grid gap-2">
-          <SectionTitle>Also log as</SectionTitle>
-          <div className="flex flex-wrap gap-2">
-            {MEAL_TYPES.filter((t) => t.value !== meal.meal_type).map((t) => (
-              <Button
-                key={t.value}
-                type="button"
-                variant="outline"
-                className="h-9 rounded-full px-3"
-                disabled={!online || dirty || busy || copying !== null || copied.includes(t.value)}
-                onClick={() => copyTo(t.value)}
-              >
-                {copying === t.value ? <Loader2 className="animate-spin" /> : copied.includes(t.value) ? <Check /> : <Copy />}
-                {t.icon} {t.label}
-              </Button>
-            ))}
-          </div>
-          {dirty && <p className="text-xs text-muted-foreground">Save your changes first, then log it again.</p>}
-        </section>
 
         <fieldset disabled={!online} className="contents">
           <PlacePicker value={place} onChange={setPlace} />

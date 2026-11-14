@@ -28,6 +28,30 @@ export function MealTypePicker({ value, onChange }: { value: MealType; onChange:
   );
 }
 
+/** Pick one or more meals of the day. The meal is logged under each one picked. */
+export function MealTypesPicker({ value, onChange }: { value: MealType[]; onChange: (v: MealType[]) => void }) {
+  return (
+    <ToggleGroup
+      type="multiple"
+      value={value}
+      onValueChange={(v) => v.length && onChange(MEAL_TYPES.map((t) => t.value).filter((t) => v.includes(t)))}
+      variant="outline"
+      className="flex-wrap"
+      aria-label="Meal types"
+    >
+      {MEAL_TYPES.map((t) => (
+        <ToggleGroupItem
+          key={t.value}
+          value={t.value}
+          className="h-9 rounded-full! border px-3 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+        >
+          {t.icon} {t.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
 export function Stepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const step = (d: number) => onChange(Math.min(20, Math.max(0.25, Math.round((value + d) * 4) / 4)));
   return (
