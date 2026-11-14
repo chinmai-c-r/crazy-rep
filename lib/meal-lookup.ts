@@ -17,7 +17,7 @@ export const providerOf = (source: CacheSource | null | undefined, model?: strin
 /**
  * Text-only meal estimate. analysis_cache is the single source of truth:
  *   1. exact saved result (same name, portion and notes)
- *   2. vector search over analysis_cache (pgvector) with word checks
+ *   2. vector search over analysis_cache (pgvector) with word checks (USDA is queried at the same time)
  *   3. USDA FoodData Central when it has a confident match
  *   4. Gemini (uses AI credits)
  * Results from 3 and 4 are saved back with an embedding, so the cache keeps growing: one row for what was typed, nothing for its parts.
@@ -28,10 +28,13 @@ export async function lookupTextMeal(ctx: MealContext): Promise<Result> {
   const exact = await getCachedAnalysis(key);
   if (exact) return { analysis: exact.analysis, source: "cache", provider: providerOf(exact.source, exact.model) };
 
+  // Both are network round trips and neither depends on the other, so start USDA while the vector search runs;
+  // a vector match still wins, and USDA's answer is simply dropped.
+  const usdaPending = lookupUsda(ctx);
   const similar = await lookupVector(ctx);
   if (similar) return { analysis: similar.analysis, source: "cache", provider: providerOf(similar.source) };
 
-  const usda = await lookupUsda(ctx);
+  const usda = await usdaPending;
   if (usda) {
     await saveCachedAnalysis(key, ctx, usda, USDA_MODEL, "usda");
     return { analysis: usda, source: "usda", provider: "usda" };

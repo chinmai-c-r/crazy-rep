@@ -86,9 +86,16 @@ export default function AddItem({ onAdd, onBusyChange, className }: { onAdd: (it
         {/* Example items typed out one after another, like the meal name box */}
         {!text && online && <Typewriter reduce={reduce} ideas={ideas} className="px-3.5" />}
       </div>
-      <Button type="submit" className="h-11 w-full rounded-xl" disabled={busy || !online || text.trim().length < 2}>
+      {/* While looking up, the button stays at full strength with a light sweep across it, so it reads as working, not disabled */}
+      <Button
+        type="submit"
+        aria-busy={busy}
+        className={cn("relative h-11 w-full overflow-hidden rounded-xl", busy && "disabled:opacity-100")}
+        disabled={busy || !online || text.trim().length < 2}
+      >
         {busy ? <Loader2 className="animate-spin" /> : <Plus />}
-        Add item
+        {busy ? "Adding…" : "Add item"}
+        {busy && <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-bar-slide bg-linear-to-r from-transparent via-white/30 to-transparent motion-reduce:hidden" />}
       </Button>
       <p id="add-item-help" role={error ? "alert" : undefined} className={cn("text-xs", error ? "text-destructive" : "text-muted-foreground")}>
         {busy ? "Looking it up…" : (error ?? "Add an amount if you like.")}

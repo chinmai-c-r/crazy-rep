@@ -40,9 +40,9 @@ export function isRetryable(err: unknown) {
   return name === "TimeoutError" || name === "AbortError" || err instanceof SyntaxError || Boolean(status && RETRYABLE.has(status));
 }
 
-/** Gemini 3+ takes a thinking level; 2.x takes a token budget. */
-export const thinkingFor = (model: string) =>
-  /^gemini-2\./.test(model) ? { thinkingBudget: 1024 } : { thinkingLevel: ThinkingLevel.LOW };
+/** Gemini 3+ takes a thinking level; 2.x takes a token budget. Less thinking means a faster answer. */
+export const thinkingFor = (model: string, level: ThinkingLevel = ThinkingLevel.LOW) =>
+  /^gemini-2\./.test(model) ? { thinkingBudget: level === ThinkingLevel.MINIMAL ? 0 : 1024 } : { thinkingLevel: level };
 
 export function getAI() {
   ai ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -167,7 +167,8 @@ export async function analyzeMeal(image: { data: string; mimeType: string } | nu
           responseMimeType: "application/json",
           responseJsonSchema: schema,
           temperature: 0.2,
-          thinkingConfig: thinkingFor(model),
+          // Looking up a named dish is recall, not reasoning, so skip thinking: the answer arrives seconds sooner
+          thinkingConfig: thinkingFor(model, image ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL),
           abortSignal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT_MS, remaining)),
         },
       });
