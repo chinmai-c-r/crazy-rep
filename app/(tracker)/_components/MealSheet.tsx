@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Trash2 } from "lucide-react";
+import { Check, Copy, Loader2, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -17,13 +17,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { eatenAtFor, localDay } from "@/lib/day";
 import { syncMeal } from "@/lib/google-health-client";
+import { indexMeal } from "@/lib/meal-index-client";
 import { groupInsights, insightLabel, insightLines, isEdited, itemOf, parseInsights, quantityOf, stepEntry, toEntries, type AddedInsights, type ItemEntry } from "@/lib/item-qty";
 import { fmt, sumNutrients } from "@/lib/nutrition";
 import { useOnline } from "@/lib/offline";
 import { mealWriteSchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
-import { NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
+import { MEAL_TYPES, NUTRIENT_KEYS, type Meal, type MealType, type Nutrients } from "@/lib/types";
 import { MealTypePicker, Stepper } from "./Controls";
 import PlacePicker, { rememberPlace } from "./PlacePicker";
 import AddItem from "./AddItem";
@@ -39,26 +41,30 @@ type Props = {
   onClose: () => void;
   onChange: (meal: Meal) => void;
   onDelete: (id: string) => void;
+  /** A copy of the meal was logged (as another meal of the day). */
+  onAdd: (meal: Meal) => void;
 };
 
-export default function MealSheet({ meal, imageUrl, onClose, onChange, onDelete }: Props) {
+export default function MealSheet({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props) {
   return (
     // repositionInputs off: with it on, the drawer shrinks to the space above the keyboard whenever a text box is focused
     <Drawer open={!!meal} onOpenChange={(o) => !o && onClose()} repositionInputs={false}>
       <DrawerContent className="mx-auto max-h-[92dvh] max-w-2xl">
-        {meal && <Body key={meal.id} meal={meal} imageUrl={imageUrl} onClose={onClose} onChange={onChange} onDelete={onDelete} />}
+        {meal && <Body key={meal.id} meal={meal} imageUrl={imageUrl} onClose={onClose} onChange={onChange} onDelete={onDelete} onAdd={onAdd} />}
       </DrawerContent>
     </Drawer>
   );
 }
 
-function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: Meal }) {
+function Body({ meal, imageUrl, onClose, onChange, onDelete, onAdd }: Props & { meal: Meal }) {
   const [servings, setServings] = useState(Number(meal.servings));
   const [mealType, setMealType] = useState<MealType>(meal.meal_type);
   const [place, setPlace] = useState(meal.place ?? "");
   const [busy, setBusy] = useState(false); // saving
   const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false); // an item is being looked up
+  const [copying, setCopying] = useState<MealType | null>(null); // being logged again as this meal
+  const [copied, setCopied] = useState<MealType[]>([]);
   const [addedInsights, setAddedInsights] = useState<AddedInsights>([]);
   const online = useOnline();
 
@@ -110,6 +116,37 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
     onClose();
   }
 
+  /** Logs the saved meal again as another meal of the same day: same dish, items, servings and tips, no photo. */
+  async function copyTo(type: MealType) {
+    setCopying(type);
+    const day = localDay(new Date(meal.eaten_at));
+    const eatenAt = eatenAtFor(day, type);
+    // Only the meal's own content: not its id, photo or Google Health entry, which belong to the original
+    const content = {
+      name: meal.name,
+      servings: meal.servings,
+      source: meal.source,
+      place: meal.place ?? null,
+      health_score: meal.health_score,
+      confidence: meal.confidence,
+      items: meal.items,
+      notes: meal.notes,
+      ...Object.fromEntries(NUTRIENT_KEYS.map((k) => [k, meal[k]])),
+    };
+    const { data, error } = await createClient()
+      .from("meals")
+      .insert({ ...content, meal_type: type, eaten_at: eatenAt ?? new Date().toISOString() })
+      .select()
+      .single();
+    setCopying(null);
+    if (error) return toast.error(error.message);
+    setCopied((xs) => [...xs, type]);
+    toast.success(`Logged for ${MEAL_TYPES.find((t) => t.value === type)?.label.toLowerCase()}`);
+    onAdd(data as Meal);
+    void syncMeal(data.id, "upsert");
+    void indexMeal(data.id);
+  }
+
   async function remove() {
     setDeleting(true);
     // Before the row goes: the Google Health entry id lives on it (the server only reads it and finishes the Google side afterwards)
@@ -158,6 +195,26 @@ function Body({ meal, imageUrl, onClose, onChange, onDelete }: Props & { meal: M
             <Stepper value={servings} onChange={setServings} />
           </fieldset>
         </div>
+
+        <section className="grid gap-2">
+          <SectionTitle>Also log as</SectionTitle>
+          <div className="flex flex-wrap gap-2">
+            {MEAL_TYPES.filter((t) => t.value !== meal.meal_type).map((t) => (
+              <Button
+                key={t.value}
+                type="button"
+                variant="outline"
+                className="h-9 rounded-full px-3"
+                disabled={!online || dirty || busy || copying !== null || copied.includes(t.value)}
+                onClick={() => copyTo(t.value)}
+              >
+                {copying === t.value ? <Loader2 className="animate-spin" /> : copied.includes(t.value) ? <Check /> : <Copy />}
+                {t.icon} {t.label}
+              </Button>
+            ))}
+          </div>
+          {dirty && <p className="text-xs text-muted-foreground">Save your changes first, then log it again.</p>}
+        </section>
 
         <fieldset disabled={!online} className="contents">
           <PlacePicker value={place} onChange={setPlace} />

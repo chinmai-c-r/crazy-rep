@@ -215,6 +215,7 @@ export default function DashboardView() {
         onClose={() => setOpenId(null)}
         onChange={(u) => setMeals((ms) => ms.map((m) => (m.id === u.id ? u : m)))}
         onDelete={(id) => setMeals((ms) => ms.filter((m) => m.id !== id))}
+        onAdd={(m) => setMeals((ms) => [m, ...ms].sort((a, b) => b.eaten_at.localeCompare(a.eaten_at)))}
       />
     </Page>
   );
